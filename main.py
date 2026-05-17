@@ -227,6 +227,10 @@ def plot_confidence_heatmap(
     seed=None,
     library="scipy",
     bandwidth=None,
+    contour_levels=(0.5, 0.8, 0.9, 0.95),
+    contour_color="white",
+    contour_linewidth=1.2,
+    contour_labels=True,
     **sample_kwargs,
 ):
     """
@@ -358,6 +362,23 @@ def plot_confidence_heatmap(
         vmin=0.0,
         vmax=1.0,
     )
+
+    if contour_levels:
+        levels = sorted({float(v) for v in contour_levels if 0.0 < float(v) < 1.0})
+        if levels:
+            xx, yy = np.meshgrid(theta_grid, observed_grid)
+            contours = ax.contour(
+                xx,
+                yy,
+                heat,
+                levels=levels,
+                colors=contour_color,
+                linewidths=contour_linewidth,
+                alpha=0.95,
+            )
+            if contour_labels:
+                fmt = {lv: f"{int(round(lv * 100))}%" for lv in contours.levels}
+                ax.clabel(contours, contours.levels, inline=True, fontsize=8, fmt=fmt)
 
     ax.set_xlabel("True value")
     ax.set_ylabel("Observed value")
