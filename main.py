@@ -2,6 +2,8 @@ import sympy as sp
 import numpy as np
 import matplotlib.pyplot as plt
 
+from sympy import Max
+from sympy import Min
 from sympy import Symbol
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
@@ -23,6 +25,18 @@ def fresh_noise_name(prefix="R"):
     _noise_counter += 1
     return name
 
+
+def combine(a, b, op):
+    if isinstance(b, NoisyValue):
+        expr = op(a.expr, b.expr)
+        observed = op(a.observed, b.observed)
+        thetas = a.thetas | b.thetas
+        equations = a.equations + b.equations
+        return NoisyValue(expr, observed, thetas, equations)
+
+    expr = op(a.expr, b)
+    observed = op(a.observed, b)
+    return NoisyValue(expr, observed, a.thetas, a.equations)
 
 class NoisyValue:
     def __init__(self, expr, observed, thetas=None, equations=None):
@@ -79,42 +93,37 @@ class NoisyValue:
         noise_rv = dist_builder(name, *dist_args, **dist_kwargs)
         return cls.from_noise_rv(true_value, noise_rv, provenance=provenance)
 
-    @staticmethod
-    def _combine(a, b, op):
-        if isinstance(b, NoisyValue):
-            expr = op(a.expr, b.expr)
-            observed = op(a.observed, b.observed)
-            thetas = a.thetas | b.thetas
-            equations = a.equations + b.equations
-            return NoisyValue(expr, observed, thetas, equations)
-
-        expr = op(a.expr, b)
-        observed = op(a.observed, b)
-        return NoisyValue(expr, observed, a.thetas, a.equations)
 
     def __add__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: a + b)
+        return combine(self, other, lambda a, b: a + b)
 
     def __radd__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: b + a)
+        return combine(self, other, lambda a, b: b + a)
 
     def __sub__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: a - b)
+        return combine(self, other, lambda a, b: a - b)
 
     def __rsub__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: b - a)
+        return combine(self, other, lambda a, b: b - a)
 
     def __mul__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: a * b)
+        return combine(self, other, lambda a, b: a * b)
 
     def __rmul__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: b * a)
+        return combine(self, other, lambda a, b: b * a)
 
     def __truediv__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: a / b)
+        return combine(self, other, lambda a, b: a / b)
 
     def __rtruediv__(self, other):
-        return NoisyValue._combine(self, other, lambda a, b: b / a)
+        return combine(self, other, lambda a, b: b / a)
+
+    def minimum(self, other):
+        return combine(self, other, lambda a, b: Min(a, b))
+
+    def maximum(self, other):
+        return combine(self, other, lambda a, b: Max(a, b))
+
 
     def _solve_theta_substitutions(self):
         eqs = [sp.Eq(eq, 0) for eq in self.equations]
@@ -214,6 +223,35 @@ def _evaluate_random_expr(expr, rng, library="scipy", **sample_kwargs):
     for rv in random_symbols(value):
         value = value.subs(rv, float(sample(rv, library=library, seed=rng, **sample_kwargs)))
     return float(value)
+
+
+def _as_noisy_value(value):
+    if isinstance(value, NoisyValue):
+        return value
+    expr = sp.sympify(value)
+    return NoisyValue(expr, float(expr), thetas=set(), equations=[])
+
+
+def noisy_min(*values):
+    """Return a NoisyValue representing the pointwise minimum of all inputs."""
+    if not values:
+        raise ValueError("noisy_min requires at least one value")
+
+    result = _as_noisy_value(values[0])
+    for value in values[1:]:
+        result = result.minimum(value)
+    return result
+
+
+def noisy_max(*values):
+    """Return a NoisyValue representing the pointwise maximum of all inputs."""
+    if not values:
+        raise ValueError("noisy_max requires at least one value")
+
+    result = _as_noisy_value(values[0])
+    for value in values[1:]:
+        result = result.maximum(value)
+    return result
 
 
 def plot_confidence_heatmap(
