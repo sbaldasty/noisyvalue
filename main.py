@@ -363,28 +363,6 @@ class NoisyBool(NoisyValue):
 
         return np.asarray(samples, dtype=bool)
 
-    def prob_true(self, n=4000, noise_cloner=None, library="scipy", seed=None, **sample_kwargs):
-        draws = self.sample_n(
-            n=n,
-            noise_cloner=noise_cloner,
-            library=library,
-            seed=seed,
-            **sample_kwargs,
-        )
-        if draws.size == 0:
-            return float("nan")
-        return float(np.mean(draws))
-
-    def decide(self, threshold=0.5, n=4000, noise_cloner=None, library="scipy", seed=None, **sample_kwargs):
-        p = self.prob_true(
-            n=n,
-            noise_cloner=noise_cloner,
-            library=library,
-            seed=seed,
-            **sample_kwargs,
-        )
-        return bool(p >= float(threshold))
-
 
 def _evaluate_random_expr(expr, rng, library="scipy", **sample_kwargs):
     """Substitute one fresh numeric draw for each random symbol in expr."""
