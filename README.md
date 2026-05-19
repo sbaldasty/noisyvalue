@@ -19,11 +19,11 @@ Use any SymPy distribution-backed random variable:
 import sympy as sp
 from sympy.stats import Exponential
 
-x = NoisyValue.gaussian(10, 1, provenance="A")
-y = NoisyValue.from_distribution(5, Exponential, 2, provenance="B")
+x = NoisyValue.gaussian(10, 1)
+y = NoisyValue.from_distribution(5, Exponential, 2)
 # equivalent lower-level API:
 # rv = Exponential("E0", 2)
-# y = NoisyValue.from_noise_rv(5, rv, provenance="B")
+# y = NoisyValue.from_noise_rv(5, rv)
 ```
 
 ### Sampling
