@@ -7,6 +7,7 @@ from sympy import Symbol
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
 
+
 _theta_counter = 0
 _noise_counter = 0
 
@@ -105,25 +106,12 @@ class NoisyValue:
 
         return chosen
 
-    def eliminate_thetas(self, noise_cloner=None):
+    def eliminate_thetas(self):
         expr = self.expr
         sol = self._solve_theta_substitutions()
         substitutions = {}
-        clone_cache = {}
 
         for theta, rhs in sol.items():
-            if noise_cloner is not None:
-                replacements = {}
-                for rv in random_symbols(rhs):
-                    if rv not in clone_cache:
-                        cloned = noise_cloner(rv)
-                        cloned_symbols = random_symbols(cloned)
-                        if len(cloned_symbols) != 1 or cloned not in cloned_symbols:
-                            raise TypeError("noise_cloner must return a single SymPy random variable")
-                        clone_cache[rv] = cloned
-                    replacements[rv] = clone_cache[rv]
-                rhs = rhs.subs(replacements)
-
             substitutions[theta] = rhs
 
         return expr.subs(substitutions)
@@ -231,27 +219,13 @@ class NoisyFloat(NoisyValue):
     def __ne__(self, other):
         return _compare_float(self, other, lambda a, b: a != b)
 
-    def sample_n(self, n=1000, noise_cloner=None, library="scipy", seed=None, **sample_kwargs):
+    def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
         if n <= 0:
             return np.array([], dtype=float)
 
         sample_seed = seed
         if isinstance(seed, int):
             sample_seed = np.random.default_rng(seed)
-
-        if noise_cloner is not None:
-            expr = self.eliminate_thetas(noise_cloner=noise_cloner)
-            if not random_symbols(expr):
-                return np.full(n, float(expr), dtype=float)
-
-            try:
-                values = sample(expr, size=n, library=library, seed=sample_seed, **sample_kwargs)
-                return np.asarray(values, dtype=float)
-            except Exception:
-                samples = []
-                for _ in range(n):
-                    samples.append(float(sample(expr, library=library, seed=sample_seed, **sample_kwargs)))
-                return np.asarray(samples, dtype=float)
 
         if not self.thetas:
             expr = self.expr
@@ -310,23 +284,13 @@ class NoisyBool(NoisyValue):
     def __invert__(self):
         return NoisyBool(sp.Not(self.expr), not self.observed, self.thetas, self.equations)
 
-    def sample_n(self, n=1000, noise_cloner=None, library="scipy", seed=None, **sample_kwargs):
+    def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
         if n <= 0:
             return np.array([], dtype=bool)
 
         sample_seed = seed
         if isinstance(seed, int):
             sample_seed = np.random.default_rng(seed)
-
-        if noise_cloner is not None:
-            expr = self.eliminate_thetas(noise_cloner=noise_cloner)
-            if not random_symbols(expr):
-                return np.full(n, bool(expr), dtype=bool)
-
-            samples = []
-            for _ in range(n):
-                samples.append(bool(_evaluate_random_expr(expr, sample_seed, library=library, **sample_kwargs)))
-            return np.asarray(samples, dtype=bool)
 
         if not self.thetas:
             expr = self.expr
