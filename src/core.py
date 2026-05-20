@@ -266,13 +266,13 @@ class NoisyBool(NoisyValue):
         return _combine_bool(self, other, lambda a, b: sp.And(a, b), lambda a, b: a and b)
 
     def __rand__(self, other):
-        return self.__and__(other)
+        return _combine_bool(self, other, lambda a, b: sp.And(b, a), lambda a, b: b and a)
 
     def __or__(self, other):
         return _combine_bool(self, other, lambda a, b: sp.Or(a, b), lambda a, b: a or b)
 
     def __ror__(self, other):
-        return self.__or__(other)
+        return _combine_bool(self, other, lambda a, b: sp.Or(b, a), lambda a, b: b or a)
 
     def __invert__(self):
         return NoisyBool(sp.Not(self.expr), not self.observed, self.thetas, self.equations)
