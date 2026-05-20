@@ -1,8 +1,9 @@
 import sympy as sp
 import numpy as np
 
-from sympy import Max
-from sympy import Min
+from sympy import And
+from sympy import Not
+from sympy import Or
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
 
@@ -194,19 +195,19 @@ class NoisyBool(NoisyValue):
         return self.observed >= 0.5
 
     def __and__(self, other):
-        return _combine_bool(self, other, lambda a, b: sp.And(a, b), lambda a, b: a and b)
+        return _combine_bool(self, other, lambda a, b: And(a, b), lambda a, b: a and b)
 
     def __rand__(self, other):
-        return _combine_bool(self, other, lambda a, b: sp.And(b, a), lambda a, b: b and a)
+        return _combine_bool(self, other, lambda a, b: And(b, a), lambda a, b: b and a)
 
     def __or__(self, other):
-        return _combine_bool(self, other, lambda a, b: sp.Or(a, b), lambda a, b: a or b)
+        return _combine_bool(self, other, lambda a, b: Or(a, b), lambda a, b: a or b)
 
     def __ror__(self, other):
-        return _combine_bool(self, other, lambda a, b: sp.Or(b, a), lambda a, b: b or a)
+        return _combine_bool(self, other, lambda a, b: Or(b, a), lambda a, b: b or a)
 
     def __invert__(self):
-        return NoisyBool(sp.Not(self.expr), not self.observed, self.thetas, self.equations)
+        return NoisyBool(Not(self.expr), not self.observed, self.thetas, self.equations)
 
     def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
         if n <= 0:
