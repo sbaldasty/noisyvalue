@@ -42,7 +42,7 @@ def from_noise_rv(true_value, noise_rv, **sample_kwargs):
     observed = float(sample(observed_expr, **sample_kwargs))
 
     equations = [measurement_expr - observed]
-    return NoisyFloat(theta, observed, thetas={theta}, equations=equations)
+    return NoisyFloat(observed, theta, thetas={theta}, eqns=equations)
 
 
 def from_distribution(

@@ -4,6 +4,7 @@ import numpy as np
 from sympy import And
 from sympy import Not
 from sympy import Or
+from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
 
@@ -11,62 +12,62 @@ from sympy.stats.rv import random_symbols
 def _as_noisy_float(value):
     if isinstance(value, NoisyFloat):
         return value
-    expr = sp.sympify(value)
-    return NoisyFloat(expr, float(expr), thetas=set(), equations=[])
+    expr = sympify(value)
+    return NoisyFloat(float(expr), expr, [], [])
 
 
 def _as_noisy_bool(value):
     if isinstance(value, NoisyBool):
         return value
     if isinstance(value, (bool, np.bool_)):
-        return NoisyBool(sp.sympify(bool(value)), bool(value), thetas=set(), equations=[])
+        return NoisyBool(value, sympify(bool(value)), [], [])
     raise TypeError(f"Expected bool or NoisyBool, got {type(value).__name__}")
 
 
 def _combine_float(a, b, op):
     b = _as_noisy_float(b)
+    obs = op(a.obs, b.obs)
     expr = op(a.expr, b.expr)
-    observed = op(a.observed, b.observed)
     thetas = a.thetas | b.thetas
-    equations = a.equations + b.equations
-    return NoisyFloat(expr, observed, thetas, equations)
+    eqns = a.eqns + b.eqns
+    return NoisyFloat(obs, expr, thetas, eqns)
 
 
-def _combine_bool(a, b, expr_op, observed_op):
+def _combine_bool(a, b, obs_op, expr_op):
     b = _as_noisy_bool(b)
+    obs = obs_op(a.obs, b.obs)
     expr = expr_op(a.expr, b.expr)
-    observed = observed_op(a.observed, b.observed)
     thetas = a.thetas | b.thetas
-    equations = a.equations + b.equations
-    return NoisyBool(expr, observed, thetas, equations)
+    eqns = a.eqns + b.eqns
+    return NoisyBool(obs, expr, thetas, eqns)
 
 
 def _compare_float(a, b, op):
     b = _as_noisy_float(b)
+    obs = op(a.obs, b.obs)
     expr = op(a.expr, b.expr)
-    observed = bool(op(a.observed, b.observed))
     thetas = a.thetas | b.thetas
-    equations = a.equations + b.equations
-    return NoisyBool(expr, observed, thetas, equations)
+    eqns = a.eqns + b.eqns
+    return NoisyBool(obs, expr, thetas, eqns)
 
 
 class NoisyValue:
-    def __init__(self, expr, observed, thetas, equations):
-        self.expr = sp.sympify(expr)
-        self.observed = observed
-        self.thetas = set() if thetas is None else set(thetas)
-        self.equations = [] if equations is None else list(equations)
+    def __init__(self, obs, expr, thetas, eqns):
+        self.expr = sympify(expr)
+        self.obs = obs
+        self.thetas = set(thetas)
+        self.eqns = list(eqns)
 
     def __repr__(self):
-        return f"NoisyValue(expr={self.expr}, observed={self.observed})"
+        return f"~{self.obs})"
 
     def _solve_theta_substitutions(self):
         if not self.thetas:
             return {}
-        if not self.equations:
+        if not self.eqns:
             raise ValueError("No equations available to solve for latent variables")
 
-        eqs = [sp.Eq(eq, 0) for eq in self.equations]
+        eqs = [sp.Eq(eq, 0) for eq in self.eqns]
         thetas = list(self.thetas)
 
         sol = sp.solve(eqs, thetas, dict=True)
@@ -81,7 +82,7 @@ class NoisyValue:
         return chosen
 
     def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
-        dtype = type(self.observed)
+        dtype = type(self.obs)
         if n <= 0:
             return np.array([], dtype=dtype)
 
@@ -122,17 +123,13 @@ class NoisyValue:
 
 
 class NoisyFloat(NoisyValue):
-    def __init__(self, expr, observed, thetas, equations):
-        observed_value = float(observed)
-        if equations is None:
-            equations = [sp.sympify(expr) - observed_value]
-        super().__init__(expr, observed_value, thetas=thetas, equations=equations)
-
-    def __repr__(self):
-        return f"NoisyFloat(expr={self.expr}, observed={self.observed})"
+    def __init__(self, obs, expr, thetas, eqns):
+        if eqns is None:
+            eqns = [sympify(expr) - float(obs)]
+        super().__init__(float(obs), expr, thetas, eqns)
 
     def __float__(self):
-        return self.observed
+        return self.obs
 
     def __add__(self, other):
         return _combine_float(self, other, lambda a, b: a + b)
@@ -178,26 +175,23 @@ class NoisyFloat(NoisyValue):
 
 
 class NoisyBool(NoisyValue):
-    def __init__(self, expr, observed, thetas, equations):
-        super().__init__(expr, bool(observed), thetas=thetas, equations=equations)
-
-    def __repr__(self):
-        return f"NoisyBool(expr={self.expr}, observed={self.observed})"
+    def __init__(self, obs, expr, thetas, eqns):
+        super().__init__(bool(obs), expr, thetas, eqns)
 
     def __bool__(self):
-        return self.observed >= 0.5
+        return self.obs
 
     def __and__(self, other):
-        return _combine_bool(self, other, And, lambda a, b: a and b)
+        return _combine_bool(self, other, lambda a, b: a and b, And)
 
     def __rand__(self, other):
-        return _combine_bool(self, other, And, lambda a, b: b and a)
+        return _combine_bool(self, other, lambda a, b: b and a, And)
 
     def __or__(self, other):
-        return _combine_bool(self, other, Or, lambda a, b: a or b)
+        return _combine_bool(self, other, lambda a, b: a or b, Or)
 
     def __ror__(self, other):
-        return _combine_bool(self, other, Or, lambda a, b: b or a)
+        return _combine_bool(self, other, lambda a, b: b or a, Or)
 
     def __invert__(self):
-        return NoisyBool(Not(self.expr), not self.observed, self.thetas, self.equations)
+        return NoisyBool(not self.obs, Not(self.expr), self.thetas, self.eqns)
