@@ -5,8 +5,8 @@ import sympy as sp
 
 from sympy.stats import Normal
 
-from core import NoisyFloat
-from visual import plot_posterior
+from src.core import NoisyFloat
+from src.visual import plot_posterior
 
 
 matplotlib.use("Agg")
@@ -25,9 +25,9 @@ def test_plot_posteriors_for_composed_expression_returns_density_curve():
     # Posterior of a composed expression in two latent dimensions.
     noisy = NoisyFloat(
         expr=theta_0 * theta_1 + eps_pred,
-        observed=0.0,
+        obs=0.0,
         thetas={theta_0, theta_1},
-        equations=[theta_0 + eps_0 - observed_0, theta_1 + eps_1 - observed_1],
+        eqns=[theta_0 + eps_0 - observed_0, theta_1 + eps_1 - observed_1],
     )
 
     result = plot_posterior(noisy, quadrature_points=7, grid_size=220)
@@ -58,15 +58,15 @@ def test_plot_posteriors_supports_multiple_values():
 
     noisy_a = NoisyFloat(
         expr=theta + eps_pred,
-        observed=0.0,
+        obs=0.0,
         thetas={theta},
-        equations=[theta + eps_obs - 1.0],
+        eqns=[theta + eps_obs - 1.0],
     )
     noisy_b = NoisyFloat(
         expr=2 * theta + eps_pred,
-        observed=0.0,
+        obs=0.0,
         thetas={theta},
-        equations=[theta + eps_obs - 1.0],
+        eqns=[theta + eps_obs - 1.0],
     )
 
     result = plot_posterior(noisy_a, noisy_b, quadrature_points=7, grid_size=180)

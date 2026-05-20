@@ -1,4 +1,4 @@
-from core import NoisyFloat
+from src.core import NoisyFloat
 
 
 def test_nothing():
