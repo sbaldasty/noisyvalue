@@ -50,14 +50,6 @@ def _compare_float(a, b, op):
     return NoisyBool(expr, observed, thetas, equations)
 
 
-def _evaluate_random_expr(expr, rng, library="scipy", **sample_kwargs):
-    """Substitute one fresh numeric draw for each random symbol in expr."""
-    value = expr
-    for rv in random_symbols(value):
-        value = value.subs(rv, float(sample(rv, library=library, seed=rng, **sample_kwargs)))
-    return value
-
-
 class NoisyValue:
     def __init__(self, expr, observed, thetas, equations):
         self.expr = sp.sympify(expr)
@@ -87,6 +79,46 @@ class NoisyValue:
             raise ValueError(f"Latent variables are underidentified: {missing}")
 
         return chosen
+
+    def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
+        dtype = type(self.observed)
+        if n <= 0:
+            return np.array([], dtype=dtype)
+
+        sample_seed = seed
+        if isinstance(seed, int):
+            sample_seed = np.random.default_rng(seed)
+
+        if not self.thetas:
+            expr = self.expr
+            if not random_symbols(expr):
+                return np.full(n, dtype(expr), dtype=dtype)
+            values = sample(expr, size=n, library=library, seed=sample_seed, **sample_kwargs)
+            return np.asarray(values, dtype=dtype)
+
+        sol = self._solve_theta_substitutions()
+        rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
+        predictive_noise_vars = list(random_symbols(self.expr))
+
+        samples = []
+        for _ in range(n):
+            rhs_noise_draws = {
+                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
+                for rv in rhs_noise_vars
+            }
+            theta_values = {
+                theta: float(rhs.subs(rhs_noise_draws))
+                for theta, rhs in sol.items()
+            }
+            predictive_noise_draws = {
+                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
+                for rv in predictive_noise_vars
+            }
+
+            value = dtype(self.expr.subs(theta_values).subs(predictive_noise_draws))
+            samples.append(value)
+
+        return np.asarray(samples, dtype=dtype)
 
 
 class NoisyFloat(NoisyValue):
@@ -144,45 +176,6 @@ class NoisyFloat(NoisyValue):
     def __ne__(self, other):
         return _compare_float(self, other, lambda a, b: a != b)
 
-    def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
-        if n <= 0:
-            return np.array([], dtype=float)
-
-        sample_seed = seed
-        if isinstance(seed, int):
-            sample_seed = np.random.default_rng(seed)
-
-        if not self.thetas:
-            expr = self.expr
-            if not random_symbols(expr):
-                return np.full(n, float(expr), dtype=float)
-            values = sample(expr, size=n, library=library, seed=sample_seed, **sample_kwargs)
-            return np.asarray(values, dtype=float)
-
-        sol = self._solve_theta_substitutions()
-        rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
-        predictive_noise_vars = list(random_symbols(self.expr))
-
-        samples = []
-        for _ in range(n):
-            rhs_noise_draws = {
-                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
-                for rv in rhs_noise_vars
-            }
-            theta_values = {
-                theta: float(rhs.subs(rhs_noise_draws))
-                for theta, rhs in sol.items()
-            }
-            predictive_noise_draws = {
-                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
-                for rv in predictive_noise_vars
-            }
-
-            value = float(self.expr.subs(theta_values).subs(predictive_noise_draws))
-            samples.append(value)
-
-        return np.asarray(samples, dtype=float)
-
 
 class NoisyBool(NoisyValue):
     def __init__(self, expr, observed, thetas, equations):
@@ -208,45 +201,3 @@ class NoisyBool(NoisyValue):
 
     def __invert__(self):
         return NoisyBool(Not(self.expr), not self.observed, self.thetas, self.equations)
-
-    def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
-        if n <= 0:
-            return np.array([], dtype=bool)
-
-        sample_seed = seed
-        if isinstance(seed, int):
-            sample_seed = np.random.default_rng(seed)
-
-        if not self.thetas:
-            expr = self.expr
-            if not random_symbols(expr):
-                return np.full(n, bool(expr), dtype=bool)
-
-            samples = []
-            for _ in range(n):
-                samples.append(bool(_evaluate_random_expr(expr, sample_seed, library=library, **sample_kwargs)))
-            return np.asarray(samples, dtype=bool)
-
-        sol = self._solve_theta_substitutions()
-        rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
-        predictive_noise_vars = list(random_symbols(self.expr))
-
-        samples = []
-        for _ in range(n):
-            rhs_noise_draws = {
-                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
-                for rv in rhs_noise_vars
-            }
-            theta_values = {
-                theta: float(rhs.subs(rhs_noise_draws))
-                for theta, rhs in sol.items()
-            }
-            predictive_noise_draws = {
-                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
-                for rv in predictive_noise_vars
-            }
-
-            value = self.expr.subs(theta_values).subs(predictive_noise_draws)
-            samples.append(bool(value))
-
-        return np.asarray(samples, dtype=bool)
