@@ -188,16 +188,16 @@ class NoisyBool(NoisyValue):
         return self.observed >= 0.5
 
     def __and__(self, other):
-        return _combine_bool(self, other, lambda a, b: And(a, b), lambda a, b: a and b)
+        return _combine_bool(self, other, And, lambda a, b: a and b)
 
     def __rand__(self, other):
-        return _combine_bool(self, other, lambda a, b: And(b, a), lambda a, b: b and a)
+        return _combine_bool(self, other, And, lambda a, b: b and a)
 
     def __or__(self, other):
-        return _combine_bool(self, other, lambda a, b: Or(a, b), lambda a, b: a or b)
+        return _combine_bool(self, other, Or, lambda a, b: a or b)
 
     def __ror__(self, other):
-        return _combine_bool(self, other, lambda a, b: Or(b, a), lambda a, b: b or a)
+        return _combine_bool(self, other, Or, lambda a, b: b or a)
 
     def __invert__(self):
         return NoisyBool(Not(self.expr), not self.observed, self.thetas, self.equations)
