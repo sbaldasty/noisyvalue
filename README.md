@@ -68,12 +68,6 @@ drive `min`/`max`. For uncertain values, comparisons are probabilistic rather
 than single booleans, so boolean ordering can be inconsistent and produce
 incorrect inference behavior.
 
-### Optional symbolic cloning
-
-If you need symbolic elimination with fresh noise symbols, pass a `noise_cloner`
-to `eliminate_thetas` or `sample_n`. The cloner must map one random variable to
-one random variable.
-
 ### Important semantic note
 
 This is algebraic elimination + forward Monte Carlo, not exact Bayesian

@@ -95,16 +95,6 @@ class NoisyValue:
 
         return chosen
 
-    def eliminate_thetas(self):
-        expr = self.expr
-        sol = self._solve_theta_substitutions()
-        substitutions = {}
-
-        for theta, rhs in sol.items():
-            substitutions[theta] = rhs
-
-        return expr.subs(substitutions)
-
 
 class NoisyFloat(NoisyValue):
     def __init__(self, expr, observed, thetas=None, equations=None):
