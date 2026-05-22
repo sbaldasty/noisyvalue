@@ -124,8 +124,6 @@ class NoisyValue:
 
 class NoisyFloat(NoisyValue):
     def __init__(self, obs, expr, thetas, eqns):
-        if eqns is None:
-            eqns = [sympify(expr) - float(obs)]
         super().__init__(float(obs), expr, thetas, eqns)
 
     def __float__(self):
