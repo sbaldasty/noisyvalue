@@ -1,6 +1,7 @@
 import sympy as sp
 import numpy as np
 
+from sympy import Abs
 from sympy import And
 from sympy import Not
 from sympy import Or
@@ -128,6 +129,9 @@ class NoisyFloat(NoisyValue):
 
     def __float__(self):
         return self.obs
+
+    def __abs__(self):
+        return NoisyFloat(abs(self.obs), Abs(self.expr), self.thetas, self.eqns)
 
     def __add__(self, other):
         return _combine_float(self, other, lambda a, b: a + b)
