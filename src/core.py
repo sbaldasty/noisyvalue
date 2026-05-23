@@ -52,6 +52,11 @@ def _compare_float(a, b, op):
     return NoisyBool(obs, expr, thetas, eqns)
 
 
+def _lift_unary(x, obs_fn, expr_fn):
+    x = _as_noisy_float(x)
+    return NoisyFloat(obs_fn(float(x.obs)), expr_fn(x.expr), x.thetas, x.eqns)
+
+
 class NoisyValue:
     def __init__(self, obs, expr, thetas, eqns):
         self.expr = sympify(expr)
@@ -131,7 +136,7 @@ class NoisyFloat(NoisyValue):
         return self.obs
 
     def __abs__(self):
-        return NoisyFloat(abs(self.obs), Abs(self.expr), self.thetas, self.eqns)
+        return _lift_unary(self, abs, Abs)
 
     def __add__(self, other):
         return _combine_float(self, other, lambda a, b: a + b)
@@ -174,6 +179,15 @@ class NoisyFloat(NoisyValue):
 
     def __ne__(self, other):
         return _compare_float(self, other, lambda a, b: a != b)
+
+    def exp(self):
+        return _lift_unary(self, np.exp, sp.exp)
+
+    def log(self):
+        return _lift_unary(self, np.log, sp.log)
+
+    def sqrt(self):
+        return _lift_unary(self, np.sqrt, sp.sqrt)
 
 
 class NoisyBool(NoisyValue):

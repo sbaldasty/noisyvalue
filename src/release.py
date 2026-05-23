@@ -15,11 +15,11 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
 
     theta = Symbol(fresh_name())
     measurement = theta + noise_rv
-    observed_expr = measurement.subs({theta: sympify(true_value)})
-    observed = float(sample(observed_expr, **sample_kwargs))
+    obs_expr = measurement.subs({theta: sympify(true_value)})
+    obs = float(sample(obs_expr, **sample_kwargs))
+    eqns = [measurement - obs]
 
-    equations = [measurement - observed]
-    return NoisyFloat(observed, theta, thetas={theta}, eqns=equations)
+    return NoisyFloat(obs, theta, {theta}, eqns)
 
 
 def true_float(true_value):
