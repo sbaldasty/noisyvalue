@@ -26,6 +26,46 @@ def noisy_max(*values):
     return _fold_float(values, Max)
 
 
+class NoisyTable2x2:
+    def __init__(self, table):
+        table = np.asarray(table, dtype=object)
+        if table.shape != (2, 2):
+            raise ValueError("table must be a 2x2 structure")
+
+        self.a = _as_noisy_float(table[0, 0])
+        self.b = _as_noisy_float(table[0, 1])
+        self.c = _as_noisy_float(table[1, 0])
+        self.d = _as_noisy_float(table[1, 1])
+
+    @classmethod
+    def from_cells(cls, a, b, c, d):
+        return cls([[a, b], [c, d]])
+
+    @property
+    def table(self):
+        return np.array([[self.a, self.b], [self.c, self.d]], dtype=object)
+
+    def oddsratio(self, correction=0.5):
+        return noisy_odds_ratio(self.a, self.b, self.c, self.d, correction=correction)
+
+    def oddsratio_confint_noisy_quantile(
+        self,
+        n=10000,
+        alpha=0.05,
+        correction=0.0,
+        seed=None,
+        include_sampling=True,
+    ):
+        return oddsratio_confint_noisy_quantile(
+            self,
+            n=n,
+            alpha=alpha,
+            correction=correction,
+            seed=seed,
+            include_sampling=include_sampling,
+        )
+
+
 def noisy_odds_ratio(a, b, c, d, correction=0.5):
     a = _as_noisy_float(a) + correction
     b = _as_noisy_float(b) + correction
@@ -39,10 +79,10 @@ def noisy_odds_ratio(a, b, c, d, correction=0.5):
 
 
 def oddsratio_confint_noisy_quantile(
-    a,
-    b,
-    c,
-    d,
+    noisy_table,
+    b=None,
+    c=None,
+    d=None,
     n=10000,
     alpha=0.05,
     correction=0.0,
@@ -63,10 +103,19 @@ def oddsratio_confint_noisy_quantile(
     if not (0 < alpha < 1):
         raise ValueError("alpha must be between 0 and 1")
 
-    a_nf = _as_noisy_float(a)
-    b_nf = _as_noisy_float(b)
-    c_nf = _as_noisy_float(c)
-    d_nf = _as_noisy_float(d)
+    if isinstance(noisy_table, NoisyTable2x2):
+        if b is not None or c is not None or d is not None:
+            raise ValueError("Pass either NoisyTable2x2 or four cell values, not both")
+        noisy = noisy_table
+    else:
+        if b is None or c is None or d is None:
+            raise ValueError("Provide a NoisyTable2x2 or all four cell values")
+        noisy = NoisyTable2x2.from_cells(noisy_table, b, c, d)
+
+    a_nf = noisy.a
+    b_nf = noisy.b
+    c_nf = noisy.c
+    d_nf = noisy.d
 
     posterior_seed = seed
     if isinstance(seed, int):
