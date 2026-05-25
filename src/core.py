@@ -57,6 +57,126 @@ def _lift_unary(x, obs_fn, expr_fn):
     return NoisyFloat(obs_fn(float(x.obs)), expr_fn(x.expr), x.thetas, x.eqns)
 
 
+def _solve_theta_substitutions(thetas, eqns):
+    if not thetas:
+        return {}
+
+    equations = [sp.Eq(eq, 0) for eq in eqns]
+    theta_list = list(thetas)
+
+    sol = sp.solve(equations, theta_list, dict=True)
+    chosen = sol[0]
+    missing = set(thetas) - set(chosen.keys())
+    if missing:
+        raise ValueError(f"Latent variables are underidentified: {missing}")
+
+    return chosen
+
+
+def _as_noisy_value(value):
+    if isinstance(value, NoisyValue):
+        return value
+    if isinstance(value, (bool, np.bool_)):
+        return _as_noisy_bool(value)
+    return _as_noisy_float(value)
+
+
+class PreparedSampler:
+    def __init__(
+        self,
+        noisy_values,
+        theta_substitutions,
+        all_noise_vars,
+        library="scipy",
+        sample_kwargs=None,
+    ):
+        self._noisy_values = tuple(noisy_values)
+        self._dtypes = tuple(type(value.obs) for value in self._noisy_values)
+        self._theta_substitutions = dict(theta_substitutions)
+        self._all_noise_vars = tuple(all_noise_vars)
+        self._library = library
+        self._sample_kwargs = dict(sample_kwargs or {})
+
+    def sample_n(self, n=1000, rng=None):
+        if n <= 0:
+            empty = tuple(np.array([], dtype=dtype) for dtype in self._dtypes)
+            return empty[0] if len(empty) == 1 else empty
+
+        if self._all_noise_vars:
+            noise_draws = {
+                rv: np.asarray(
+                    sample(
+                        rv,
+                        size=n,
+                        library=self._library,
+                        seed=rng,
+                        **self._sample_kwargs,
+                    )
+                )
+                for rv in self._all_noise_vars
+            }
+        else:
+            noise_draws = {}
+
+        outputs = [np.empty(n, dtype=dtype) for dtype in self._dtypes]
+
+        for idx in range(n):
+            draws = {rv: noise_draws[rv][idx] for rv in self._all_noise_vars}
+            theta_values = {
+                theta: rhs.subs(draws)
+                for theta, rhs in self._theta_substitutions.items()
+            }
+
+            for out_idx, noisy_value in enumerate(self._noisy_values):
+                sampled_expr = noisy_value.expr.subs(theta_values).subs(draws)
+                outputs[out_idx][idx] = self._dtypes[out_idx](sampled_expr)
+
+        result = tuple(outputs)
+        return result[0] if len(result) == 1 else result
+
+
+def prepare_sampler(*values, library="scipy", **sample_kwargs):
+    """Prepare a reusable joint sampler for one or more noisy values.
+
+    The returned object caches symbolic setup work and can be reused for
+    repeated `sample_n` calls with different sample sizes or RNG seeds.
+    """
+    if not values:
+        raise ValueError("At least one value is required")
+
+    noisy_values = [_as_noisy_value(value) for value in values]
+
+    all_thetas = set().union(*(value.thetas for value in noisy_values))
+    all_eqns = [eqn for value in noisy_values for eqn in value.eqns]
+    theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
+
+    rhs_noise_vars = {
+        rv for rhs in theta_substitutions.values() for rv in random_symbols(rhs)
+    }
+    predictive_noise_vars = {
+        rv for value in noisy_values for rv in random_symbols(value.expr)
+    }
+    all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars, key=str)
+
+    return PreparedSampler(
+        noisy_values=noisy_values,
+        theta_substitutions=theta_substitutions,
+        all_noise_vars=all_noise_vars,
+        library=library,
+        sample_kwargs=sample_kwargs,
+    )
+
+
+def sample_n(*values, n=1000, library="scipy", rng=None, **sample_kwargs):
+    """Jointly sample one or more noisy values.
+
+    Shared latent variables and shared random symbols are sampled once per draw,
+    then reused across all requested values to preserve dependencies.
+    """
+    prepared = prepare_sampler(*values, library=library, **sample_kwargs)
+    return prepared.sample_n(n=n, rng=rng)
+
+
 class NoisyValue:
     def __init__(self, obs, expr, thetas, eqns):
         self.expr = sympify(expr)
@@ -67,65 +187,9 @@ class NoisyValue:
     def __repr__(self):
         return f"~{self.obs})"
 
+    # TODO Remove this?
     def _solve_theta_substitutions(self):
-        if not self.thetas:
-            return {}
-        if not self.eqns:
-            raise ValueError("No equations available to solve for latent variables")
-
-        eqs = [sp.Eq(eq, 0) for eq in self.eqns]
-        thetas = list(self.thetas)
-
-        sol = sp.solve(eqs, thetas, dict=True)
-        if not sol:
-            raise ValueError("Could not solve for latent variables")
-
-        chosen = sol[0]
-        missing = self.thetas - set(chosen.keys())
-        if missing:
-            raise ValueError(f"Latent variables are underidentified: {missing}")
-
-        return chosen
-
-    def sample_n(self, n=1000, library="scipy", seed=None, **sample_kwargs):
-        dtype = type(self.obs)
-        if n <= 0:
-            return np.array([], dtype=dtype)
-
-        sample_seed = seed
-        if isinstance(seed, int):
-            sample_seed = np.random.default_rng(seed)
-
-        if not self.thetas:
-            expr = self.expr
-            if not random_symbols(expr):
-                return np.full(n, dtype(expr), dtype=dtype)
-            values = sample(expr, size=n, library=library, seed=sample_seed, **sample_kwargs)
-            return np.asarray(values, dtype=dtype)
-
-        sol = self._solve_theta_substitutions()
-        rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
-        predictive_noise_vars = list(random_symbols(self.expr))
-
-        samples = []
-        for _ in range(n):
-            rhs_noise_draws = {
-                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
-                for rv in rhs_noise_vars
-            }
-            theta_values = {
-                theta: float(rhs.subs(rhs_noise_draws))
-                for theta, rhs in sol.items()
-            }
-            predictive_noise_draws = {
-                rv: float(sample(rv, library=library, seed=sample_seed, **sample_kwargs))
-                for rv in predictive_noise_vars
-            }
-
-            value = dtype(self.expr.subs(theta_values).subs(predictive_noise_draws))
-            samples.append(value)
-
-        return np.asarray(samples, dtype=dtype)
+        return _solve_theta_substitutions(self.thetas, self.eqns)
 
 
 class NoisyFloat(NoisyValue):

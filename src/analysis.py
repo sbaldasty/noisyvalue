@@ -3,6 +3,7 @@ from statsmodels.stats.contingency_tables import Table2x2
 
 from .core import _as_noisy_float
 from .core import _combine_float
+from .core import sample_n
 from .release import noisy_float
 from sympy import Max
 from sympy import Min
@@ -47,10 +48,14 @@ class NoisyTable2x2:
 
 
     def sample_n(self, n, seed=None):
-        a_draws = self.a.sample_n(n=n, seed=seed)
-        b_draws = self.b.sample_n(n=n, seed=seed)
-        c_draws = self.c.sample_n(n=n, seed=seed)
-        d_draws = self.d.sample_n(n=n, seed=seed)
+        a_draws, b_draws, c_draws, d_draws = sample_n(
+            self.a,
+            self.b,
+            self.c,
+            self.d,
+            n=n,
+            rng=seed,
+        )
 
         return np.array([[a_draws, b_draws], [c_draws, d_draws]], dtype=object)
 
@@ -83,10 +88,18 @@ class NoisyTable2x2:
         if isinstance(seed, int):
             rng = np.random.default_rng(seed)
 
-        a_draws = np.asarray(self.a.sample_n(n=n, seed=rng), dtype=float)
-        b_draws = np.asarray(self.b.sample_n(n=n, seed=rng), dtype=float)
-        c_draws = np.asarray(self.c.sample_n(n=n, seed=rng), dtype=float)
-        d_draws = np.asarray(self.d.sample_n(n=n, seed=rng), dtype=float)
+        a_draws, b_draws, c_draws, d_draws = sample_n(
+            self.a,
+            self.b,
+            self.c,
+            self.d,
+            n=n,
+            rng=rng,
+        )
+        a_draws = np.asarray(a_draws, dtype=float)
+        b_draws = np.asarray(b_draws, dtype=float)
+        c_draws = np.asarray(c_draws, dtype=float)
+        d_draws = np.asarray(d_draws, dtype=float)
 
         sampling_rng = np.random.default_rng(seed)
         or_draws = []
@@ -110,8 +123,8 @@ class NoisyTable2x2:
             d_eff = float(row1_total - c_eff)
 
             # TODO This is just odds ratio, reuse it?
-            numerator = (a_eff + correction) * (d_eff + correction)
-            denominator = (b_eff + correction) * (c_eff + correction)
+            numerator = (a_eff + corr) * (d_eff + corr)
+            denominator = (b_eff + corr) * (c_eff + corr)
             if denominator <= 0 or numerator <= 0:
                 continue
 

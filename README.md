@@ -28,11 +28,16 @@ y = NoisyValue.from_distribution(5, Exponential, 2)
 
 ### Sampling
 
-`sample_n` supports mixed distributions without per-distribution branching:
+`sample_n` supports mixed distributions without per-distribution branching and
+can jointly sample multiple expressions while preserving shared dependencies:
 
 ```python
+from src.core import sample_n
+
 z = x * y
-samples = z.sample_n(1000, seed=123)
+samples = sample_n(z, n=1000, rng=123)
+
+joint_x, joint_y = sample_n(x, y, n=1000, rng=123)
 ```
 
 By default, sampling uses independent noise draws for:
@@ -55,8 +60,8 @@ m2 = x.maximum(y)
 m3 = noisy_min(x, y, 11)
 m4 = noisy_max(x, y, 11)
 
-samples_min = m1.sample_n(2000, seed=123)
-samples_max = m2.sample_n(2000, seed=123)
+samples_min = sample_n(m1, n=2000, rng=123)
+samples_max = sample_n(m2, n=2000, rng=123)
 ```
 
 These operations compose symbolic expressions via `sympy.Min`/`sympy.Max` and
