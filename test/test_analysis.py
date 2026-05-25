@@ -9,30 +9,13 @@ def test_noisy_odds_ratio_matches_closed_form_for_plain_floats():
     assert float(result) == expected
 
 
-def test_quantile_ci_without_sampling_collapses_for_plain_floats():
-    table = analysis.NoisyTable2x2.from_cells(65.0, 109.0, 243.0, 1348.0)
-    q_low, q_high = analysis.oddsratio_confint_noisy_quantile(
-        table,
-        n=1000,
-        seed=123,
-        correction=0.0,
-        include_sampling=False,
-    )
-
-    expected_or = (65.0 * 1348.0) / (109.0 * 243.0)
-    assert q_low == expected_or
-    assert q_high == expected_or
-
-
 def test_quantile_ci_with_sampling_keeps_sampling_uncertainty():
     table = analysis.NoisyTable2x2.from_cells(65.0, 109.0, 243.0, 1348.0)
-    q_low, q_high = analysis.oddsratio_confint_noisy_quantile(
+    q_low, q_high = analysis.oddsratio_confint(
         table,
         n=4000,
         seed=123,
-        correction=0.0,
-        include_sampling=True,
-    )
+        correction=0.0)
 
     assert q_low < q_high
     assert q_low > 0
@@ -52,7 +35,7 @@ def test_quantile_ci_with_noisy_inputs_runs_and_returns_float_bounds():
         noisy_float(1348.0, noise_factory, seed=rng),
     )
 
-    q_low, q_high = analysis.oddsratio_confint_noisy_quantile(
+    q_low, q_high = analysis.oddsratio_confint(
         table,
         n=2000,
         seed=123,
@@ -67,13 +50,13 @@ def test_quantile_ci_with_noisy_inputs_runs_and_returns_float_bounds():
 
 def test_method_form_matches_function_form():
     table = analysis.NoisyTable2x2.from_cells(65.0, 109.0, 243.0, 1348.0)
-    via_method = table.oddsratio_confint_noisy_quantile(
+    via_method = table.oddsratio_confint(
         n=2000,
         seed=123,
         correction=0.0,
         include_sampling=True,
     )
-    via_function = analysis.oddsratio_confint_noisy_quantile(
+    via_function = analysis.oddsratio_confint(
         table,
         n=2000,
         seed=123,
