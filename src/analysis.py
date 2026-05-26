@@ -3,10 +3,7 @@ import numpy as np
 from .core import _as_noisy_float
 from .core import _combine_float
 from .core import as_noisy_float_array
-from .core import sample_n
 from .core import sample_shaped
-from dataclasses import dataclass
-from functools import cache
 from numpy.random import Generator
 from sympy import Max
 from sympy import Min
@@ -32,6 +29,9 @@ def noisy_max(*values):
 
 class OddsRatio:
     def __init__(self, tbl):
+        self.samples = None
+
+        # Enforce noisy floats in contingency table and correct shape
         self.tbl = as_noisy_float_array(tbl)
         assert self.tbl.shape == (2, 2)
 
@@ -50,57 +50,50 @@ class OddsRatio:
 
         # For collecting valid odds ratio draws
         or_draws = []
+        for grp0_yes, grp0_no, grp1_yes, grp1_no in dp_draws:
 
-        for a_draw, b_draw, c_draw, d_draw in dp_draws:
-            row0_total = int(round(a_draw + b_draw))
-            row1_total = int(round(c_draw + d_draw))
-            if row0_total <= 0 or row1_total <= 0:
+            # Total counts for each group
+            grp0 = int(round(grp0_yes + grp0_no))
+            grp1 = int(round(grp1_yes + grp1_no))
+
+            # Throw out samples with non-positive group sizes
+            if grp0 <= 0 or grp1 <= 0:
                 continue
 
-            p0 = a_draw / (a_draw + b_draw)
-            p1 = c_draw / (c_draw + d_draw)
-            if not np.isfinite(p0) or not np.isfinite(p1):
-                continue
-            p0 = float(np.clip(p0, 0.0, 1.0))
-            p1 = float(np.clip(p1, 0.0, 1.0))
+            # Ratios of "yes" outcomes within groups
+            grp0_yes_ratio = grp0_yes / (grp0_yes + grp0_no)
+            grp1_yes_ratio = grp1_yes / (grp1_yes + grp1_no)
 
-            a_eff = float(rng.binomial(row0_total, p0))
-            b_eff = float(row0_total - a_eff)
-            c_eff = float(rng.binomial(row1_total, p1))
-            d_eff = float(row1_total - c_eff)
+            grp0_yes_draw = rng.binomial(grp0, grp0_yes_ratio)
+            grp0_no_draw = grp0 - grp0_yes_draw
+            grp1_yes_draw = rng.binomial(grp1, grp1_yes_ratio)
+            grp1_no_draw = grp1 - grp1_yes_draw
 
-            numerator = a_eff * d_eff
-            denominator = b_eff * c_eff
-            if denominator <= 0 or numerator <= 0:
-                continue
-
-            or_draw = numerator / denominator
-            if np.isfinite(or_draw) and or_draw > 0:
+            # Calculate odds ratio and keep if valid
+            or_draw = OddsRatio._calc_ratio(grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw)
+            if or_draw is not None:
                 or_draws.append(or_draw)
 
+        # Cache ratios for later confidence interval calculation
         self.samples = np.asarray(or_draws, dtype=float)
-        self.confidence_interval.cache_clear()
+
+        # Just for convenient chaining for analysts
         return self
 
-    @cache
     def ratio(self):
+        # Extract values from the contingency table
         a, b, c, d = self.tbl.ravel()
 
-        # All components must be positive, this also precludes DBZ
-        if min(float(a), float(b), float(c), float(d)) <= 0:
-            return None
+        # Odds ratio should come back as a noisy float
+        return OddsRatio._calc_ratio(a, b, c, d)
 
-        # Odds ratio computation
-        return (a * d) / (b * c)
-
-    @cache
     def confidence_interval(self, a=0.05):
         a = float(a)
         assert 0.0 <= a <= 1.0
 
         # Get samples if not already done
         if self.samples is None:
-            self.samples = self.tbl.sample_n()
+            self.sample()
 
         # Not enough valid odds ratio samples
         if self.samples.size == 0:
@@ -110,3 +103,18 @@ class OddsRatio:
         lo, hi = np.quantile(self.samples, [a / 2.0, 1.0 - a / 2.0])
         return float(lo), float(hi)
  
+    @staticmethod
+    def _calc_ratio(a, b, c, d):
+        # All values must be positive
+        if min(float(a), float(b), float(c), float(d)) <= 0.0:
+            return None
+
+        # Odds ratio calculation
+        result = (a * d) / (b * c)
+
+        # Validate just the observation if noisy
+        if not np.isfinite(float(result)) or float(result) <= 0.0:
+            return None
+
+        # Can be a noisy float or just a float
+        return result
