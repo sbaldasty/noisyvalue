@@ -19,6 +19,22 @@ def _fold_float(values, op):
     return result
 
 
+def _odds_ratio(a, b, c, d):
+    # All values must be positive
+    if min(float(a), float(b), float(c), float(d)) <= 0.0:
+        return None
+
+    # Odds ratio calculation
+    result = (a * d) / (b * c)
+
+    # Validate just the observation if noisy
+    if not np.isfinite(float(result)) or float(result) <= 0.0:
+        return None
+
+    # Can be a noisy float or just a float
+    return result
+
+
 def noisy_min(*values):
     return _fold_float(values, Min)
 
@@ -70,7 +86,7 @@ class OddsRatio:
             grp1_no_draw = grp1 - grp1_yes_draw
 
             # Calculate odds ratio and keep if valid
-            or_draw = OddsRatio._calc_ratio(grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw)
+            or_draw = _odds_ratio(grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw)
             if or_draw is not None:
                 or_draws.append(or_draw)
 
@@ -82,10 +98,10 @@ class OddsRatio:
 
     def ratio(self):
         # Extract values from the contingency table
-        a, b, c, d = self.tbl.ravel()
+        grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw = self.tbl.ravel()
 
         # Odds ratio should come back as a noisy float
-        return OddsRatio._calc_ratio(a, b, c, d)
+        return _odds_ratio(grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw)
 
     def confidence_interval(self, a=0.05):
         a = float(a)
@@ -102,19 +118,3 @@ class OddsRatio:
         # Compute confidence interval
         lo, hi = np.quantile(self.samples, [a / 2.0, 1.0 - a / 2.0])
         return float(lo), float(hi)
- 
-    @staticmethod
-    def _calc_ratio(a, b, c, d):
-        # All values must be positive
-        if min(float(a), float(b), float(c), float(d)) <= 0.0:
-            return None
-
-        # Odds ratio calculation
-        result = (a * d) / (b * c)
-
-        # Validate just the observation if noisy
-        if not np.isfinite(float(result)) or float(result) <= 0.0:
-            return None
-
-        # Can be a noisy float or just a float
-        return result
