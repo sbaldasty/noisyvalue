@@ -1,63 +1,110 @@
+import numpy as np
+import pytest
+import sympy as sp
+
 import src.analysis as analysis
-import src.noise as noise
+
+from src.core import NoisyFloat
 
 
-def test_noisy_odds_ratio_matches_closed_form_for_plain_floats():
-    result = analysis.oddsratio(65.0, 109.0, 243.0, 1348.0, corr=0.0)
+def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():
+    lo = analysis.noisy_min(3.0, -1.5, 8.0)
+    hi = analysis.noisy_max(3.0, -1.5, 8.0)
+
+    assert isinstance(lo, NoisyFloat)
+    assert isinstance(hi, NoisyFloat)
+    assert float(lo) == -1.5
+    assert float(hi) == 8.0
+
+
+def test_noisy_min_raises_for_empty_input():
+    with pytest.raises(ValueError, match="Requires at least one value"):
+        analysis.noisy_min()
+
+
+def test_noisy_max_combines_noisy_value_metadata():
+    theta = sp.Symbol("theta_fold")
+    a = NoisyFloat(obs=1.0, expr=theta, thetas={theta}, eqns=[theta - 1.0])
+    b = NoisyFloat(obs=2.0, expr=2.0 * theta, thetas={theta}, eqns=[theta - 1.0])
+
+    out = analysis.noisy_max(a, b)
+
+    assert isinstance(out, NoisyFloat)
+    assert float(out) == 2.0
+    assert out.thetas == {theta}
+    assert len(out.eqns) == 2
+
+
+def test_odds_ratio_init_enforces_2x2_shape():
+    with pytest.raises(AssertionError):
+        analysis.OddsRatio([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+
+def test_odds_ratio_ratio_matches_closed_form_for_plain_floats():
+    ratio = analysis.OddsRatio([[65.0, 109.0], [243.0, 1348.0]]).ratio()
     expected = (65.0 * 1348.0) / (109.0 * 243.0)
 
-    assert float(result) == expected
+    assert isinstance(ratio, NoisyFloat)
+    assert float(ratio) == pytest.approx(expected)
 
 
-def test_quantile_ci_with_sampling_keeps_sampling_uncertainty():
-    table = analysis.NoisyTable2x2.from_cells(65.0, 109.0, 243.0, 1348.0)
-    q_low, q_high = analysis.oddsratio_confint(
-        table,
-        n=4000,
-        seed=123,
-        corr=0.0)
-
-    assert q_low < q_high
-    assert q_low > 0
+def test_odds_ratio_ratio_returns_none_for_non_positive_cells():
+    ratio = analysis.OddsRatio([[1.0, 0.0], [2.0, 3.0]]).ratio()
+    assert ratio is None
 
 
-def test_quantile_ci_with_noisy_inputs_runs_and_returns_float_bounds():
-    rng = analysis.np.random.default_rng(42)
-    noise_factory = noise.gaussian(loc=0, scale=1)
+def test_odds_ratio_sample_keeps_only_valid_draws():
+    model = analysis.OddsRatio([[5.0, 7.0], [11.0, 13.0]])
 
-    # Add explicit release noise layer to inputs.
-    from src.release import noisy_float
+    model.sample(n=400, rng=123)
 
-    table = analysis.NoisyTable2x2.from_cells(
-        noisy_float(65.0, noise_factory, seed=rng),
-        noisy_float(109.0, noise_factory, seed=rng),
-        noisy_float(243.0, noise_factory, seed=rng),
-        noisy_float(1348.0, noise_factory, seed=rng),
-    )
-
-    q_low, q_high = analysis.oddsratio_confint(
-        table,
-        n=2000,
-        seed=123,
-        correction=0.0,
-        include_sampling=True,
-    )
-
-    assert isinstance(q_low, float)
-    assert isinstance(q_high, float)
-    assert q_low < q_high
+    assert isinstance(model.samples, np.ndarray)
+    assert model.samples.ndim == 1
+    assert 0 < model.samples.size <= 400
+    assert np.all(np.isfinite(model.samples))
+    assert np.all(model.samples > 0.0)
 
 
-def test_method_form_matches_function_form():
-    table = analysis.NoisyTable2x2.from_cells(65.0, 109.0, 243.0, 1348.0)
-    via_method = table.oddsratio_confint(
-        n=2000,
-        seed=123,
-        corr=0.0)
-    via_function = table.oddsratio_confint(
-        table,
-        n=2000,
-        seed=123,
-        corr=0.0)
+def test_odds_ratio_sample_requires_positive_n():
+    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
 
-    assert via_method == via_function
+    with pytest.raises(AssertionError):
+        model.sample(n=0)
+
+
+def test_confidence_interval_autosamples_when_needed(monkeypatch):
+    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
+
+    def fake_sample(self, n=1000, rng=None, lib="scipy"):
+        self.samples = np.array([0.4, 0.8, 1.2, 1.6], dtype=float)
+        return self
+
+    monkeypatch.setattr(analysis.OddsRatio, "sample", fake_sample)
+    lo, hi = model.confidence_interval(a=0.10)
+
+    assert lo == pytest.approx(np.quantile([0.4, 0.8, 1.2, 1.6], 0.05))
+    assert hi == pytest.approx(np.quantile([0.4, 0.8, 1.2, 1.6], 0.95))
+
+
+def test_confidence_interval_validates_alpha_bounds():
+    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
+    model.samples = np.array([1.0, 2.0], dtype=float)
+
+    with pytest.raises(AssertionError):
+        model.confidence_interval(a=-0.01)
+
+    with pytest.raises(AssertionError):
+        model.confidence_interval(a=1.01)
+
+
+def test_confidence_interval_raises_when_no_valid_draws(monkeypatch):
+    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
+
+    def fake_sample(self, n=1000, rng=None, lib="scipy"):
+        self.samples = np.array([], dtype=float)
+        return self
+
+    monkeypatch.setattr(analysis.OddsRatio, "sample", fake_sample)
+
+    with pytest.raises(ValueError, match="No valid odds ratio draws"):
+        model.confidence_interval()
