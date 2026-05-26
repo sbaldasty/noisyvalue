@@ -1,5 +1,6 @@
+import numpy as np
+
 from .core import NoisyFloat
-from .core import as_noisy_float
 from .util import fresh_name
 from sympy import Symbol
 from sympy import sympify
@@ -20,3 +21,12 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
     eqns = [measurement - obs]
 
     return NoisyFloat(obs, theta, {theta}, eqns)
+
+
+def noisy_float_array(true_tbl, noise_factory, **sample_kwargs):
+    values = np.asarray(true_tbl, dtype=object)
+    noisy_flat = np.array(
+        [noisy_float(value, noise_factory, **sample_kwargs) for value in values.reshape(-1)],
+        dtype=object,
+    )
+    return noisy_flat.reshape(values.shape)

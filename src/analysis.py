@@ -51,7 +51,7 @@ class OddsRatio:
         self.tbl = as_noisy_float_array(tbl)
         assert self.tbl.shape == (2, 2)
 
-    def sample(self, n=1000, rng=None, lib="scipy"):
+    def sample(self, n=10000, rng=None, lib="scipy"):
         # Number of samples (odds ratio draws) must be positive
         n = int(n)
         assert n > 0
