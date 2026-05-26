@@ -1,5 +1,4 @@
 import numpy as np
-from statsmodels.stats.contingency_tables import Table2x2
 
 from .core import _as_noisy_float
 from .core import _combine_float

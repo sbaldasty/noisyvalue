@@ -1,5 +1,8 @@
 import sympy as sp
 import numpy as np
+from dataclasses import dataclass
+from typing import Any
+from typing import TypeAlias
 
 from sympy import Abs
 from sympy import And
@@ -8,6 +11,9 @@ from sympy import Or
 from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
+
+
+SampleBatch: TypeAlias = np.ndarray | tuple[np.ndarray, ...]
 
 
 def _as_noisy_float(value):
@@ -81,61 +87,65 @@ def _as_noisy_value(value):
     return _as_noisy_float(value)
 
 
+@dataclass(frozen=True, eq=False, slots=True)
 class PreparedSampler:
-    def __init__(
-        self,
-        noisy_values,
-        theta_substitutions,
-        all_noise_vars,
-        library="scipy",
-        sample_kwargs=None,
-    ):
-        self._noisy_values = tuple(noisy_values)
-        self._dtypes = tuple(type(value.obs) for value in self._noisy_values)
-        self._theta_substitutions = dict(theta_substitutions)
-        self._all_noise_vars = tuple(all_noise_vars)
-        self._library = library
-        self._sample_kwargs = dict(sample_kwargs or {})
+    noisy_values: tuple["NoisyValue", ...]
+    theta_substitutions: dict[Any, Any]
+    all_noise_vars: tuple[Any, ...]
+    library: str = "scipy"
+    sample_kwargs: dict[str, Any] | None = None
 
-    def sample_n(self, n=1000, rng=None):
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "noisy_values", tuple(self.noisy_values))
+        object.__setattr__(self, "theta_substitutions", dict(self.theta_substitutions))
+        object.__setattr__(self, "all_noise_vars", tuple(self.all_noise_vars))
+        object.__setattr__(self, "sample_kwargs", dict(self.sample_kwargs or {}))
+
+    def sample_n(self, n: int = 1000, rng: Any = None) -> SampleBatch:
+        dtypes = tuple(type(value.obs) for value in self.noisy_values)
+
         if n <= 0:
-            empty = tuple(np.array([], dtype=dtype) for dtype in self._dtypes)
+            empty = tuple(np.array([], dtype=dtype) for dtype in dtypes)
             return empty[0] if len(empty) == 1 else empty
 
-        if self._all_noise_vars:
+        if self.all_noise_vars:
             noise_draws = {
                 rv: np.asarray(
                     sample(
                         rv,
                         size=n,
-                        library=self._library,
+                        library=self.library,
                         seed=rng,
-                        **self._sample_kwargs,
+                        **self.sample_kwargs,
                     )
                 )
-                for rv in self._all_noise_vars
+                for rv in self.all_noise_vars
             }
         else:
             noise_draws = {}
 
-        outputs = [np.empty(n, dtype=dtype) for dtype in self._dtypes]
+        outputs = [np.empty(n, dtype=dtype) for dtype in dtypes]
 
         for idx in range(n):
-            draws = {rv: noise_draws[rv][idx] for rv in self._all_noise_vars}
+            draws = {rv: noise_draws[rv][idx] for rv in self.all_noise_vars}
             theta_values = {
                 theta: rhs.subs(draws)
-                for theta, rhs in self._theta_substitutions.items()
+                for theta, rhs in self.theta_substitutions.items()
             }
 
-            for out_idx, noisy_value in enumerate(self._noisy_values):
+            for out_idx, noisy_value in enumerate(self.noisy_values):
                 sampled_expr = noisy_value.expr.subs(theta_values).subs(draws)
-                outputs[out_idx][idx] = self._dtypes[out_idx](sampled_expr)
+                outputs[out_idx][idx] = dtypes[out_idx](sampled_expr)
 
         result = tuple(outputs)
         return result[0] if len(result) == 1 else result
 
 
-def prepare_sampler(*values, library="scipy", **sample_kwargs):
+def prepare_sampler(
+    *values: Any,
+    library: str = "scipy",
+    **sample_kwargs: Any,
+) -> PreparedSampler:
     """Prepare a reusable joint sampler for one or more noisy values.
 
     The returned object caches symbolic setup work and can be reused for
@@ -144,7 +154,7 @@ def prepare_sampler(*values, library="scipy", **sample_kwargs):
     if not values:
         raise ValueError("At least one value is required")
 
-    noisy_values = [_as_noisy_value(value) for value in values]
+    noisy_values = tuple(_as_noisy_value(value) for value in values)
 
     all_thetas = set().union(*(value.thetas for value in noisy_values))
     all_eqns = [eqn for value in noisy_values for eqn in value.eqns]
@@ -166,8 +176,13 @@ def prepare_sampler(*values, library="scipy", **sample_kwargs):
         sample_kwargs=sample_kwargs,
     )
 
-
-def sample_n(*values, n=1000, library="scipy", rng=None, **sample_kwargs):
+def sample_n(
+    *values: Any,
+    n: int = 1000,
+    library: str = "scipy",
+    rng: Any = None,
+    **sample_kwargs: Any,
+) -> SampleBatch:
     """Jointly sample one or more noisy values.
 
     Shared latent variables and shared random symbols are sampled once per draw,
@@ -177,24 +192,97 @@ def sample_n(*values, n=1000, library="scipy", rng=None, **sample_kwargs):
     return prepared.sample_n(n=n, rng=rng)
 
 
+@dataclass(frozen=True, eq=False, slots=True)
+class PreparedShapedSampler:
+    prepared: PreparedSampler
+    value_shape: tuple[int, ...]
+
+    def sample_n(
+        self,
+        n: int = 1000,
+        rng: Any = None,
+        sample_axis: int = -1,
+    ) -> np.ndarray:
+        raw = self.prepared.sample_n(n=n, rng=rng)
+        if isinstance(raw, tuple):
+            flat = np.stack(raw, axis=0)
+        else:
+            flat = raw[np.newaxis, :]
+
+        shaped = flat.reshape(self.value_shape + (n,))
+        if sample_axis == -1:
+            return shaped
+
+        ndim = len(self.value_shape) + 1
+        axis = sample_axis if sample_axis >= 0 else sample_axis + ndim
+        if axis < 0 or axis >= ndim:
+            raise np.AxisError(sample_axis, ndim=ndim)
+        return np.moveaxis(shaped, -1, axis)
+
+
+def prepare_sampler_shaped(
+    values: Any,
+    library: str = "scipy",
+    **sample_kwargs: Any,
+) -> PreparedShapedSampler:
+    """Prepare a reusable sampler for tensor-like value collections.
+
+    The prepared sampler returns arrays with the same base shape as `values`
+    plus one sample axis.
+    """
+    values_array = np.asarray(values, dtype=object)
+    if values_array.size == 0:
+        raise ValueError("At least one value is required")
+
+    prepared = prepare_sampler(
+        *values_array.reshape(-1).tolist(),
+        library=library,
+        **sample_kwargs,
+    )
+    return PreparedShapedSampler(prepared=prepared, value_shape=values_array.shape)
+
+
+def sample_shaped(
+    values: Any,
+    n: int = 1000,
+    library: str = "scipy",
+    rng: Any = None,
+    sample_axis: int = -1,
+    **sample_kwargs: Any,
+) -> np.ndarray:
+    """Jointly sample a tensor-like collection of values.
+
+    Returns a numpy array with shape `values.shape + (n,)` by default.
+    Use `sample_axis` to move the sample dimension.
+    """
+    prepared = prepare_sampler_shaped(values, library=library, **sample_kwargs)
+    return prepared.sample_n(n=n, rng=rng, sample_axis=sample_axis)
+
+
+@dataclass(frozen=True, eq=False, slots=True)
 class NoisyValue:
-    def __init__(self, obs, expr, thetas, eqns):
-        self.expr = sympify(expr)
-        self.obs = obs
-        self.thetas = set(thetas)
-        self.eqns = list(eqns)
+    obs: object
+    expr: object
+    thetas: object
+    eqns: object
+
+    def __post_init__(self):
+        object.__setattr__(self, "expr", sympify(self.expr))
+        object.__setattr__(self, "thetas", frozenset(self.thetas))
+        object.__setattr__(self, "eqns", tuple(self.eqns))
 
     def __repr__(self):
         return f"~{self.obs})"
 
-    # TODO Remove this?
     def _solve_theta_substitutions(self):
         return _solve_theta_substitutions(self.thetas, self.eqns)
 
 
+@dataclass(frozen=True, eq=False, slots=True)
 class NoisyFloat(NoisyValue):
-    def __init__(self, obs, expr, thetas, eqns):
-        super().__init__(float(obs), expr, thetas, eqns)
+    def __post_init__(self):
+        NoisyValue.__post_init__(self)
+        object.__setattr__(self, "obs", float(self.obs))
 
     def __float__(self):
         return self.obs
@@ -254,9 +342,11 @@ class NoisyFloat(NoisyValue):
         return _lift_unary(self, np.sqrt, sp.sqrt)
 
 
+@dataclass(frozen=True, eq=False, slots=True)
 class NoisyBool(NoisyValue):
-    def __init__(self, obs, expr, thetas, eqns):
-        super().__init__(bool(obs), expr, thetas, eqns)
+    def __post_init__(self):
+        NoisyValue.__post_init__(self)
+        object.__setattr__(self, "obs", bool(self.obs))
 
     def __bool__(self):
         return self.obs

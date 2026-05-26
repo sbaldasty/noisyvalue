@@ -1,11 +1,15 @@
 import numpy as np
 import sympy as sp
+import pytest
 
+from dataclasses import FrozenInstanceError
 from sympy.stats import Normal
 
 from src.core import NoisyFloat
 from src.core import prepare_sampler
+from src.core import prepare_sampler_shaped
 from src.core import sample_n
+from src.core import sample_shaped
 
 
 def test_joint_sampling_preserves_shared_latent_dependency():
@@ -89,3 +93,43 @@ def test_prepared_sampler_matches_direct_sampling_for_same_seed():
 
     assert np.allclose(prepared_a, direct_a)
     assert np.allclose(prepared_b, direct_b)
+
+
+def test_noisy_value_instances_are_immutable():
+    theta = sp.Symbol("theta_immutable")
+    x = NoisyFloat(obs=1.0, expr=theta, thetas={theta}, eqns=[theta - 1.0])
+
+    with pytest.raises(FrozenInstanceError):
+        x.obs = 2.0
+
+    assert isinstance(x.thetas, frozenset)
+    assert isinstance(x.eqns, tuple)
+
+
+def test_sample_shaped_returns_table_shape_plus_sample_axis():
+    table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
+    draws = sample_shaped(table, n=11, rng=123)
+
+    assert isinstance(draws, np.ndarray)
+    assert draws.shape == (2, 2, 11)
+
+
+def test_sample_shaped_preserves_shared_dependency_across_cells():
+    theta = sp.Symbol("theta_table")
+    eps_obs = Normal("eps_obs_table", 0, 1)
+
+    a = NoisyFloat(expr=theta, obs=0.0, thetas={theta}, eqns=[theta + eps_obs - 1.0])
+    b = NoisyFloat(expr=2.0 * theta, obs=0.0, thetas={theta}, eqns=[theta + eps_obs - 1.0])
+    table = np.array([[a, b]], dtype=object)
+
+    draws = sample_shaped(table, n=300, rng=123)
+    assert draws.shape == (1, 2, 300)
+    assert np.allclose(draws[0, 1, :], 2.0 * draws[0, 0, :])
+
+
+def test_prepared_shaped_sampler_moves_sample_axis():
+    table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
+    prepared = prepare_sampler_shaped(table)
+    draws = prepared.sample_n(n=7, rng=123, sample_axis=0)
+
+    assert draws.shape == (7, 2, 2)

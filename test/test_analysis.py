@@ -3,7 +3,7 @@ import src.noise as noise
 
 
 def test_noisy_odds_ratio_matches_closed_form_for_plain_floats():
-    result = analysis.noisy_odds_ratio(65.0, 109.0, 243.0, 1348.0, correction=0.0)
+    result = analysis.oddsratio(65.0, 109.0, 243.0, 1348.0, corr=0.0)
     expected = (65.0 * 1348.0) / (109.0 * 243.0)
 
     assert float(result) == expected
@@ -15,7 +15,7 @@ def test_quantile_ci_with_sampling_keeps_sampling_uncertainty():
         table,
         n=4000,
         seed=123,
-        correction=0.0)
+        corr=0.0)
 
     assert q_low < q_high
     assert q_low > 0
@@ -53,15 +53,11 @@ def test_method_form_matches_function_form():
     via_method = table.oddsratio_confint(
         n=2000,
         seed=123,
-        correction=0.0,
-        include_sampling=True,
-    )
-    via_function = analysis.oddsratio_confint(
+        corr=0.0)
+    via_function = table.oddsratio_confint(
         table,
         n=2000,
         seed=123,
-        correction=0.0,
-        include_sampling=True,
-    )
+        corr=0.0)
 
     assert via_method == via_function
