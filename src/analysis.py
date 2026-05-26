@@ -2,8 +2,12 @@ import numpy as np
 
 from .core import _as_noisy_float
 from .core import _combine_float
+from .core import as_noisy_float_array
 from .core import sample_n
-from .release import noisy_float
+from .core import sample_shaped
+from dataclasses import dataclass
+from functools import cache
+from numpy.random import Generator
 from sympy import Max
 from sympy import Min
 
@@ -26,84 +30,28 @@ def noisy_max(*values):
     return _fold_float(values, Max)
 
 
-class NoisyTable2x2:
-    def __init__(self, table):
-        table = np.asarray(table, dtype=object)
-        if table.shape != (2, 2):
-            raise ValueError("table must be a 2x2 structure")
+class OddsRatio:
+    def __init__(self, tbl):
+        self.tbl = as_noisy_float_array(tbl)
+        assert self.tbl.shape == (2, 2)
 
-        self.a = _as_noisy_float(table[0, 0])
-        self.b = _as_noisy_float(table[0, 1])
-        self.c = _as_noisy_float(table[1, 0])
-        self.d = _as_noisy_float(table[1, 1])
+    def sample(self, n=1000, rng=None, lib="scipy"):
+        # Number of samples (odds ratio draws) must be positive
+        n = int(n)
+        assert n > 0
 
-    @classmethod
-    def from_cells(cls, a, b, c, d):
-        return cls([[a, b], [c, d]])
+        # Initialize random number generator for binomial sampling
+        if not isinstance(rng, Generator):
+            rng = np.random.default_rng(rng)
 
-    @property
-    def table(self):
-        return np.array([[self.a, self.b], [self.c, self.d]], dtype=object)
+        # Sample flattened table with differential privacy uncertainty
+        tbl = self.tbl.ravel()
+        dp_draws = sample_shaped(tbl, n, lib, rng, axis=0)
 
-
-    def sample_n(self, n, seed=None):
-        a_draws, b_draws, c_draws, d_draws = sample_n(
-            self.a,
-            self.b,
-            self.c,
-            self.d,
-            n=n,
-            rng=seed,
-        )
-
-        return np.array([[a_draws, b_draws], [c_draws, d_draws]], dtype=object)
-
-
-    def oddsratio(self, corr=0.0):
-        a = self.a + corr
-        b = self.b + corr
-        c = self.c + corr
-        d = self.d + corr
-
-        if min(float(a), float(b), float(c), float(d)) <= 0:
-            return None
-
-        return (a * d) / (b * c)
-
-
-    def oddsratio_confint(self,
-        n=10000,
-        alpha=0.05,
-        corr=0.0,
-        seed=None):
-
-        if n <= 0:
-            raise ValueError("n must be positive")
-
-        if not (0 < alpha < 1):
-            raise ValueError("alpha must be between 0 and 1")
-
-        rng = seed
-        if isinstance(seed, int):
-            rng = np.random.default_rng(seed)
-
-        a_draws, b_draws, c_draws, d_draws = sample_n(
-            self.a,
-            self.b,
-            self.c,
-            self.d,
-            n=n,
-            rng=rng,
-        )
-        a_draws = np.asarray(a_draws, dtype=float)
-        b_draws = np.asarray(b_draws, dtype=float)
-        c_draws = np.asarray(c_draws, dtype=float)
-        d_draws = np.asarray(d_draws, dtype=float)
-
-        sampling_rng = np.random.default_rng(seed)
+        # For collecting valid odds ratio draws
         or_draws = []
 
-        for a_draw, b_draw, c_draw, d_draw in zip(a_draws, b_draws, c_draws, d_draws):
+        for a_draw, b_draw, c_draw, d_draw in dp_draws:
             row0_total = int(round(a_draw + b_draw))
             row1_total = int(round(c_draw + d_draw))
             if row0_total <= 0 or row1_total <= 0:
@@ -116,14 +64,13 @@ class NoisyTable2x2:
             p0 = float(np.clip(p0, 0.0, 1.0))
             p1 = float(np.clip(p1, 0.0, 1.0))
 
-            a_eff = float(sampling_rng.binomial(row0_total, p0))
+            a_eff = float(rng.binomial(row0_total, p0))
             b_eff = float(row0_total - a_eff)
-            c_eff = float(sampling_rng.binomial(row1_total, p1))
+            c_eff = float(rng.binomial(row1_total, p1))
             d_eff = float(row1_total - c_eff)
 
-            # TODO This is just odds ratio, reuse it?
-            numerator = (a_eff + corr) * (d_eff + corr)
-            denominator = (b_eff + corr) * (c_eff + corr)
+            numerator = a_eff * d_eff
+            denominator = b_eff * c_eff
             if denominator <= 0 or numerator <= 0:
                 continue
 
@@ -131,8 +78,35 @@ class NoisyTable2x2:
             if np.isfinite(or_draw) and or_draw > 0:
                 or_draws.append(or_draw)
 
-        if not or_draws:
+        self.samples = np.asarray(or_draws, dtype=float)
+        self.confidence_interval.cache_clear()
+        return self
+
+    @cache
+    def ratio(self):
+        a, b, c, d = self.tbl.ravel()
+
+        # All components must be positive, this also precludes DBZ
+        if min(float(a), float(b), float(c), float(d)) <= 0:
+            return None
+
+        # Odds ratio computation
+        return (a * d) / (b * c)
+
+    @cache
+    def confidence_interval(self, a=0.05):
+        a = float(a)
+        assert 0.0 <= a <= 1.0
+
+        # Get samples if not already done
+        if self.samples is None:
+            self.samples = self.tbl.sample_n()
+
+        # Not enough valid odds ratio samples
+        if self.samples.size == 0:
             raise ValueError("No valid odds ratio draws")
 
-        q_low, q_high = np.quantile(or_draws, [alpha / 2.0, 1.0 - alpha / 2.0])
-        return float(q_low), float(q_high)
+        # Compute confidence interval
+        lo, hi = np.quantile(self.samples, [a / 2.0, 1.0 - a / 2.0])
+        return float(lo), float(hi)
+ 

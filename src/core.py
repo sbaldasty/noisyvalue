@@ -16,6 +16,12 @@ from sympy.stats.rv import random_symbols
 SampleBatch: TypeAlias = np.ndarray | tuple[np.ndarray, ...]
 
 
+def as_noisy_float_array(array):
+    values = np.asarray(array, dtype=object)
+    flat = values.reshape(-1)
+    converted = np.array([_as_noisy_float(value) for value in flat], dtype=object)
+    return converted.reshape(values.shape)
+
 def _as_noisy_float(value):
     if isinstance(value, NoisyFloat):
         return value
@@ -209,7 +215,8 @@ class PreparedShapedSampler:
         else:
             flat = raw[np.newaxis, :]
 
-        shaped = flat.reshape(self.value_shape + (n,))
+        # Shaped sampling is consumed numerically downstream, so normalize to float.
+        shaped = np.asarray(flat.reshape(self.value_shape + (n,)), dtype=float)
         if sample_axis == -1:
             return shaped
 
@@ -247,16 +254,16 @@ def sample_shaped(
     n: int = 1000,
     library: str = "scipy",
     rng: Any = None,
-    sample_axis: int = -1,
+    axis: int = -1,
     **sample_kwargs: Any,
 ) -> np.ndarray:
     """Jointly sample a tensor-like collection of values.
 
-    Returns a numpy array with shape `values.shape + (n,)` by default.
-    Use `sample_axis` to move the sample dimension.
+    Returns a float numpy array with shape `values.shape + (n,)` by default.
+    Use `axis` to move the sample dimension.
     """
     prepared = prepare_sampler_shaped(values, library=library, **sample_kwargs)
-    return prepared.sample_n(n=n, rng=rng, sample_axis=sample_axis)
+    return prepared.sample_n(n=n, rng=rng, sample_axis=axis)
 
 
 @dataclass(frozen=True, eq=False, slots=True)
@@ -276,6 +283,9 @@ class NoisyValue:
 
     def _solve_theta_substitutions(self):
         return _solve_theta_substitutions(self.thetas, self.eqns)
+
+    def sample(self, n=1000, rng=None):
+        return prepare_sampler(self).sample_n(n, rng)
 
 
 @dataclass(frozen=True, eq=False, slots=True)

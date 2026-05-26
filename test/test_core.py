@@ -112,6 +112,7 @@ def test_sample_shaped_returns_table_shape_plus_sample_axis():
 
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (2, 2, 11)
+    assert draws.dtype == float
 
 
 def test_sample_shaped_preserves_shared_dependency_across_cells():
