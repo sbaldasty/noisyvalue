@@ -1,6 +1,6 @@
 import numpy as np
 
-from .core import _as_noisy_float
+from .core import as_noisy_float
 from .core import _combine_float
 from .core import as_noisy_float_array
 from .core import sample_shaped
@@ -13,9 +13,9 @@ def _fold_float(values, op):
     if not values:
         raise ValueError("Requires at least one value")
 
-    result = _as_noisy_float(values[0])
+    result = as_noisy_float(values[0])
     for value in values[1:]:
-        result = _combine_float(result, _as_noisy_float(value), op)
+        result = _combine_float(result, as_noisy_float(value), op)
     return result
 
 

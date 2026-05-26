@@ -1,5 +1,5 @@
 from .core import NoisyFloat
-from .core import _as_noisy_float
+from .core import as_noisy_float
 from .util import fresh_name
 from sympy import Symbol
 from sympy import sympify
@@ -20,7 +20,3 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
     eqns = [measurement - obs]
 
     return NoisyFloat(obs, theta, {theta}, eqns)
-
-
-def true_float(true_value):
-    return _as_noisy_float(true_value)

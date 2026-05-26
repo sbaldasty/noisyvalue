@@ -16,29 +16,8 @@ from sympy.stats.rv import random_symbols
 SampleBatch: TypeAlias = np.ndarray | tuple[np.ndarray, ...]
 
 
-def as_noisy_float_array(array):
-    values = np.asarray(array, dtype=object)
-    flat = values.reshape(-1)
-    converted = np.array([_as_noisy_float(value) for value in flat], dtype=object)
-    return converted.reshape(values.shape)
-
-def _as_noisy_float(value):
-    if isinstance(value, NoisyFloat):
-        return value
-    expr = sympify(value)
-    return NoisyFloat(float(expr), expr, [], [])
-
-
-def _as_noisy_bool(value):
-    if isinstance(value, NoisyBool):
-        return value
-    if isinstance(value, (bool, np.bool_)):
-        return NoisyBool(value, sympify(bool(value)), [], [])
-    raise TypeError(f"Expected bool or NoisyBool, got {type(value).__name__}")
-
-
 def _combine_float(a, b, op):
-    b = _as_noisy_float(b)
+    b = as_noisy_float(b)
     obs = op(a.obs, b.obs)
     expr = op(a.expr, b.expr)
     thetas = a.thetas | b.thetas
@@ -47,7 +26,7 @@ def _combine_float(a, b, op):
 
 
 def _combine_bool(a, b, obs_op, expr_op):
-    b = _as_noisy_bool(b)
+    b = as_noisy_bool(b)
     obs = obs_op(a.obs, b.obs)
     expr = expr_op(a.expr, b.expr)
     thetas = a.thetas | b.thetas
@@ -56,7 +35,7 @@ def _combine_bool(a, b, obs_op, expr_op):
 
 
 def _compare_float(a, b, op):
-    b = _as_noisy_float(b)
+    b = as_noisy_float(b)
     obs = op(a.obs, b.obs)
     expr = op(a.expr, b.expr)
     thetas = a.thetas | b.thetas
@@ -65,7 +44,7 @@ def _compare_float(a, b, op):
 
 
 def _lift_unary(x, obs_fn, expr_fn):
-    x = _as_noisy_float(x)
+    x = as_noisy_float(x)
     return NoisyFloat(obs_fn(float(x.obs)), expr_fn(x.expr), x.thetas, x.eqns)
 
 
@@ -89,8 +68,30 @@ def _as_noisy_value(value):
     if isinstance(value, NoisyValue):
         return value
     if isinstance(value, (bool, np.bool_)):
-        return _as_noisy_bool(value)
-    return _as_noisy_float(value)
+        return as_noisy_bool(value)
+    return as_noisy_float(value)
+
+
+def as_noisy_bool(value):
+    if isinstance(value, NoisyBool):
+        return value
+    if isinstance(value, (bool, np.bool_)):
+        return NoisyBool(value, sympify(bool(value)), [], [])
+    raise TypeError(f"Expected bool or NoisyBool, got {type(value).__name__}")
+
+
+def as_noisy_float(value):
+    if isinstance(value, NoisyFloat):
+        return value
+    expr = sympify(value)
+    return NoisyFloat(float(expr), expr, [], [])
+
+
+def as_noisy_float_array(array):
+    values = np.asarray(array, dtype=object)
+    flat = values.reshape(-1)
+    converted = np.array([as_noisy_float(value) for value in flat], dtype=object)
+    return converted.reshape(values.shape)
 
 
 @dataclass(frozen=True, eq=False, slots=True)
