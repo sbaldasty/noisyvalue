@@ -1,7 +1,7 @@
 from .core import as_noisy_float
 from .core import _combine_float
 from .core import as_noisy_float_array
-from .core import sample_shaped_noisy_floats
+from .core import sample_float_array
 from numpy import quantile
 from numpy import asarray
 from numpy import isfinite
@@ -64,7 +64,7 @@ class OddsRatio:
 
         # Sample flattened table with differential privacy uncertainty
         tbl = self.tbl.ravel()
-        dp_draws = sample_shaped_noisy_floats(tbl, n, lib, rng, axis=0)
+        dp_draws = sample_float_array(tbl, n, lib, rng, axis=0)
 
         # For collecting valid odds ratio draws
         or_draws = []
