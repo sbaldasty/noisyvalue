@@ -5,6 +5,8 @@ import sympy as sp
 from sympy.stats import quantile
 from sympy.stats.rv import random_symbols
 
+from src.core import _solve_theta_substitutions
+
 
 def _weighted_quantile(values, weights, q):
     if len(values) == 0:
@@ -58,7 +60,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
         raise ValueError("quadrature_points must be at least 2")
 
     if noisy_value._thetas:
-        sol = noisy_value._solve_theta_substitutions()
+        sol = _solve_theta_substitutions(noisy_value._thetas, noisy_value._eqns)
         rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
     else:
         sol = {}

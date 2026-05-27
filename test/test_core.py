@@ -118,6 +118,6 @@ def test_sample_shaped_preserves_shared_dependency_across_cells():
 def test_prepared_shaped_sampler_moves_sample_axis():
     table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
     prepared = float_array_sampler(table)
-    draws = prepared.sample(n=7, rng=123, sample_axis=0)
+    draws = prepared.sample(n=7, rng=123, axis=0)
 
     assert draws.shape == (7, 2, 2)
