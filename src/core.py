@@ -14,39 +14,39 @@ from sympy.stats.rv import random_symbols
 
 def _combine_float(a, b, op):
     b = as_noisy_float(b)
-    obs = op(a.obs, b.obs)
-    expr = op(a.expr, b.expr)
-    thetas = a.thetas | b.thetas
-    eqns = a.eqns + b.eqns
+    obs = op(a._obs, b._obs)
+    expr = op(a._expr, b._expr)
+    thetas = a._thetas | b._thetas
+    eqns = a._eqns + b._eqns
     return NoisyFloat(obs, expr, thetas, eqns)
 
 
 def _combine_bool(a, b, obs_op, expr_op):
     b = as_noisy_bool(b)
-    obs = obs_op(a.obs, b.obs)
-    expr = expr_op(a.expr, b.expr)
-    thetas = a.thetas | b.thetas
-    eqns = a.eqns + b.eqns
+    obs = obs_op(a._obs, b._obs)
+    expr = expr_op(a._expr, b._expr)
+    thetas = a._thetas | b._thetas
+    eqns = a._eqns + b._eqns
     return NoisyBool(obs, expr, thetas, eqns)
 
 
 def _compare_float(a, b, op):
     b = as_noisy_float(b)
-    obs = op(a.obs, b.obs)
-    expr = op(a.expr, b.expr)
-    thetas = a.thetas | b.thetas
-    eqns = a.eqns + b.eqns
+    obs = op(a._obs, b._obs)
+    expr = op(a._expr, b._expr)
+    thetas = a._thetas | b._thetas
+    eqns = a._eqns + b._eqns
     return NoisyBool(obs, expr, thetas, eqns)
 
 
 def _lift_unary_bool(x, obs_fn, expr_fn):
     x = as_noisy_bool(x)
-    return NoisyBool(obs_fn(bool(x.obs)), expr_fn(x.expr), x.thetas, x.eqns)
+    return NoisyBool(obs_fn(bool(x._obs)), expr_fn(x._expr), x._thetas, x._eqns)
 
 
 def _lift_unary_float(x, obs_fn, expr_fn):
     x = as_noisy_float(x)
-    return NoisyFloat(obs_fn(float(x.obs)), expr_fn(x.expr), x.thetas, x.eqns)
+    return NoisyFloat(obs_fn(float(x._obs)), expr_fn(x._expr), x._thetas, x._eqns)
 
 
 def _solve_theta_substitutions(thetas, eqns):
@@ -110,15 +110,15 @@ def noisy_value_sampler(
 
     noisy_values = tuple(as_noisy_value(value) for value in values)
 
-    all_thetas = set().union(*(value.thetas for value in noisy_values))
-    all_eqns = [eqn for value in noisy_values for eqn in value.eqns]
+    all_thetas = set().union(*(value._thetas for value in noisy_values))
+    all_eqns = [eqn for value in noisy_values for eqn in value._eqns]
     theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
 
     rhs_noise_vars = {
         rv for rhs in theta_substitutions.values() for rv in random_symbols(rhs)
     }
     predictive_noise_vars = {
-        rv for value in noisy_values for rv in random_symbols(value.expr)
+        rv for value in noisy_values for rv in random_symbols(value._expr)
     }
     all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars, key=str)
 
@@ -187,16 +187,16 @@ def sample_float_array(
 
 class NoisyValue:
     def __init__(self, obs, expr, thetas, eqns):
-        self.obs = obs
-        self.expr = sympify(expr)
-        self.thetas = frozenset(thetas)
-        self.eqns = tuple(eqns)
+        self._obs = obs
+        self._expr = sympify(expr)
+        self._thetas = frozenset(thetas)
+        self._eqns = tuple(eqns)
 
     def __repr__(self):
-        return f"~{self.obs})"
+        return f"~{self._obs})"
 
     def _solve_theta_substitutions(self):
-        return _solve_theta_substitutions(self.thetas, self.eqns)
+        return _solve_theta_substitutions(self._thetas, self._eqns)
 
     def sample(self, n=1000, rng=None):
         return noisy_value_sampler(self).sample(n, rng)
@@ -207,7 +207,10 @@ class NoisyFloat(NoisyValue):
         super().__init__(float(obs), expr, thetas, eqns)
 
     def __float__(self):
-        return self.obs
+        return self._obs
+
+    def __int__(self):
+        return int(self._obs)
 
     def __abs__(self):
         return _lift_unary_float(self, abs, Abs)
@@ -269,7 +272,7 @@ class NoisyBool(NoisyValue):
         super().__init__(bool(obs), expr, thetas, eqns)
 
     def __bool__(self):
-        return self.obs
+        return self._obs
 
     def __and__(self, other):
         return _combine_bool(self, other, lambda a, b: a and b, And)
@@ -302,7 +305,7 @@ class NoisyValueSampler:
         object.__setattr__(self, "sample_kwargs", dict(self.sample_kwargs or {}))
 
     def sample(self, n: int = 1000, rng: Any = None):
-        dtypes = tuple(type(value.obs) for value in self.noisy_values)
+        dtypes = tuple(type(value._obs) for value in self.noisy_values)
 
         if n <= 0:
             empty = tuple(np.array([], dtype=dtype) for dtype in dtypes)
@@ -334,7 +337,7 @@ class NoisyValueSampler:
             }
 
             for out_idx, noisy_value in enumerate(self.noisy_values):
-                sampled_expr = noisy_value.expr.subs(theta_values).subs(draws)
+                sampled_expr = noisy_value._expr.subs(theta_values).subs(draws)
                 outputs[out_idx][idx] = dtypes[out_idx](sampled_expr)
 
         result = tuple(outputs)

@@ -1,8 +1,6 @@
 import numpy as np
 import sympy as sp
-import pytest
 
-from dataclasses import FrozenInstanceError
 from sympy.stats import Normal
 
 from src.core import NoisyFloat

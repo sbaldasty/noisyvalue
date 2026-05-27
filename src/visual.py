@@ -57,18 +57,18 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     if quadrature_points < 2:
         raise ValueError("quadrature_points must be at least 2")
 
-    if noisy_value.thetas:
+    if noisy_value._thetas:
         sol = noisy_value._solve_theta_substitutions()
         rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
     else:
         sol = {}
         rhs_noise_vars = []
 
-    predictive_noise_vars = list(random_symbols(noisy_value.expr))
+    predictive_noise_vars = list(random_symbols(noisy_value._expr))
     integration_rvs = sorted(set(rhs_noise_vars) | set(predictive_noise_vars), key=str)
 
     if not integration_rvs:
-        value = float(noisy_value.expr)
+        value = float(noisy_value._expr)
         return np.asarray([value], dtype=float), np.asarray([1.0], dtype=float)
 
     total_points = quadrature_points ** len(integration_rvs)
@@ -97,7 +97,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
             weight *= rv_to_weights[rv][idx]
 
         theta_values = {theta: float(rhs.subs(draws)) for theta, rhs in sol.items()}
-        value = float(noisy_value.expr.subs(theta_values).subs(draws))
+        value = float(noisy_value._expr.subs(theta_values).subs(draws))
 
         z_values[point_index] = value
         point_weights[point_index] = weight
@@ -194,7 +194,7 @@ def plot_posterior(
             tail_quantile=tail_quantile,
         )
 
-        label = f"expr_{idx}: {sp.sstr(noisy_value.expr)}"
+        label = f"expr_{idx}: {sp.sstr(noisy_value._expr)}"
         ax.plot(x_grid, density, linewidth=2.0, label=label)
         curves.append(
             {
