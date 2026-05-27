@@ -123,10 +123,10 @@ def noisy_value_sampler(
     all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars, key=str)
 
     return NoisyValueSampler(
-        noisy_values=noisy_values,
-        theta_substitutions=theta_substitutions,
-        all_noise_vars=all_noise_vars,
-        library=library,
+        nvs=noisy_values,
+        subst=theta_substitutions,
+        vars=all_noise_vars,
+        lib=library,
         sample_kwargs=sample_kwargs,
     )
 
@@ -165,7 +165,7 @@ def float_array_sampler(
         library=library,
         **sample_kwargs,
     )
-    return FloatArraySampler(prepared=prepared, value_shape=values_array.shape)
+    return FloatArraySampler(delegate=prepared, shape=values_array.shape)
 
 
 def sample_float_array(
@@ -290,13 +290,13 @@ class NoisyBool(NoisyValue):
         return _lift_unary_bool(self, lambda a: not a, Not)
 
 
-@dataclass(frozen=True, eq=False, slots=True)
 class NoisyValueSampler:
-    noisy_values: tuple["NoisyValue", ...]
-    theta_substitutions: dict[Any, Any]
-    all_noise_vars: tuple[Any, ...]
-    library: str = "scipy"
-    sample_kwargs: dict[str, Any] | None = None
+    def __init__(self, nvs, subst, vars, lib="scipy", **kwargs):
+        self.noisy_values = tuple(nvs)
+        self.theta_substitutions = dict(subst)
+        self.all_noise_vars = tuple(vars)
+        self.library = lib
+        self.sample_kwargs = dict(kwargs or {})
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "noisy_values", tuple(self.noisy_values))
@@ -344,28 +344,24 @@ class NoisyValueSampler:
         return result[0] if len(result) == 1 else result
 
 
-@dataclass(frozen=True, eq=False, slots=True)
 class FloatArraySampler:
-    prepared: NoisyValueSampler
-    value_shape: tuple[int, ...]
+    def __init__(self, delegate, shape):
+        self._delegate = delegate
+        self._shape = shape
 
-    def sample(
-        self,
-        n: int = 1000,
-        rng: Any = None,
-        sample_axis: int = -1,
-    ) -> np.ndarray:
-        raw = self.prepared.sample(n=n, rng=rng)
+    def sample(self, n=1000, rng=None, sample_axis=-1):
+    
+        raw = self._delegate.sample(n=n, rng=rng)
         if isinstance(raw, tuple):
             flat = np.stack(raw, axis=0)
         else:
             flat = raw[np.newaxis, :]
 
-        shaped = np.asarray(flat.reshape(self.value_shape + (n,)), dtype=float)
+        shaped = np.asarray(flat.reshape(self._shape + (n,)), dtype=float)
         if sample_axis == -1:
             return shaped
 
-        ndim = len(self.value_shape) + 1
+        ndim = len(self._shape) + 1
         axis = sample_axis if sample_axis >= 0 else sample_axis + ndim
         if axis < 0 or axis >= ndim:
             raise np.AxisError(sample_axis, ndim=ndim)

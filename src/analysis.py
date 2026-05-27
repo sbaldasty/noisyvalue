@@ -82,6 +82,7 @@ class OddsRatio:
             grp0_yes_ratio = grp0_yes / (grp0_yes + grp0_no)
             grp1_yes_ratio = grp1_yes / (grp1_yes + grp1_no)
 
+            # Sample outcomes based on "yes" ratios and group sizes
             grp0_yes_draw = rng.binomial(grp0, grp0_yes_ratio)
             grp0_no_draw = grp0 - grp0_yes_draw
             grp1_yes_draw = rng.binomial(grp1, grp1_yes_ratio)
