@@ -43,7 +43,12 @@ def _compare_float(a, b, op):
     return NoisyBool(obs, expr, thetas, eqns)
 
 
-def _lift_unary(x, obs_fn, expr_fn):
+def _lift_unary_bool(x, obs_fn, expr_fn):
+    x = as_noisy_bool(x)
+    return NoisyBool(obs_fn(bool(x.obs)), expr_fn(x.expr), x.thetas, x.eqns)
+
+
+def _lift_unary_float(x, obs_fn, expr_fn):
     x = as_noisy_float(x)
     return NoisyFloat(obs_fn(float(x.obs)), expr_fn(x.expr), x.thetas, x.eqns)
 
@@ -267,17 +272,12 @@ def sample_shaped(
     return prepared.sample_n(n=n, rng=rng, sample_axis=axis)
 
 
-@dataclass(frozen=True, eq=False, slots=True)
 class NoisyValue:
-    obs: object
-    expr: object
-    thetas: object
-    eqns: object
-
-    def __post_init__(self):
-        object.__setattr__(self, "expr", sympify(self.expr))
-        object.__setattr__(self, "thetas", frozenset(self.thetas))
-        object.__setattr__(self, "eqns", tuple(self.eqns))
+    def __init__(self, obs, expr, thetas, eqns):
+        self.obs = obs
+        self.expr = sympify(expr)
+        self.thetas = frozenset(thetas)
+        self.eqns = tuple(eqns)
 
     def __repr__(self):
         return f"~{self.obs})"
@@ -289,17 +289,15 @@ class NoisyValue:
         return prepare_sampler(self).sample_n(n, rng)
 
 
-@dataclass(frozen=True, eq=False, slots=True)
 class NoisyFloat(NoisyValue):
-    def __post_init__(self):
-        NoisyValue.__post_init__(self)
-        object.__setattr__(self, "obs", float(self.obs))
+    def __init__(self, obs, expr, thetas, eqns):
+        super().__init__(float(obs), expr, thetas, eqns)
 
     def __float__(self):
         return self.obs
 
     def __abs__(self):
-        return _lift_unary(self, abs, Abs)
+        return _lift_unary_float(self, abs, Abs)
 
     def __add__(self, other):
         return _combine_float(self, other, lambda a, b: a + b)
@@ -344,20 +342,18 @@ class NoisyFloat(NoisyValue):
         return _compare_float(self, other, lambda a, b: a != b)
 
     def exp(self):
-        return _lift_unary(self, np.exp, sp.exp)
+        return _lift_unary_float(self, np.exp, sp.exp)
 
     def log(self):
-        return _lift_unary(self, np.log, sp.log)
+        return _lift_unary_float(self, np.log, sp.log)
 
     def sqrt(self):
-        return _lift_unary(self, np.sqrt, sp.sqrt)
+        return _lift_unary_float(self, np.sqrt, sp.sqrt)
 
 
-@dataclass(frozen=True, eq=False, slots=True)
 class NoisyBool(NoisyValue):
-    def __post_init__(self):
-        NoisyValue.__post_init__(self)
-        object.__setattr__(self, "obs", bool(self.obs))
+    def __init__(self, obs, expr, thetas, eqns):
+        super().__init__(bool(obs), expr, thetas, eqns)
 
     def __bool__(self):
         return self.obs
@@ -375,4 +371,4 @@ class NoisyBool(NoisyValue):
         return _combine_bool(self, other, lambda a, b: b or a, Or)
 
     def __invert__(self):
-        return NoisyBool(not self.obs, Not(self.expr), self.thetas, self.eqns)
+        return _lift_unary_bool(self, lambda a: not a, Not)

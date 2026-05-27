@@ -95,17 +95,6 @@ def test_prepared_sampler_matches_direct_sampling_for_same_seed():
     assert np.allclose(prepared_b, direct_b)
 
 
-def test_noisy_value_instances_are_immutable():
-    theta = sp.Symbol("theta_immutable")
-    x = NoisyFloat(obs=1.0, expr=theta, thetas={theta}, eqns=[theta - 1.0])
-
-    with pytest.raises(FrozenInstanceError):
-        x.obs = 2.0
-
-    assert isinstance(x.thetas, frozenset)
-    assert isinstance(x.eqns, tuple)
-
-
 def test_sample_shaped_returns_table_shape_plus_sample_axis():
     table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
     draws = sample_shaped(table, n=11, rng=123)
