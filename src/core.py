@@ -113,7 +113,7 @@ class PreparedSampler:
         object.__setattr__(self, "all_noise_vars", tuple(self.all_noise_vars))
         object.__setattr__(self, "sample_kwargs", dict(self.sample_kwargs or {}))
 
-    def sample_n(self, n: int = 1000, rng: Any = None) -> SampleBatch:
+    def sample(self, n: int = 1000, rng: Any = None) -> SampleBatch:
         dtypes = tuple(type(value.obs) for value in self.noisy_values)
 
         if n <= 0:
@@ -188,7 +188,7 @@ def prepare_sampler(
         sample_kwargs=sample_kwargs,
     )
 
-def sample_n(
+def sample_noisy_values(
     *values: Any,
     n: int = 1000,
     library: str = "scipy",
@@ -201,7 +201,7 @@ def sample_n(
     then reused across all requested values to preserve dependencies.
     """
     prepared = prepare_sampler(*values, library=library, **sample_kwargs)
-    return prepared.sample_n(n=n, rng=rng)
+    return prepared.sample(n=n, rng=rng)
 
 
 @dataclass(frozen=True, eq=False, slots=True)
@@ -209,13 +209,13 @@ class PreparedShapedSampler:
     prepared: PreparedSampler
     value_shape: tuple[int, ...]
 
-    def sample_n(
+    def sample(
         self,
         n: int = 1000,
         rng: Any = None,
         sample_axis: int = -1,
     ) -> np.ndarray:
-        raw = self.prepared.sample_n(n=n, rng=rng)
+        raw = self.prepared.sample(n=n, rng=rng)
         if isinstance(raw, tuple):
             flat = np.stack(raw, axis=0)
         else:
@@ -255,7 +255,7 @@ def prepare_sampler_shaped(
     return PreparedShapedSampler(prepared=prepared, value_shape=values_array.shape)
 
 
-def sample_shaped(
+def sample_shaped_noisy_floats(
     values: Any,
     n: int = 1000,
     library: str = "scipy",
@@ -269,7 +269,7 @@ def sample_shaped(
     Use `axis` to move the sample dimension.
     """
     prepared = prepare_sampler_shaped(values, library=library, **sample_kwargs)
-    return prepared.sample_n(n=n, rng=rng, sample_axis=axis)
+    return prepared.sample(n=n, rng=rng, sample_axis=axis)
 
 
 class NoisyValue:
@@ -286,7 +286,7 @@ class NoisyValue:
         return _solve_theta_substitutions(self.thetas, self.eqns)
 
     def sample(self, n=1000, rng=None):
-        return prepare_sampler(self).sample_n(n, rng)
+        return prepare_sampler(self).sample(n, rng)
 
 
 class NoisyFloat(NoisyValue):

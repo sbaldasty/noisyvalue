@@ -1,10 +1,12 @@
-import numpy as np
-
 from .core import as_noisy_float
 from .core import _combine_float
 from .core import as_noisy_float_array
-from .core import sample_shaped
+from .core import sample_shaped_noisy_floats
+from numpy import quantile
+from numpy import asarray
+from numpy import isfinite
 from numpy.random import Generator
+from numpy.random import default_rng
 from sympy import Max
 from sympy import Min
 
@@ -28,7 +30,7 @@ def _odds_ratio(a, b, c, d):
     result = (a * d) / (b * c)
 
     # Validate just the observation if noisy
-    if not np.isfinite(float(result)) or float(result) <= 0.0:
+    if not isfinite(float(result)) or float(result) <= 0.0:
         return None
 
     # Can be a noisy float or just a float
@@ -58,11 +60,11 @@ class OddsRatio:
 
         # Initialize random number generator for binomial sampling
         if not isinstance(rng, Generator):
-            rng = np.random.default_rng(rng)
+            rng = default_rng(rng)
 
         # Sample flattened table with differential privacy uncertainty
         tbl = self.tbl.ravel()
-        dp_draws = sample_shaped(tbl, n, lib, rng, axis=0)
+        dp_draws = sample_shaped_noisy_floats(tbl, n, lib, rng, axis=0)
 
         # For collecting valid odds ratio draws
         or_draws = []
@@ -91,7 +93,7 @@ class OddsRatio:
                 or_draws.append(or_draw)
 
         # Cache ratios for later confidence interval calculation
-        self.samples = np.asarray(or_draws, dtype=float)
+        self.samples = asarray(or_draws, dtype=float)
 
         # Just for convenient chaining for analysts
         return self
@@ -116,5 +118,5 @@ class OddsRatio:
             raise ValueError("No valid odds ratio draws")
 
         # Compute confidence interval
-        lo, hi = np.quantile(self.samples, [a / 2.0, 1.0 - a / 2.0])
+        lo, hi = quantile(self.samples, [a / 2.0, 1.0 - a / 2.0])
         return float(lo), float(hi)

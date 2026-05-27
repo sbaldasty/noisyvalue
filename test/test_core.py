@@ -8,8 +8,8 @@ from sympy.stats import Normal
 from src.core import NoisyFloat
 from src.core import prepare_sampler
 from src.core import prepare_sampler_shaped
-from src.core import sample_n
-from src.core import sample_shaped
+from src.core import sample_noisy_values
+from src.core import sample_shaped_noisy_floats
 
 
 def test_joint_sampling_preserves_shared_latent_dependency():
@@ -29,7 +29,7 @@ def test_joint_sampling_preserves_shared_latent_dependency():
         eqns=[theta + eps_obs - 1.0],
     )
 
-    draws_a, draws_b = sample_n(noisy_a, noisy_b, n=2000, rng=123)
+    draws_a, draws_b = sample_noisy_values(noisy_a, noisy_b, n=2000, rng=123)
 
     assert draws_a.shape == (2000,)
     assert draws_b.shape == (2000,)
@@ -38,7 +38,7 @@ def test_joint_sampling_preserves_shared_latent_dependency():
 
 def test_joint_sampling_returns_single_array_for_single_value():
     x = NoisyFloat(obs=7.0, expr=7.0, thetas=set(), eqns=[])
-    draws = sample_n(x, n=5, rng=123)
+    draws = sample_noisy_values(x, n=5, rng=123)
 
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (5,)
@@ -63,7 +63,7 @@ def test_prepared_sampler_preserves_shared_latent_dependency():
     )
 
     prepared = prepare_sampler(noisy_a, noisy_b)
-    draws_a, draws_b = prepared.sample_n(n=2000, rng=123)
+    draws_a, draws_b = prepared.sample(n=2000, rng=123)
 
     assert draws_a.shape == (2000,)
     assert draws_b.shape == (2000,)
@@ -87,9 +87,9 @@ def test_prepared_sampler_matches_direct_sampling_for_same_seed():
         eqns=[theta + eps_obs - 1.0],
     )
 
-    direct_a, direct_b = sample_n(noisy_a, noisy_b, n=250, rng=777)
+    direct_a, direct_b = sample_noisy_values(noisy_a, noisy_b, n=250, rng=777)
     prepared = prepare_sampler(noisy_a, noisy_b)
-    prepared_a, prepared_b = prepared.sample_n(n=250, rng=777)
+    prepared_a, prepared_b = prepared.sample(n=250, rng=777)
 
     assert np.allclose(prepared_a, direct_a)
     assert np.allclose(prepared_b, direct_b)
@@ -97,7 +97,7 @@ def test_prepared_sampler_matches_direct_sampling_for_same_seed():
 
 def test_sample_shaped_returns_table_shape_plus_sample_axis():
     table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
-    draws = sample_shaped(table, n=11, rng=123)
+    draws = sample_shaped_noisy_floats(table, n=11, rng=123)
 
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (2, 2, 11)
@@ -112,7 +112,7 @@ def test_sample_shaped_preserves_shared_dependency_across_cells():
     b = NoisyFloat(expr=2.0 * theta, obs=0.0, thetas={theta}, eqns=[theta + eps_obs - 1.0])
     table = np.array([[a, b]], dtype=object)
 
-    draws = sample_shaped(table, n=300, rng=123)
+    draws = sample_shaped_noisy_floats(table, n=300, rng=123)
     assert draws.shape == (1, 2, 300)
     assert np.allclose(draws[0, 1, :], 2.0 * draws[0, 0, :])
 
@@ -120,6 +120,6 @@ def test_sample_shaped_preserves_shared_dependency_across_cells():
 def test_prepared_shaped_sampler_moves_sample_axis():
     table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
     prepared = prepare_sampler_shaped(table)
-    draws = prepared.sample_n(n=7, rng=123, sample_axis=0)
+    draws = prepared.sample(n=7, rng=123, sample_axis=0)
 
     assert draws.shape == (7, 2, 2)
