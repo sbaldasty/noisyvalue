@@ -106,5 +106,5 @@ def test_confidence_interval_raises_when_no_valid_draws(monkeypatch):
 
     monkeypatch.setattr(analysis.OddsRatio, "sample", fake_sample)
 
-    with pytest.raises(ValueError, match="No valid odds ratio draws"):
+    with pytest.raises(ValueError, match="No valid draws"):
         model.confidence_interval()

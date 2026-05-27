@@ -45,9 +45,33 @@ def noisy_max(*values):
     return _fold_float(values, Max)
 
 
-class OddsRatio:
-    def __init__(self, tbl):
+class MonteCarlo:
+    def __init__(self):
         self.samples = None
+
+    def sample(self, n=1000, rng=None, lib="scipy"):
+        raise NotImplementedError("Must be implemented by subclass")
+
+    def confidence_interval(self, a=0.05):
+        a = float(a)
+        assert 0.0 <= a <= 1.0
+
+        # Get samples if not already done
+        if self.samples is None:
+            self.sample()
+
+        # Not enough valid samples
+        if self.samples.size == 0:
+            raise ValueError("No valid draws")
+
+        # Compute confidence interval
+        lo, hi = quantile(self.samples, [a / 2.0, 1.0 - a / 2.0])
+        return float(lo), float(hi)
+
+
+class OddsRatio(MonteCarlo):
+    def __init__(self, tbl):
+        super().__init__()
 
         # Enforce noisy floats in contingency table and correct shape
         self.tbl = as_noisy_float_array(tbl)
@@ -105,19 +129,3 @@ class OddsRatio:
 
         # Odds ratio should come back as a noisy float
         return _odds_ratio(grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw)
-
-    def confidence_interval(self, a=0.05):
-        a = float(a)
-        assert 0.0 <= a <= 1.0
-
-        # Get samples if not already done
-        if self.samples is None:
-            self.sample()
-
-        # Not enough valid odds ratio samples
-        if self.samples.size == 0:
-            raise ValueError("No valid odds ratio draws")
-
-        # Compute confidence interval
-        lo, hi = quantile(self.samples, [a / 2.0, 1.0 - a / 2.0])
-        return float(lo), float(hi)
