@@ -1,12 +1,18 @@
+from .core import NoisyInt
 from .core import as_noisy_float
 from .core import _combine_float
 from .core import as_noisy_float_array
 from .core import sample_float_array
+from .util import fresh_name
+from sympy import And
+from sympy import Piecewise
+from sympy import nan
 from numpy import quantile
 from numpy import asarray
 from numpy import isfinite
 from numpy.random import Generator
 from numpy.random import default_rng
+from sympy.stats import Binomial
 from sympy import Max
 from sympy import Min
 
@@ -35,6 +41,38 @@ def _odds_ratio(a, b, c, d):
 
     # Can be a noisy float or just a float
     return result
+
+
+def _binomial_draw(total, yes_ratio):
+    total = int(total)
+    yes_ratio = float(yes_ratio)
+
+    if total <= 0 or yes_ratio < 0.0 or yes_ratio > 1.0:
+        return None
+
+    expr = Binomial(fresh_name(), total, yes_ratio)
+    obs = int(round(total * yes_ratio))
+    return NoisyInt(obs, expr, [], [])
+
+
+def _symbolic_odds_ratio(a, b, c, d):
+    a = as_noisy_float(a)
+    b = as_noisy_float(b)
+    c = as_noisy_float(c)
+    d = as_noisy_float(d)
+
+    if min(float(a), float(b), float(c), float(d)) <= 0.0:
+        return None
+
+    expr = Piecewise(
+        (
+            (a._expr * d._expr) / (b._expr * c._expr),
+            And(a._expr > 0, b._expr > 0, c._expr > 0, d._expr > 0),
+        ),
+        (nan, True),
+    )
+    result = (a * d) / (b * c)
+    return type(result)(float(result), expr, result._thetas, result._eqns)
 
 
 def noisy_min(*values):
@@ -106,16 +144,21 @@ class OddsRatio(MonteCarlo):
             grp0_yes_ratio = grp0_yes / (grp0_yes + grp0_no)
             grp1_yes_ratio = grp1_yes / (grp1_yes + grp1_no)
 
-            # Sample outcomes based on "yes" ratios and group sizes
-            grp0_yes_draw = rng.binomial(grp0, grp0_yes_ratio)
+            # Represent the sampling uncertainty symbolically, then sample it once.
+            grp0_yes_draw = _binomial_draw(grp0, grp0_yes_ratio)
+            grp1_yes_draw = _binomial_draw(grp1, grp1_yes_ratio)
+            if grp0_yes_draw is None or grp1_yes_draw is None:
+                continue
+
             grp0_no_draw = grp0 - grp0_yes_draw
-            grp1_yes_draw = rng.binomial(grp1, grp1_yes_ratio)
             grp1_no_draw = grp1 - grp1_yes_draw
 
             # Calculate odds ratio and keep if valid
-            or_draw = _odds_ratio(grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw)
+            or_draw = _symbolic_odds_ratio(grp0_yes_draw, grp0_no_draw, grp1_yes_draw, grp1_no_draw)
             if or_draw is not None:
-                or_draws.append(or_draw)
+                sampled_or = float(or_draw.sample(n=1, rng=rng)[0])
+                if isfinite(sampled_or) and sampled_or > 0.0:
+                    or_draws.append(sampled_or)
 
         # Cache ratios for later confidence interval calculation
         self.samples = asarray(or_draws, dtype=float)

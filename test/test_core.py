@@ -4,6 +4,7 @@ import sympy as sp
 from sympy.stats import Normal
 
 from src.core import NoisyFloat
+from src.core import NoisyInt
 from src.core import noisy_value_sampler
 from src.core import float_array_sampler
 from src.core import sample_noisy_values
@@ -41,6 +42,15 @@ def test_joint_sampling_returns_single_array_for_single_value():
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (5,)
     assert np.all(draws == 7.0)
+
+
+def test_integer_noisy_values_sample_as_integers():
+    count = NoisyInt(obs=3, expr=3, thetas=set(), eqns=[])
+    draws = sample_noisy_values(count, n=5, rng=123)
+
+    assert isinstance(draws, np.ndarray)
+    assert draws.dtype == int
+    assert np.all(draws == 3)
 
 
 def test_prepared_sampler_preserves_shared_latent_dependency():

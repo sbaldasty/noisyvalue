@@ -79,6 +79,13 @@ def as_noisy_float(value):
     return NoisyFloat(float(expr), expr, [], [])
 
 
+def as_noisy_int(value):
+    if isinstance(value, NoisyInt):
+        return value
+    expr = sympify(value)
+    return NoisyInt(int(expr), expr, [], [])
+
+
 def as_noisy_float_array(array):
     values = np.asarray(array, dtype=object)
     flat = values.reshape(-1)
@@ -91,6 +98,8 @@ def as_noisy_value(value):
         return value
     if isinstance(value, (bool, np.bool_)):
         return as_noisy_bool(value)
+    if isinstance(value, (int, np.integer)):
+        return as_noisy_int(value)
     return as_noisy_float(value)
 
 
@@ -156,6 +165,14 @@ def sample_float_array(vals, n=1000, lib="scipy", rng=None, axis=-1, **kwargs):
     """
     sampler = float_array_sampler(vals, lib=lib, **kwargs)
     return sampler.sample(n, rng, axis)
+
+
+class Posterior:
+    def __init__(self, thetas, epsilons, constraints, law=None):
+        self.thetas = frozenset(thetas)
+        self.epsilons = frozenset(epsilons)
+        self.constraints = frozenset(constraints)
+        self.law = law
 
 
 class NoisyValue:
@@ -235,6 +252,20 @@ class NoisyFloat(NoisyValue):
 
     def sqrt(self):
         return _lift_unary_float(self, np.sqrt, sp.sqrt)
+
+
+class NoisyInt(NoisyFloat):
+    def __init__(self, obs, expr, thetas, eqns):
+        NoisyValue.__init__(self, int(obs), expr, thetas, eqns)
+
+    def __float__(self):
+        return float(self._obs)
+
+    def __int__(self):
+        return self._obs
+
+    def __index__(self):
+        return self._obs
 
 
 class NoisyBool(NoisyValue):
