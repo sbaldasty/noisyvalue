@@ -199,6 +199,35 @@ def _preferred_value_expr(noisy_value):
     return noisy_value._expr
 
 
+def _filter_theta_equations(eqns, thetas):
+    """Keep only equations suitable for solving latent symbols.
+
+    We keep equations that involve only latent symbols, or latent symbols plus
+    random symbols. Equations with other deterministic non-latent symbols are
+    excluded from latent substitution solving.
+    """
+    thetas = set(thetas)
+    theta_eqns = []
+    for eqn in eqns:
+        eqn = sympify(eqn)
+        non_latent_symbols = set(eqn.free_symbols) - thetas
+        if not non_latent_symbols:
+            theta_eqns.append(eqn)
+            continue
+
+        random_related_symbols = set()
+        for rv in random_symbols(eqn):
+            random_related_symbols.add(rv)
+            rv_symbol = getattr(rv, "symbol", None)
+            if rv_symbol is not None:
+                random_related_symbols.add(rv_symbol)
+
+        if non_latent_symbols.issubset(random_related_symbols):
+            theta_eqns.append(eqn)
+
+    return tuple(theta_eqns)
+
+
 def as_noisy_bool(value):
     if isinstance(value, NoisyBool):
         return value
@@ -272,24 +301,7 @@ def _sampler_inputs_from_roots(values):
             else:
                 root_noise_vars |= set(random_symbols(node.law))
 
-    # Just a guardrail, maybe remove
-    theta_eqns = []
-    for eqn in all_eqns:
-        eqn = sympify(eqn)
-        non_latent_symbols = set(eqn.free_symbols) - all_thetas
-        if not non_latent_symbols:
-            theta_eqns.append(eqn)
-            continue
-
-        random_related_symbols = set()
-        for rv in random_symbols(eqn):
-            random_related_symbols.add(rv)
-            rv_symbol = getattr(rv, "symbol", None)
-            if rv_symbol is not None:
-                random_related_symbols.add(rv_symbol)
-
-        if non_latent_symbols.issubset(random_related_symbols):
-            theta_eqns.append(eqn)
+    theta_eqns = _filter_theta_equations(all_eqns, all_thetas)
 
     ordered_law_nodes = tuple(law_nodes[symbol] for symbol in sorted(law_nodes, key=str))
     return all_thetas, theta_eqns, root_noise_vars, ordered_law_nodes
