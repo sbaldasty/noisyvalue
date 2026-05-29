@@ -22,6 +22,7 @@ class Unknown:
     depends_on: tuple["Unknown", ...] = ()
     constraints: tuple[sp.Expr, ...] = ()
     law: sp.Expr | None = None
+    definition: sp.Expr | None = None
     role: str = "derived"
 
     def __post_init__(self):
@@ -41,6 +42,7 @@ class Unknown:
         constraints = tuple(sympify(expr) for expr in self.constraints)
         object.__setattr__(self, "constraints", constraints)
         object.__setattr__(self, "law", None if self.law is None else sympify(self.law))
+        object.__setattr__(self, "definition", None if self.definition is None else sympify(self.definition))
 
         if self._has_cycle():
             raise ValueError("Unknown dependency graph contains a cycle")
@@ -144,10 +146,18 @@ def _solve_theta_substitutions(thetas, eqns):
     if not thetas:
         return {}
 
-    equations = [Eq(eq, 0) for eq in eqns]
+    equations = []
+    for eq in eqns:
+        eq = sympify(eq)
+        if isinstance(eq, sp.Equality):
+            equations.append(eq)
+        else:
+            equations.append(Eq(eq, 0))
     theta_list = list(thetas)
 
     sol = sp.solve(equations, theta_list, dict=True)
+    if not sol:
+        raise ValueError(f"Could not solve latent variables from constraints: {thetas}")
     chosen = sol[0]
     missing = set(thetas) - set(chosen.keys())
     if missing:
@@ -170,6 +180,23 @@ def _instantiate_law(law, substitutions):
 
     args = tuple(sympify(arg).subs(substitutions) for arg in distribution.args)
     return ctor(fresh_name(), *args)
+
+
+def _expanded_definitions(root):
+    expanded = {}
+    for node in reversed(root.closure()):
+        if node.definition is None:
+            continue
+        expanded[node.symbol] = sympify(node.definition).subs(expanded)
+    return expanded
+
+
+def _preferred_value_expr(noisy_value):
+    root = _as_unknown(noisy_value)
+    expanded = _expanded_definitions(root)
+    if root.symbol in expanded:
+        return expanded[root.symbol]
+    return noisy_value._expr
 
 
 def as_noisy_bool(value):
@@ -245,8 +272,27 @@ def _sampler_inputs_from_roots(values):
             else:
                 root_noise_vars |= set(random_symbols(node.law))
 
+    # Just a guardrail, maybe remove
+    theta_eqns = []
+    for eqn in all_eqns:
+        eqn = sympify(eqn)
+        non_latent_symbols = set(eqn.free_symbols) - all_thetas
+        if not non_latent_symbols:
+            theta_eqns.append(eqn)
+            continue
+
+        random_related_symbols = set()
+        for rv in random_symbols(eqn):
+            random_related_symbols.add(rv)
+            rv_symbol = getattr(rv, "symbol", None)
+            if rv_symbol is not None:
+                random_related_symbols.add(rv_symbol)
+
+        if non_latent_symbols.issubset(random_related_symbols):
+            theta_eqns.append(eqn)
+
     ordered_law_nodes = tuple(law_nodes[symbol] for symbol in sorted(law_nodes, key=str))
-    return all_thetas, all_eqns, root_noise_vars, ordered_law_nodes
+    return all_thetas, theta_eqns, root_noise_vars, ordered_law_nodes
 
 
 def noisy_value_sampler(*vals, lib="scipy", **kwargs):
@@ -267,13 +313,15 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
     rhs_noise_vars = {
         rv for rhs in theta_substitutions.values() for rv in random_symbols(rhs)
     }
+    value_exprs = tuple(_preferred_value_expr(value) for value in noisy_values)
     predictive_noise_vars = {
-        rv for value in noisy_values for rv in random_symbols(value._expr)
+        rv for expr in value_exprs for rv in random_symbols(expr)
     }
     all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars | root_noise_vars, key=str)
 
     return NoisyValueSampler(
         noisy_values,
+        exprs=value_exprs,
         subs=theta_substitutions,
         vars=all_noise_vars,
         law_nodes=law_nodes,
@@ -334,6 +382,16 @@ class NoisyValue:
             raise TypeError(f"Expected Unknown root, got {type(root).__name__}")
 
         expr = root.symbol if expr is None else sympify(expr)
+        if expr != root.symbol:
+            output_symbol = Symbol(fresh_name())
+            root = Unknown(
+                symbol=output_symbol,
+                depends_on=(root,),
+                constraints=(),
+                law=None,
+                definition=expr,
+                role="derived",
+            )
         return cls(obs, expr, root)
 
     @property
@@ -450,8 +508,9 @@ class NoisyBool(NoisyValue):
 
 
 class NoisyValueSampler:
-    def __init__(self, vals, subs, vars, law_nodes=(), lib="scipy", **kwargs):
+    def __init__(self, vals, exprs, subs, vars, law_nodes=(), lib="scipy", **kwargs):
         self._vals = tuple(vals)
+        self._exprs = tuple(exprs)
         self._subs = dict(subs)
         self._vars = tuple(vars)
         self._law_nodes = tuple(law_nodes)
@@ -557,8 +616,8 @@ class NoisyValueSampler:
 
                 unresolved = next_unresolved
 
-            for out_idx, noisy_value in enumerate(self._vals):
-                sampled_expr = noisy_value._expr.subs(theta_values).subs(draws)
+            for out_idx, sampled_value_expr in enumerate(self._exprs):
+                sampled_expr = sampled_value_expr.subs(theta_values).subs(draws)
                 outputs[out_idx][idx] = dtypes[out_idx](sampled_expr)
 
         result = tuple(outputs)

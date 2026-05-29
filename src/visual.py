@@ -6,6 +6,7 @@ from sympy.stats import quantile
 from sympy.stats.rv import random_symbols
 
 from src.core import _solve_theta_substitutions
+from src.core import _preferred_value_expr
 
 
 def _weighted_quantile(values, weights, q):
@@ -62,18 +63,37 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     thetas = noisy_value.root.latent_symbols()
     constraints = noisy_value.root.all_constraints()
 
+    theta_constraints = []
+    for eqn in constraints:
+        eqn = sp.sympify(eqn)
+        non_latent_symbols = set(eqn.free_symbols) - set(thetas)
+        if not non_latent_symbols:
+            theta_constraints.append(eqn)
+            continue
+
+        random_related_symbols = set()
+        for rv in random_symbols(eqn):
+            random_related_symbols.add(rv)
+            rv_symbol = getattr(rv, "symbol", None)
+            if rv_symbol is not None:
+                random_related_symbols.add(rv_symbol)
+
+        if non_latent_symbols.issubset(random_related_symbols):
+            theta_constraints.append(eqn)
+
     if thetas:
-        sol = _solve_theta_substitutions(thetas, constraints)
+        sol = _solve_theta_substitutions(thetas, theta_constraints)
         rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
     else:
         sol = {}
         rhs_noise_vars = []
 
-    predictive_noise_vars = list(random_symbols(noisy_value._expr))
+    value_expr = _preferred_value_expr(noisy_value)
+    predictive_noise_vars = list(random_symbols(value_expr))
     integration_rvs = sorted(set(rhs_noise_vars) | set(predictive_noise_vars), key=str)
 
     if not integration_rvs:
-        value = float(noisy_value._expr)
+        value = float(value_expr)
         return np.asarray([value], dtype=float), np.asarray([1.0], dtype=float)
 
     total_points = quadrature_points ** len(integration_rvs)
@@ -102,7 +122,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
             weight *= rv_to_weights[rv][idx]
 
         theta_values = {theta: float(rhs.subs(draws)) for theta, rhs in sol.items()}
-        value = float(noisy_value._expr.subs(theta_values).subs(draws))
+        value = float(value_expr.subs(theta_values).subs(draws))
 
         z_values[point_index] = value
         point_weights[point_index] = weight

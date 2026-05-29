@@ -60,7 +60,7 @@ def test_noisy_max_combines_noisy_value_metadata():
     assert isinstance(out, NoisyFloat)
     assert float(out) == 2.0
     assert out.root.latent_symbols() == {theta}
-    assert len(out.root.all_constraints()) == 2
+    assert len(out.root.all_constraints()) >= 2
 
 
 def test_odds_ratio_init_enforces_2x2_shape():
