@@ -7,7 +7,7 @@ from sympy.stats.rv import random_symbols
 
 from src.core import NoisyFloat
 from src.core import NoisyInt
-from src.core import Unknown
+from src.core import Node
 from src.core import as_noisy_float
 from src.core import as_noisy_int
 from src.core import noisy_value_sampler
@@ -20,24 +20,24 @@ from src.util import fresh_name
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
     theta_nodes = tuple(
-        Unknown(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
+        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
         for theta in sorted(set(thetas), key=str)
     )
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
     noise_nodes = tuple(
-        Unknown(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
+        Node(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
         for rv in sorted(random_rvs, key=str)
     )
-    root = Unknown(
+    root = Node(
         symbol=sp.Symbol(f"root_{fresh_name()}"),
         depends_on=theta_nodes + noise_nodes,
         constraints=eqns,
         law=None,
         role="derived",
     )
-    return NoisyFloat.from_unknown(obs=obs, root=root, expr=expr)
+    return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 
 
 def test_joint_sampling_preserves_shared_latent_dependency():
@@ -67,7 +67,7 @@ def test_joint_sampling_returns_single_array_for_single_value():
 def test_literal_conversions_use_native_root_model():
     converted = as_noisy_float(7.0)
 
-    assert isinstance(converted.root, Unknown)
+    assert isinstance(converted.root, Node)
     assert converted.root.constraints == ()
     assert float(converted) == 7.0
 
@@ -144,20 +144,20 @@ def test_prepared_shaped_sampler_moves_sample_axis():
     assert draws.shape == (7, 2, 2)
 
 
-def test_unknown_is_immutable_and_validates_role():
-    theta = sp.Symbol("theta_unknown")
-    unknown = Unknown(symbol=theta, role="latent")
+def test_node_is_immutable_and_validates_role():
+    theta = sp.Symbol("theta_node")
+    node = Node(symbol=theta, role="latent")
 
     with pytest.raises(Exception):
-        unknown.role = "noise"
+        node.role = "noise"
 
     with pytest.raises(ValueError):
-        Unknown(symbol=theta, role="not_a_role")
+        Node(symbol=theta, role="not_a_role")
 
 
-def test_noisyvalue_from_unknown_uses_root_and_constraints():
-    theta = sp.Symbol("theta_from_unknown")
-    root = Unknown(
+def test_noisyvalue_from_node_uses_root_and_constraints():
+    theta = sp.Symbol("theta_from_node")
+    root = Node(
         symbol=theta,
         depends_on=(),
         constraints=(theta - 2.0,),
@@ -165,7 +165,7 @@ def test_noisyvalue_from_unknown_uses_root_and_constraints():
         role="latent",
     )
 
-    value = NoisyFloat.from_unknown(obs=2.0, root=root)
+    value = NoisyFloat.from_node(obs=2.0, root=root)
 
     assert value.root is root
     assert value.root.latent_symbols() == {theta}
@@ -174,7 +174,7 @@ def test_noisyvalue_from_unknown_uses_root_and_constraints():
 
 def test_sampler_uses_root_constraints():
     theta = sp.Symbol("theta_root_only")
-    root = Unknown(
+    root = Node(
         symbol=theta,
         depends_on=(),
         constraints=(theta - 3.5,),
@@ -182,7 +182,7 @@ def test_sampler_uses_root_constraints():
         role="latent",
     )
 
-    value = NoisyFloat.from_unknown(obs=3.5, root=root, expr=theta)
+    value = NoisyFloat.from_node(obs=3.5, root=root, expr=theta)
     draws = value.sample(n=6, rng=123)
 
     assert draws.shape == (6,)
@@ -193,21 +193,21 @@ def test_sampler_resolves_multilayer_law_dependencies():
     z1_symbol = sp.Symbol("z1_layered")
     z2_symbol = sp.Symbol("z2_layered")
 
-    z1 = Unknown(
+    z1 = Node(
         symbol=z1_symbol,
         depends_on=(),
         constraints=(),
         law=Normal("law_z1_layered", 0, 1),
         role="noise",
     )
-    z2 = Unknown(
+    z2 = Node(
         symbol=z2_symbol,
         depends_on=(z1,),
         constraints=(),
         law=Normal("law_z2_layered", z1_symbol, 1),
         role="noise",
     )
-    root = Unknown(
+    root = Node(
         symbol=sp.Symbol(f"root_{fresh_name()}"),
         depends_on=(z2,),
         constraints=(),
@@ -215,7 +215,7 @@ def test_sampler_resolves_multilayer_law_dependencies():
         role="derived",
     )
 
-    value = NoisyFloat.from_unknown(obs=0.0, root=root, expr=z2_symbol)
+    value = NoisyFloat.from_node(obs=0.0, root=root, expr=z2_symbol)
     draws = value.sample(n=4000, rng=123)
 
     assert draws.shape == (4000,)
@@ -225,7 +225,7 @@ def test_sampler_resolves_multilayer_law_dependencies():
 
 def test_sampler_uses_root_output_definition():
     theta = sp.Symbol("theta_stale_expr")
-    root = Unknown(
+    root = Node(
         symbol=theta,
         depends_on=(),
         constraints=(theta - 4.0,),
@@ -233,7 +233,7 @@ def test_sampler_uses_root_output_definition():
         role="latent",
     )
 
-    value = NoisyFloat.from_unknown(obs=4.0, root=root, expr=theta + 9.0)
+    value = NoisyFloat.from_node(obs=4.0, root=root, expr=theta + 9.0)
     assert value.root.definition == theta + 9.0
     assert value.root.constraints == ()
     draws = value.sample(n=8, rng=123)

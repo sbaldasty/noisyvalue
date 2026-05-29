@@ -17,9 +17,9 @@ from .util import fresh_name
 
 
 @dataclass(frozen=True)
-class Unknown:
+class Node:
     symbol: sp.Basic
-    depends_on: tuple["Unknown", ...] = ()
+    depends_on: tuple["Node", ...] = ()
     constraints: tuple[sp.Expr, ...] = ()
     law: sp.Expr | None = None
     definition: sp.Expr | None = None
@@ -31,12 +31,12 @@ class Unknown:
 
         symbol = sympify(self.symbol)
         if not isinstance(symbol, sp.Basic):
-            raise TypeError("Unknown.symbol must be a sympy expression atom")
+            raise TypeError("Node.symbol must be a sympy expression atom")
         object.__setattr__(self, "symbol", symbol)
 
         deps = tuple(self.depends_on)
-        if not all(isinstance(dep, Unknown) for dep in deps):
-            raise TypeError("Unknown.depends_on must contain Unknown instances")
+        if not all(isinstance(dep, Node) for dep in deps):
+            raise TypeError("Node.depends_on must contain Node instances")
         object.__setattr__(self, "depends_on", deps)
 
         constraints = tuple(sympify(expr) for expr in self.constraints)
@@ -45,7 +45,7 @@ class Unknown:
         object.__setattr__(self, "definition", self.symbol if self.definition is None else sympify(self.definition))
 
         if self._has_cycle():
-            raise ValueError("Unknown dependency graph contains a cycle")
+            raise ValueError("Node dependency graph contains a cycle")
 
     def _has_cycle(self):
         visited = set()
@@ -90,16 +90,16 @@ class Unknown:
             all_constraints.extend(node.constraints)
         return tuple(all_constraints)
 
-def _as_unknown(value):
+def _as_node(value):
     root = getattr(value, "root", None)
-    if not isinstance(root, Unknown):
-        raise TypeError(f"Expected value with Unknown root, got {type(value).__name__}")
+    if not isinstance(root, Node):
+        raise TypeError(f"Expected value with Node root, got {type(value).__name__}")
     return root
 
 
-def _derive_unknown(*parents):
-    parent_nodes = tuple(_as_unknown(parent) for parent in parents)
-    return Unknown(
+def _derive_node(*parents):
+    parent_nodes = tuple(_as_node(parent) for parent in parents)
+    return Node(
         symbol=Symbol(fresh_name()),
         depends_on=parent_nodes,
         constraints=(),
@@ -108,38 +108,43 @@ def _derive_unknown(*parents):
     )
 
 
+# Backward-compatible internal aliases.
+_as_unknown = _as_node
+_derive_unknown = _derive_node
+
+
 def _combine_float(x, y, op):
     y = as_noisy_float(y)
     obs = op(x._obs, y._obs)
     expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
-    root = _derive_unknown(x, y)
-    return NoisyFloat.from_unknown(obs, root, expr=expr)
+    root = _derive_node(x, y)
+    return NoisyFloat.from_node(obs, root, expr=expr)
 
 
 def _combine_bool(x, y, obs_op, expr_op):
     y = as_noisy_bool(y)
     obs = obs_op(x._obs, y._obs)
     expr = expr_op(_preferred_value_expr(x), _preferred_value_expr(y))
-    root = _derive_unknown(x, y)
-    return NoisyBool.from_unknown(obs, root, expr=expr)
+    root = _derive_node(x, y)
+    return NoisyBool.from_node(obs, root, expr=expr)
 
 
 def _compare_float(x, y, op):
     y = as_noisy_float(y)
     obs = op(x._obs, y._obs)
     expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
-    root = _derive_unknown(x, y)
-    return NoisyBool.from_unknown(obs, root, expr=expr)
+    root = _derive_node(x, y)
+    return NoisyBool.from_node(obs, root, expr=expr)
 
 
 def _lift_unary_bool(x, obs_fn, expr_fn):
     x = as_noisy_bool(x)
-    return NoisyBool.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(_preferred_value_expr(x)))
+    return NoisyBool.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
 
 
 def _lift_unary_float(x, obs_fn, expr_fn):
     x = as_noisy_float(x)
-    return NoisyFloat.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(_preferred_value_expr(x)))
+    return NoisyFloat.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
 
 
 def _solve_theta_substitutions(thetas, eqns):
@@ -190,7 +195,7 @@ def _expanded_definitions(root):
 
 
 def _preferred_value_expr(noisy_value):
-    root = _as_unknown(noisy_value)
+    root = _as_node(noisy_value)
     expanded = _expanded_definitions(root)
     return expanded[root.symbol]
 
@@ -229,8 +234,8 @@ def as_noisy_bool(value):
         return value
     if isinstance(value, (bool, np.bool_)):
         expr = sympify(bool(value))
-        root = Unknown(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-        return NoisyBool.from_unknown(bool(value), root, expr=expr)
+        root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
+        return NoisyBool.from_node(bool(value), root, expr=expr)
     raise TypeError(f"Expected bool or NoisyBool, got {type(value).__name__}")
 
 
@@ -238,16 +243,16 @@ def as_noisy_float(value):
     if isinstance(value, NoisyFloat):
         return value
     expr = sympify(value)
-    root = Unknown(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-    return NoisyFloat.from_unknown(float(expr), root, expr=expr)
+    root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
+    return NoisyFloat.from_node(float(expr), root, expr=expr)
 
 
 def as_noisy_int(value):
     if isinstance(value, NoisyInt):
         return value
     expr = sympify(value)
-    root = Unknown(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-    return NoisyInt.from_unknown(int(expr), root, expr=expr)
+    root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
+    return NoisyInt.from_node(int(expr), root, expr=expr)
 
 
 def as_noisy_float_array(array):
@@ -274,7 +279,7 @@ def _sampler_inputs_from_roots(values):
     law_nodes = {}
 
     for value in values:
-        root = _as_unknown(value)
+        root = _as_node(value)
         all_thetas |= root.latent_symbols()
         all_eqns.extend(root.all_constraints())
         for node in root.closure():
@@ -378,20 +383,20 @@ def sample_float_array(vals, n=1000, lib="scipy", rng=None, axis=-1, **kwargs):
 
 class NoisyValue:
     def __init__(self, obs, root):
-        if not isinstance(root, Unknown):
-            raise TypeError(f"Expected Unknown root, got {type(root).__name__}")
+        if not isinstance(root, Node):
+            raise TypeError(f"Expected Node root, got {type(root).__name__}")
         self._obs = obs
         self._root = root
 
     @classmethod
-    def from_unknown(cls, obs, root, expr=None):
-        if not isinstance(root, Unknown):
-            raise TypeError(f"Expected Unknown root, got {type(root).__name__}")
+    def from_node(cls, obs, root, expr=None):
+        if not isinstance(root, Node):
+            raise TypeError(f"Expected Node root, got {type(root).__name__}")
 
         expr = root.symbol if expr is None else sympify(expr)
         if expr != root.symbol:
             output_symbol = Symbol(fresh_name())
-            root = Unknown(
+            root = Node(
                 symbol=output_symbol,
                 depends_on=(root,),
                 constraints=(),
@@ -400,6 +405,10 @@ class NoisyValue:
                 role="derived",
             )
         return cls(obs, root)
+
+    @classmethod
+    def from_unknown(cls, obs, root, expr=None):
+        return cls.from_node(obs, root, expr)
 
     @property
     def root(self):

@@ -1,6 +1,6 @@
 from .core import NoisyFloat
 from .core import NoisyInt
-from .core import Unknown
+from .core import Node
 from .core import as_noisy_float
 from .core import _preferred_value_expr
 from .core import _combine_float
@@ -57,7 +57,7 @@ def _binomial_draw(total, yes_ratio):
 
     expr = Binomial(fresh_name(), total, yes_ratio)
     obs = int(round(total * yes_ratio))
-    root = NoisyInt.from_unknown(obs, Unknown(symbol=expr, depends_on=(), constraints=(), law=expr, role="noise"), expr=expr)
+    root = NoisyInt.from_node(obs, Node(symbol=expr, depends_on=(), constraints=(), law=expr, role="noise"), expr=expr)
     return root
 
 
@@ -83,7 +83,7 @@ def _symbolic_odds_ratio(a, b, c, d):
         (nan, True),
     )
     result = (a * d) / (b * c)
-    return type(result).from_unknown(float(result), result.root, expr=expr)
+    return type(result).from_node(float(result), result.root, expr=expr)
 
 
 def noisy_min(*values):
@@ -219,14 +219,14 @@ class OddsRatio(MonteCarlo):
         grp0_yes_symbol = Symbol(fresh_name())
         grp1_yes_symbol = Symbol(fresh_name())
 
-        grp0_yes_node = Unknown(
+        grp0_yes_node = Node(
             symbol=grp0_yes_symbol,
             depends_on=(grp0_yes.root, grp0_no.root),
             constraints=(),
             law=Binomial(fresh_name(), grp0_total_expr, grp0_ratio_expr),
             role="noise",
         )
-        grp1_yes_node = Unknown(
+        grp1_yes_node = Node(
             symbol=grp1_yes_symbol,
             depends_on=(grp1_yes.root, grp1_no.root),
             constraints=(),
@@ -257,7 +257,7 @@ class OddsRatio(MonteCarlo):
             (nan, True),
         )
 
-        root = Unknown(
+        root = Node(
             symbol=Symbol(fresh_name()),
             depends_on=(
                 grp0_yes.root,
@@ -272,7 +272,7 @@ class OddsRatio(MonteCarlo):
             role="derived",
         )
 
-        return NoisyFloat.from_unknown(obs_or, root, expr=expr)
+        return NoisyFloat.from_node(obs_or, root, expr=expr)
 
     def sample2(self, n=10000, rng=None, lib="scipy"):
         n = int(n)

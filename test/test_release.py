@@ -1,7 +1,7 @@
 import src.noise as noise
 import src.release as release
 from src.core import NoisyFloat
-from src.core import Unknown
+from src.core import Node
 
 import numpy as np
 
@@ -21,11 +21,11 @@ def test_float_obs():
     assert float(noisy_float) == expected_noise + 5.0
 
 
-def test_noisy_float_uses_root_unknown():
+def test_noisy_float_uses_root_node():
     noise_factory = noise.gaussian(loc=0, scale=1)
     noisy_float = release.noisy_float(5.0, noise_factory, seed=_rng_factory())
 
-    assert isinstance(noisy_float.root, Unknown)
+    assert isinstance(noisy_float.root, Node)
     assert noisy_float.root.role == "derived"
     assert noisy_float.root.latent_symbols()
 

@@ -1,7 +1,7 @@
 import numpy as np
 
 from .core import NoisyFloat
-from .core import Unknown
+from .core import Node
 from .util import fresh_name
 from sympy import Symbol
 from sympy import sympify
@@ -19,9 +19,9 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
     obs_expr = theta + noise_rv
     obs = float(sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs))
 
-    theta_node = Unknown(symbol=theta, depends_on=(), constraints=(), law=None, role="latent")
-    noise_node = Unknown(symbol=noise_rv, depends_on=(), constraints=(), law=noise_rv, role="noise")
-    root = Unknown(
+    theta_node = Node(symbol=theta, depends_on=(), constraints=(), law=None, role="latent")
+    noise_node = Node(symbol=noise_rv, depends_on=(), constraints=(), law=noise_rv, role="noise")
+    root = Node(
         symbol=Symbol(fresh_name()),
         depends_on=(theta_node, noise_node),
         constraints=(obs_expr - obs,),
@@ -29,7 +29,7 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
         role="derived",
     )
 
-    return NoisyFloat.from_unknown(obs, root, expr=theta)
+    return NoisyFloat.from_node(obs, root, expr=theta)
 
 
 def noisy_float_array(true_tbl, noise_factory, **sample_kwargs):

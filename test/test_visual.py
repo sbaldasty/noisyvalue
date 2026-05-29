@@ -7,7 +7,7 @@ from sympy.stats import Normal
 from sympy.stats.rv import random_symbols
 
 from src.core import NoisyFloat
-from src.core import Unknown
+from src.core import Node
 from src.visual import plot_posterior
 from src.util import fresh_name
 
@@ -18,24 +18,24 @@ matplotlib.use("Agg")
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
     theta_nodes = tuple(
-        Unknown(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
+        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
         for theta in sorted(set(thetas), key=str)
     )
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
     noise_nodes = tuple(
-        Unknown(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
+        Node(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
         for rv in sorted(random_rvs, key=str)
     )
-    root = Unknown(
+    root = Node(
         symbol=sp.Symbol(f"root_{fresh_name()}"),
         depends_on=theta_nodes + noise_nodes,
         constraints=eqns,
         law=None,
         role="derived",
     )
-    return NoisyFloat.from_unknown(obs=obs, root=root, expr=expr)
+    return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 
 
 def test_plot_posteriors_for_composed_expression_returns_density_curve():

@@ -6,7 +6,7 @@ import src.analysis as analysis
 
 from src.core import NoisyFloat
 from src.core import NoisyInt
-from src.core import Unknown
+from src.core import Node
 from sympy.stats.rv import random_symbols
 from src.util import fresh_name
 
@@ -14,24 +14,24 @@ from src.util import fresh_name
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
     theta_nodes = tuple(
-        Unknown(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
+        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
         for theta in sorted(set(thetas), key=str)
     )
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
     noise_nodes = tuple(
-        Unknown(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
+        Node(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
         for rv in sorted(random_rvs, key=str)
     )
-    root = Unknown(
+    root = Node(
         symbol=sp.Symbol(f"root_{fresh_name()}"),
         depends_on=theta_nodes + noise_nodes,
         constraints=eqns,
         law=None,
         role="derived",
     )
-    return NoisyFloat.from_unknown(obs=obs, root=root, expr=expr)
+    return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 
 
 def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():
@@ -168,9 +168,9 @@ def test_confidence_interval_raises_when_no_valid_draws(monkeypatch):
         model.confidence_interval()
 
 
-def test_binomial_draw_uses_root_unknown():
+def test_binomial_draw_uses_root_node():
     draw = analysis._binomial_draw(10, 0.3)
 
     assert isinstance(draw, NoisyInt)
-    assert isinstance(draw.root, Unknown)
+    assert isinstance(draw.root, Node)
     assert draw.root.role == "noise"
