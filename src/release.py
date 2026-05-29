@@ -1,6 +1,7 @@
 import numpy as np
 
 from .core import NoisyFloat
+from .core import Unknown
 from .util import fresh_name
 from sympy import Symbol
 from sympy import sympify
@@ -15,12 +16,20 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
         raise TypeError("noise_factory must return a random variable")
 
     theta = Symbol(fresh_name())
-    measurement = theta + noise_rv
-    obs_expr = measurement.subs({theta: sympify(true_value)})
-    obs = float(sample(obs_expr, **sample_kwargs))
-    eqns = [measurement - obs]
+    obs_expr = theta + noise_rv
+    obs = float(sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs))
 
-    return NoisyFloat(obs, theta, {theta}, eqns)
+    theta_node = Unknown(symbol=theta, depends_on=(), constraints=(), law=None, role="latent")
+    noise_node = Unknown(symbol=noise_rv, depends_on=(), constraints=(), law=noise_rv, role="noise")
+    root = Unknown(
+        symbol=Symbol(fresh_name()),
+        depends_on=(theta_node, noise_node),
+        constraints=(obs_expr - obs,),
+        law=None,
+        role="derived",
+    )
+
+    return NoisyFloat.from_unknown(obs, root, expr=theta)
 
 
 def noisy_float_array(true_tbl, noise_factory, **sample_kwargs):

@@ -59,8 +59,11 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     if quadrature_points < 2:
         raise ValueError("quadrature_points must be at least 2")
 
-    if noisy_value._thetas:
-        sol = _solve_theta_substitutions(noisy_value._thetas, noisy_value._eqns)
+    thetas = noisy_value.root.latent_symbols()
+    constraints = noisy_value.root.all_constraints()
+
+    if thetas:
+        sol = _solve_theta_substitutions(thetas, constraints)
         rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
     else:
         sol = {}

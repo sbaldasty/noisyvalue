@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 import sympy as sp
+import sympy.stats as spstats
 import numpy as np
 
 from sympy import Abs
@@ -6,46 +8,136 @@ from sympy import And
 from sympy import Eq
 from sympy import Not
 from sympy import Or
+from sympy import Symbol
 from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
+
+from .util import fresh_name
+
+
+@dataclass(frozen=True)
+class Unknown:
+    symbol: sp.Basic
+    depends_on: tuple["Unknown", ...] = ()
+    constraints: tuple[sp.Expr, ...] = ()
+    law: sp.Expr | None = None
+    role: str = "derived"
+
+    def __post_init__(self):
+        if self.role not in {"latent", "noise", "derived"}:
+            raise ValueError(f"Invalid role: {self.role}")
+
+        symbol = sympify(self.symbol)
+        if not isinstance(symbol, sp.Basic):
+            raise TypeError("Unknown.symbol must be a sympy expression atom")
+        object.__setattr__(self, "symbol", symbol)
+
+        deps = tuple(self.depends_on)
+        if not all(isinstance(dep, Unknown) for dep in deps):
+            raise TypeError("Unknown.depends_on must contain Unknown instances")
+        object.__setattr__(self, "depends_on", deps)
+
+        constraints = tuple(sympify(expr) for expr in self.constraints)
+        object.__setattr__(self, "constraints", constraints)
+        object.__setattr__(self, "law", None if self.law is None else sympify(self.law))
+
+        if self._has_cycle():
+            raise ValueError("Unknown dependency graph contains a cycle")
+
+    def _has_cycle(self):
+        visited = set()
+        in_stack = set()
+
+        def visit(node):
+            if node.symbol in in_stack:
+                return True
+            if node.symbol in visited:
+                return False
+            visited.add(node.symbol)
+            in_stack.add(node.symbol)
+            for dep in node.depends_on:
+                if visit(dep):
+                    return True
+            in_stack.remove(node.symbol)
+            return False
+
+        return visit(self)
+
+    def closure(self):
+        seen = set()
+        ordered = []
+
+        def walk(node):
+            if node.symbol in seen:
+                return
+            seen.add(node.symbol)
+            ordered.append(node)
+            for dep in node.depends_on:
+                walk(dep)
+
+        walk(self)
+        return tuple(ordered)
+
+    def latent_symbols(self):
+        return {node.symbol for node in self.closure() if node.role == "latent"}
+
+    def all_constraints(self):
+        all_constraints = []
+        for node in self.closure():
+            all_constraints.extend(node.constraints)
+        return tuple(all_constraints)
+
+def _as_unknown(value):
+    root = getattr(value, "root", None)
+    if not isinstance(root, Unknown):
+        raise TypeError(f"Expected value with Unknown root, got {type(value).__name__}")
+    return root
+
+
+def _derive_unknown(*parents):
+    parent_nodes = tuple(_as_unknown(parent) for parent in parents)
+    return Unknown(
+        symbol=Symbol(fresh_name()),
+        depends_on=parent_nodes,
+        constraints=(),
+        law=None,
+        role="derived",
+    )
 
 
 def _combine_float(x, y, op):
     y = as_noisy_float(y)
     obs = op(x._obs, y._obs)
     expr = op(x._expr, y._expr)
-    thetas = x._thetas | y._thetas
-    eqns = x._eqns + y._eqns
-    return NoisyFloat(obs, expr, thetas, eqns)
+    root = _derive_unknown(x, y)
+    return NoisyFloat.from_unknown(obs, root, expr=expr)
 
 
 def _combine_bool(x, y, obs_op, expr_op):
     y = as_noisy_bool(y)
     obs = obs_op(x._obs, y._obs)
     expr = expr_op(x._expr, y._expr)
-    thetas = x._thetas | y._thetas
-    eqns = x._eqns + y._eqns
-    return NoisyBool(obs, expr, thetas, eqns)
+    root = _derive_unknown(x, y)
+    return NoisyBool.from_unknown(obs, root, expr=expr)
 
 
 def _compare_float(x, y, op):
     y = as_noisy_float(y)
     obs = op(x._obs, y._obs)
     expr = op(x._expr, y._expr)
-    thetas = x._thetas | y._thetas
-    eqns = x._eqns + y._eqns
-    return NoisyBool(obs, expr, thetas, eqns)
+    root = _derive_unknown(x, y)
+    return NoisyBool.from_unknown(obs, root, expr=expr)
 
 
 def _lift_unary_bool(x, obs_fn, expr_fn):
     x = as_noisy_bool(x)
-    return NoisyBool(obs_fn(x._obs), expr_fn(x._expr), x._thetas, x._eqns)
+    return NoisyBool.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(x._expr))
 
 
 def _lift_unary_float(x, obs_fn, expr_fn):
     x = as_noisy_float(x)
-    return NoisyFloat(obs_fn(x._obs), expr_fn(x._expr), x._thetas, x._eqns)
+    return NoisyFloat.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(x._expr))
 
 
 def _solve_theta_substitutions(thetas, eqns):
@@ -64,11 +156,29 @@ def _solve_theta_substitutions(thetas, eqns):
     return chosen
 
 
+def _instantiate_law(law, substitutions):
+    law = sympify(law)
+    pspace = getattr(law, "pspace", None)
+    distribution = getattr(pspace, "distribution", None)
+    if distribution is None:
+        return law.subs(substitutions)
+
+    ctor_name = distribution.__class__.__name__.replace("Distribution", "")
+    ctor = getattr(spstats, ctor_name, None)
+    if ctor is None:
+        return law.subs(substitutions)
+
+    args = tuple(sympify(arg).subs(substitutions) for arg in distribution.args)
+    return ctor(fresh_name(), *args)
+
+
 def as_noisy_bool(value):
     if isinstance(value, NoisyBool):
         return value
     if isinstance(value, (bool, np.bool_)):
-        return NoisyBool(value, sympify(bool(value)), [], [])
+        expr = sympify(bool(value))
+        root = Unknown(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
+        return NoisyBool.from_unknown(bool(value), root, expr=expr)
     raise TypeError(f"Expected bool or NoisyBool, got {type(value).__name__}")
 
 
@@ -76,14 +186,16 @@ def as_noisy_float(value):
     if isinstance(value, NoisyFloat):
         return value
     expr = sympify(value)
-    return NoisyFloat(float(expr), expr, [], [])
+    root = Unknown(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
+    return NoisyFloat.from_unknown(float(expr), root, expr=expr)
 
 
 def as_noisy_int(value):
     if isinstance(value, NoisyInt):
         return value
     expr = sympify(value)
-    return NoisyInt(int(expr), expr, [], [])
+    root = Unknown(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
+    return NoisyInt.from_unknown(int(expr), root, expr=expr)
 
 
 def as_noisy_float_array(array):
@@ -103,6 +215,40 @@ def as_noisy_value(value):
     return as_noisy_float(value)
 
 
+def _sampler_inputs_from_roots(values):
+    all_thetas = set()
+    all_eqns = []
+    root_noise_vars = set()
+    law_nodes = {}
+
+    for value in values:
+        root = _as_unknown(value)
+        all_thetas |= root.latent_symbols()
+        all_eqns.extend(root.all_constraints())
+        for node in root.closure():
+            if node.law is None:
+                continue
+            if node.symbol == node.law:
+                # Exogenous RV: sample once per draw index and reuse directly.
+                root_noise_vars |= set(random_symbols(node.law))
+                continue
+
+            # Law node: sample node.symbol once all dependencies are resolved.
+            law_nodes[node.symbol] = node
+
+            # Include random symbols from distribution parameters as upstream noise vars.
+            pspace = getattr(node.law, "pspace", None)
+            distribution = getattr(pspace, "distribution", None)
+            if distribution is not None:
+                for arg in distribution.args:
+                    root_noise_vars |= set(random_symbols(arg))
+            else:
+                root_noise_vars |= set(random_symbols(node.law))
+
+    ordered_law_nodes = tuple(law_nodes[symbol] for symbol in sorted(law_nodes, key=str))
+    return all_thetas, all_eqns, root_noise_vars, ordered_law_nodes
+
+
 def noisy_value_sampler(*vals, lib="scipy", **kwargs):
     """Prepare a reusable joint sampler for one or more noisy values.
 
@@ -114,8 +260,8 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
 
     noisy_values = tuple(as_noisy_value(value) for value in vals)
 
-    all_thetas = set().union(*(value._thetas for value in noisy_values))
-    all_eqns = [eqn for value in noisy_values for eqn in value._eqns]
+    all_thetas, all_eqns, root_noise_vars, law_nodes = _sampler_inputs_from_roots(noisy_values)
+
     theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
 
     rhs_noise_vars = {
@@ -124,9 +270,16 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
     predictive_noise_vars = {
         rv for value in noisy_values for rv in random_symbols(value._expr)
     }
-    all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars, key=str)
+    all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars | root_noise_vars, key=str)
 
-    return NoisyValueSampler(noisy_values, subs=theta_substitutions, vars=all_noise_vars, lib=lib, **kwargs)
+    return NoisyValueSampler(
+        noisy_values,
+        subs=theta_substitutions,
+        vars=all_noise_vars,
+        law_nodes=law_nodes,
+        lib=lib,
+        **kwargs,
+    )
 
 
 def sample_noisy_values(*vals, n=1000, lib="scipy", rng=None, **kwargs):
@@ -167,20 +320,25 @@ def sample_float_array(vals, n=1000, lib="scipy", rng=None, axis=-1, **kwargs):
     return sampler.sample(n, rng, axis)
 
 
-class Posterior:
-    def __init__(self, thetas, epsilons, constraints, law=None):
-        self.thetas = frozenset(thetas)
-        self.epsilons = frozenset(epsilons)
-        self.constraints = frozenset(constraints)
-        self.law = law
-
-
 class NoisyValue:
-    def __init__(self, obs, expr, thetas, eqns):
+    def __init__(self, obs, expr, root):
+        if not isinstance(root, Unknown):
+            raise TypeError(f"Expected Unknown root, got {type(root).__name__}")
         self._obs = obs
         self._expr = sympify(expr)
-        self._thetas = frozenset(thetas)
-        self._eqns = tuple(eqns)
+        self._root = root
+
+    @classmethod
+    def from_unknown(cls, obs, root, expr=None):
+        if not isinstance(root, Unknown):
+            raise TypeError(f"Expected Unknown root, got {type(root).__name__}")
+
+        expr = root.symbol if expr is None else sympify(expr)
+        return cls(obs, expr, root)
+
+    @property
+    def root(self):
+        return self._root
 
     def __repr__(self):
         return f"~{self._obs}"
@@ -190,8 +348,8 @@ class NoisyValue:
 
 
 class NoisyFloat(NoisyValue):
-    def __init__(self, obs, expr, thetas, eqns):
-        super().__init__(float(obs), expr, thetas, eqns)
+    def __init__(self, obs, expr, root):
+        super().__init__(float(obs), expr, root)
 
     def __float__(self):
         return self._obs
@@ -255,8 +413,8 @@ class NoisyFloat(NoisyValue):
 
 
 class NoisyInt(NoisyFloat):
-    def __init__(self, obs, expr, thetas, eqns):
-        NoisyValue.__init__(self, int(obs), expr, thetas, eqns)
+    def __init__(self, obs, expr, root):
+        NoisyValue.__init__(self, int(obs), expr, root)
 
     def __float__(self):
         return float(self._obs)
@@ -269,8 +427,8 @@ class NoisyInt(NoisyFloat):
 
 
 class NoisyBool(NoisyValue):
-    def __init__(self, obs, expr, thetas, eqns):
-        super().__init__(bool(obs), expr, thetas, eqns)
+    def __init__(self, obs, expr, root):
+        super().__init__(bool(obs), expr, root)
 
     def __bool__(self):
         return self._obs
@@ -292,15 +450,22 @@ class NoisyBool(NoisyValue):
 
 
 class NoisyValueSampler:
-    def __init__(self, vals, subs, vars, lib="scipy", **kwargs):
+    def __init__(self, vals, subs, vars, law_nodes=(), lib="scipy", **kwargs):
         self._vals = tuple(vals)
         self._subs = dict(subs)
         self._vars = tuple(vars)
+        self._law_nodes = tuple(law_nodes)
         self._lib = lib
         self._kwargs = dict(kwargs)
 
     def sample(self, n=1000, rng=None):
         dtypes = tuple(type(value._obs) for value in self._vals)
+
+        if not isinstance(rng, np.random.Generator):
+            rng = np.random.default_rng(rng)
+
+        def next_seed():
+            return int(rng.integers(0, np.iinfo(np.int64).max))
 
         if n <= 0:
             empty = tuple(np.array([], dtype=dtype) for dtype in dtypes)
@@ -313,7 +478,7 @@ class NoisyValueSampler:
                         rv,
                         size=n,
                         library=self._lib,
-                        seed=rng,
+                        seed=next_seed(),
                         **self._kwargs,
                     )
                 )
@@ -330,6 +495,67 @@ class NoisyValueSampler:
                 theta: rhs.subs(draws)
                 for theta, rhs in self._subs.items()
             }
+
+            unresolved = list(self._law_nodes)
+            resolved_values = dict(draws)
+            resolved_values.update(theta_values)
+
+            while unresolved:
+                next_unresolved = []
+                progress = False
+                for node in unresolved:
+                    if node.symbol in resolved_values:
+                        progress = True
+                        continue
+
+                    unmet = []
+                    for dep in node.depends_on:
+                        # Derived structural parents (law=None, non-latent) do not
+                        # represent a sampled numeric variable by themselves.
+                        if dep.law is None and dep.role != "latent":
+                            continue
+                        if dep.symbol not in resolved_values:
+                            unmet.append(dep)
+
+                    if unmet:
+                        next_unresolved.append(node)
+                        continue
+
+                    sampled_law = _instantiate_law(node.law, resolved_values)
+                    sampled_value = sample(
+                        sampled_law,
+                        library=self._lib,
+                        seed=next_seed(),
+                        **self._kwargs,
+                    )
+                    draws[node.symbol] = sampled_value
+                    resolved_values[node.symbol] = sampled_value
+
+                    theta_values = {
+                        theta: rhs.subs(draws)
+                        for theta, rhs in self._subs.items()
+                    }
+                    resolved_values.update(theta_values)
+                    progress = True
+
+                if not progress:
+                    missing = {
+                        node.symbol: sorted(
+                            str(dep.symbol)
+                            for dep in node.depends_on
+                            if not (
+                                dep.law is None and dep.role != "latent"
+                            )
+                            and dep.symbol not in resolved_values
+                        )
+                        for node in next_unresolved
+                    }
+                    raise ValueError(
+                        "Could not resolve law dependencies during sampling: "
+                        f"{missing}"
+                    )
+
+                unresolved = next_unresolved
 
             for out_idx, noisy_value in enumerate(self._vals):
                 sampled_expr = noisy_value._expr.subs(theta_values).subs(draws)

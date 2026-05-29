@@ -5,6 +5,33 @@ import sympy as sp
 import src.analysis as analysis
 
 from src.core import NoisyFloat
+from src.core import NoisyInt
+from src.core import Unknown
+from sympy.stats.rv import random_symbols
+from src.util import fresh_name
+
+
+def _rooted_float(obs, expr, thetas=(), eqns=()):
+    eqns = tuple(sp.sympify(eqn) for eqn in eqns)
+    theta_nodes = tuple(
+        Unknown(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
+        for theta in sorted(set(thetas), key=str)
+    )
+    random_rvs = set(random_symbols(expr)) | {
+        rv for eqn in eqns for rv in random_symbols(eqn)
+    }
+    noise_nodes = tuple(
+        Unknown(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
+        for rv in sorted(random_rvs, key=str)
+    )
+    root = Unknown(
+        symbol=sp.Symbol(f"root_{fresh_name()}"),
+        depends_on=theta_nodes + noise_nodes,
+        constraints=eqns,
+        law=None,
+        role="derived",
+    )
+    return NoisyFloat.from_unknown(obs=obs, root=root, expr=expr)
 
 
 def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():
@@ -24,15 +51,16 @@ def test_noisy_min_raises_for_empty_input():
 
 def test_noisy_max_combines_noisy_value_metadata():
     theta = sp.Symbol("theta_fold")
-    a = NoisyFloat(obs=1.0, expr=theta, thetas={theta}, eqns=[theta - 1.0])
-    b = NoisyFloat(obs=2.0, expr=2.0 * theta, thetas={theta}, eqns=[theta - 1.0])
+    constraints = [theta - 1.0]
+    a = _rooted_float(obs=1.0, expr=theta, thetas={theta}, eqns=constraints)
+    b = _rooted_float(obs=2.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
 
     out = analysis.noisy_max(a, b)
 
     assert isinstance(out, NoisyFloat)
     assert float(out) == 2.0
-    assert out._thetas == {theta}
-    assert len(out._eqns) == 2
+    assert out.root.latent_symbols() == {theta}
+    assert len(out.root.all_constraints()) == 2
 
 
 def test_odds_ratio_init_enforces_2x2_shape():
@@ -65,11 +93,41 @@ def test_odds_ratio_sample_keeps_only_valid_draws():
     assert np.all(model.samples > 0.0)
 
 
+def test_odds_ratio_sample2_keeps_only_valid_draws():
+    model = analysis.OddsRatio([[5.0, 7.0], [11.0, 13.0]])
+
+    model.sample2(n=400, rng=123)
+
+    assert isinstance(model.samples, np.ndarray)
+    assert model.samples.ndim == 1
+    assert 0 < model.samples.size <= 400
+    assert np.all(np.isfinite(model.samples))
+    assert np.all(model.samples > 0.0)
+
+
 def test_odds_ratio_sample_requires_positive_n():
     model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
 
     with pytest.raises(AssertionError):
         model.sample(n=0)
+
+
+def test_odds_ratio_sample2_requires_positive_n():
+    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
+
+    with pytest.raises(AssertionError):
+        model.sample2(n=0)
+
+
+def test_odds_ratio_sample2_ci_tracks_sample_ci():
+    baseline = analysis.OddsRatio([[20.0, 35.0], [30.0, 55.0]]).sample(n=6000, rng=2026)
+    composed = analysis.OddsRatio([[20.0, 35.0], [30.0, 55.0]]).sample2(n=6000, rng=2026)
+
+    lo_1, hi_1 = baseline.confidence_interval(a=0.05)
+    lo_2, hi_2 = composed.confidence_interval(a=0.05)
+
+    assert lo_2 == pytest.approx(lo_1, rel=0.12)
+    assert hi_2 == pytest.approx(hi_1, rel=0.12)
 
 
 def test_confidence_interval_autosamples_when_needed(monkeypatch):
@@ -108,3 +166,11 @@ def test_confidence_interval_raises_when_no_valid_draws(monkeypatch):
 
     with pytest.raises(ValueError, match="No valid draws"):
         model.confidence_interval()
+
+
+def test_binomial_draw_uses_root_unknown():
+    draw = analysis._binomial_draw(10, 0.3)
+
+    assert isinstance(draw, NoisyInt)
+    assert isinstance(draw.root, Unknown)
+    assert draw.root.role == "noise"
