@@ -190,6 +190,7 @@ def plot_posterior(
 
     curves = []
     for idx, noisy_value in enumerate(noisy_values, start=1):
+        value_expr = _preferred_value_expr(noisy_value)
         z_values, z_weights = _compute_posterior_quadrature_points(
             noisy_value,
             quadrature_points=quadrature_points,
@@ -203,7 +204,7 @@ def plot_posterior(
             tail_quantile=tail_quantile,
         )
 
-        label = f"expr_{idx}: {sp.sstr(noisy_value._expr)}"
+        label = f"expr_{idx}: {sp.sstr(value_expr)}"
         ax.plot(x_grid, density, linewidth=2.0, label=label)
         curves.append(
             {

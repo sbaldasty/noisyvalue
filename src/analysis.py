@@ -2,6 +2,7 @@ from .core import NoisyFloat
 from .core import NoisyInt
 from .core import Unknown
 from .core import as_noisy_float
+from .core import _preferred_value_expr
 from .core import _combine_float
 from .core import as_noisy_float_array
 from .core import sample_float_array
@@ -69,10 +70,15 @@ def _symbolic_odds_ratio(a, b, c, d):
     if min(float(a), float(b), float(c), float(d)) <= 0.0:
         return None
 
+    a_expr = _preferred_value_expr(a)
+    b_expr = _preferred_value_expr(b)
+    c_expr = _preferred_value_expr(c)
+    d_expr = _preferred_value_expr(d)
+
     expr = Piecewise(
         (
-            (a._expr * d._expr) / (b._expr * c._expr),
-            And(a._expr > 0, b._expr > 0, c._expr > 0, d._expr > 0),
+            (a_expr * d_expr) / (b_expr * c_expr),
+            And(a_expr > 0, b_expr > 0, c_expr > 0, d_expr > 0),
         ),
         (nan, True),
     )
@@ -174,6 +180,11 @@ class OddsRatio(MonteCarlo):
     def _composed_or_value(self):
         grp0_yes, grp0_no, grp1_yes, grp1_no = self.tbl.ravel()
 
+        grp0_yes_expr = _preferred_value_expr(grp0_yes)
+        grp0_no_expr = _preferred_value_expr(grp0_no)
+        grp1_yes_expr = _preferred_value_expr(grp1_yes)
+        grp1_no_expr = _preferred_value_expr(grp1_no)
+
         g0_yes_obs = float(grp0_yes)
         g0_no_obs = float(grp0_no)
         g1_yes_obs = float(grp1_yes)
@@ -200,10 +211,10 @@ class OddsRatio(MonteCarlo):
         if not isfinite(obs_or) or obs_or <= 0.0:
             return None
 
-        grp0_total_expr = sp.floor(grp0_yes._expr + grp0_no._expr + sp.Rational(1, 2))
-        grp1_total_expr = sp.floor(grp1_yes._expr + grp1_no._expr + sp.Rational(1, 2))
-        grp0_ratio_expr = grp0_yes._expr / (grp0_yes._expr + grp0_no._expr)
-        grp1_ratio_expr = grp1_yes._expr / (grp1_yes._expr + grp1_no._expr)
+        grp0_total_expr = sp.floor(grp0_yes_expr + grp0_no_expr + sp.Rational(1, 2))
+        grp1_total_expr = sp.floor(grp1_yes_expr + grp1_no_expr + sp.Rational(1, 2))
+        grp0_ratio_expr = grp0_yes_expr / (grp0_yes_expr + grp0_no_expr)
+        grp1_ratio_expr = grp1_yes_expr / (grp1_yes_expr + grp1_no_expr)
 
         grp0_yes_symbol = Symbol(fresh_name())
         grp1_yes_symbol = Symbol(fresh_name())
@@ -229,8 +240,8 @@ class OddsRatio(MonteCarlo):
         valid = And(
             grp0_total_expr > 0,
             grp1_total_expr > 0,
-            grp0_yes._expr + grp0_no._expr > 0,
-            grp1_yes._expr + grp1_no._expr > 0,
+            grp0_yes_expr + grp0_no_expr > 0,
+            grp1_yes_expr + grp1_no_expr > 0,
             grp0_ratio_expr >= 0,
             grp0_ratio_expr <= 1,
             grp1_ratio_expr >= 0,

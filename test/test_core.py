@@ -223,7 +223,7 @@ def test_sampler_resolves_multilayer_law_dependencies():
     assert np.var(draws) == pytest.approx(2.0, rel=0.25)
 
 
-def test_sampler_prefers_root_output_definition_over_stale_expr():
+def test_sampler_uses_root_output_definition():
     theta = sp.Symbol("theta_stale_expr")
     root = Unknown(
         symbol=theta,
@@ -236,9 +236,6 @@ def test_sampler_prefers_root_output_definition_over_stale_expr():
     value = NoisyFloat.from_unknown(obs=4.0, root=root, expr=theta + 9.0)
     assert value.root.definition == theta + 9.0
     assert value.root.constraints == ()
-
-    # Simulate stale legacy state and ensure sampling follows root definition.
-    value._expr = sp.Integer(-999)
     draws = value.sample(n=8, rng=123)
 
     assert draws.shape == (8,)

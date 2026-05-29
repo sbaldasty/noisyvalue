@@ -42,7 +42,7 @@ class Unknown:
         constraints = tuple(sympify(expr) for expr in self.constraints)
         object.__setattr__(self, "constraints", constraints)
         object.__setattr__(self, "law", None if self.law is None else sympify(self.law))
-        object.__setattr__(self, "definition", None if self.definition is None else sympify(self.definition))
+        object.__setattr__(self, "definition", self.symbol if self.definition is None else sympify(self.definition))
 
         if self._has_cycle():
             raise ValueError("Unknown dependency graph contains a cycle")
@@ -111,7 +111,7 @@ def _derive_unknown(*parents):
 def _combine_float(x, y, op):
     y = as_noisy_float(y)
     obs = op(x._obs, y._obs)
-    expr = op(x._expr, y._expr)
+    expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
     root = _derive_unknown(x, y)
     return NoisyFloat.from_unknown(obs, root, expr=expr)
 
@@ -119,7 +119,7 @@ def _combine_float(x, y, op):
 def _combine_bool(x, y, obs_op, expr_op):
     y = as_noisy_bool(y)
     obs = obs_op(x._obs, y._obs)
-    expr = expr_op(x._expr, y._expr)
+    expr = expr_op(_preferred_value_expr(x), _preferred_value_expr(y))
     root = _derive_unknown(x, y)
     return NoisyBool.from_unknown(obs, root, expr=expr)
 
@@ -127,19 +127,19 @@ def _combine_bool(x, y, obs_op, expr_op):
 def _compare_float(x, y, op):
     y = as_noisy_float(y)
     obs = op(x._obs, y._obs)
-    expr = op(x._expr, y._expr)
+    expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
     root = _derive_unknown(x, y)
     return NoisyBool.from_unknown(obs, root, expr=expr)
 
 
 def _lift_unary_bool(x, obs_fn, expr_fn):
     x = as_noisy_bool(x)
-    return NoisyBool.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(x._expr))
+    return NoisyBool.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(_preferred_value_expr(x)))
 
 
 def _lift_unary_float(x, obs_fn, expr_fn):
     x = as_noisy_float(x)
-    return NoisyFloat.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(x._expr))
+    return NoisyFloat.from_unknown(obs_fn(x._obs), _as_unknown(x), expr=expr_fn(_preferred_value_expr(x)))
 
 
 def _solve_theta_substitutions(thetas, eqns):
@@ -185,8 +185,6 @@ def _instantiate_law(law, substitutions):
 def _expanded_definitions(root):
     expanded = {}
     for node in reversed(root.closure()):
-        if node.definition is None:
-            continue
         expanded[node.symbol] = sympify(node.definition).subs(expanded)
     return expanded
 
@@ -194,9 +192,7 @@ def _expanded_definitions(root):
 def _preferred_value_expr(noisy_value):
     root = _as_unknown(noisy_value)
     expanded = _expanded_definitions(root)
-    if root.symbol in expanded:
-        return expanded[root.symbol]
-    return noisy_value._expr
+    return expanded[root.symbol]
 
 
 def _filter_theta_equations(eqns, thetas):
@@ -381,11 +377,10 @@ def sample_float_array(vals, n=1000, lib="scipy", rng=None, axis=-1, **kwargs):
 
 
 class NoisyValue:
-    def __init__(self, obs, expr, root):
+    def __init__(self, obs, root):
         if not isinstance(root, Unknown):
             raise TypeError(f"Expected Unknown root, got {type(root).__name__}")
         self._obs = obs
-        self._expr = sympify(expr)
         self._root = root
 
     @classmethod
@@ -404,7 +399,7 @@ class NoisyValue:
                 definition=expr,
                 role="derived",
             )
-        return cls(obs, expr, root)
+        return cls(obs, root)
 
     @property
     def root(self):
@@ -418,8 +413,8 @@ class NoisyValue:
 
 
 class NoisyFloat(NoisyValue):
-    def __init__(self, obs, expr, root):
-        super().__init__(float(obs), expr, root)
+    def __init__(self, obs, root):
+        super().__init__(float(obs), root)
 
     def __float__(self):
         return self._obs
@@ -483,8 +478,8 @@ class NoisyFloat(NoisyValue):
 
 
 class NoisyInt(NoisyFloat):
-    def __init__(self, obs, expr, root):
-        NoisyValue.__init__(self, int(obs), expr, root)
+    def __init__(self, obs, root):
+        NoisyValue.__init__(self, int(obs), root)
 
     def __float__(self):
         return float(self._obs)
@@ -497,8 +492,8 @@ class NoisyInt(NoisyFloat):
 
 
 class NoisyBool(NoisyValue):
-    def __init__(self, obs, expr, root):
-        super().__init__(bool(obs), expr, root)
+    def __init__(self, obs, root):
+        super().__init__(bool(obs), root)
 
     def __bool__(self):
         return self._obs
