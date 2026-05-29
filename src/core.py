@@ -44,28 +44,6 @@ class Node:
         object.__setattr__(self, "law", None if self.law is None else sympify(self.law))
         object.__setattr__(self, "definition", self.symbol if self.definition is None else sympify(self.definition))
 
-        if self._has_cycle():
-            raise ValueError("Node dependency graph contains a cycle")
-
-    def _has_cycle(self):
-        visited = set()
-        in_stack = set()
-
-        def visit(node):
-            if node.symbol in in_stack:
-                return True
-            if node.symbol in visited:
-                return False
-            visited.add(node.symbol)
-            in_stack.add(node.symbol)
-            for dep in node.depends_on:
-                if visit(dep):
-                    return True
-            in_stack.remove(node.symbol)
-            return False
-
-        return visit(self)
-
     def closure(self):
         seen = set()
         ordered = []
@@ -106,11 +84,6 @@ def _derive_node(*parents):
         law=None,
         role="derived",
     )
-
-
-# Backward-compatible internal aliases.
-_as_unknown = _as_node
-_derive_unknown = _derive_node
 
 
 def _combine_float(x, y, op):
@@ -405,10 +378,6 @@ class NoisyValue:
                 role="derived",
             )
         return cls(obs, root)
-
-    @classmethod
-    def from_unknown(cls, obs, root, expr=None):
-        return cls.from_node(obs, root, expr)
 
     @property
     def root(self):
