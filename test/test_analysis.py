@@ -14,14 +14,14 @@ from src.util import fresh_name
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
     theta_nodes = tuple(
-        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
+        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, definition=None, role="latent")
         for theta in sorted(set(thetas), key=str)
     )
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
     noise_nodes = tuple(
-        Node(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
+        Node(symbol=rv, depends_on=(), constraints=(), law=rv, definition=None, role="noise")
         for rv in sorted(random_rvs, key=str)
     )
     root = Node(
@@ -29,6 +29,7 @@ def _rooted_float(obs, expr, thetas=(), eqns=()):
         depends_on=theta_nodes + noise_nodes,
         constraints=eqns,
         law=None,
+        definition=None,
         role="derived",
     )
     return NoisyFloat.from_node(obs=obs, root=root, expr=expr)

@@ -7,6 +7,7 @@ from sympy.stats.rv import random_symbols
 
 from src.core import NoisyFloat
 from src.core import NoisyInt
+from src.core import GraphBuilder
 from src.core import Node
 from src.core import as_noisy_float
 from src.core import as_noisy_int
@@ -20,14 +21,14 @@ from src.util import fresh_name
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
     theta_nodes = tuple(
-        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, role="latent")
+        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, definition=None, role="latent")
         for theta in sorted(set(thetas), key=str)
     )
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
     noise_nodes = tuple(
-        Node(symbol=rv, depends_on=(), constraints=(), law=rv, role="noise")
+        Node(symbol=rv, depends_on=(), constraints=(), law=rv, definition=None, role="noise")
         for rv in sorted(random_rvs, key=str)
     )
     root = Node(
@@ -240,3 +241,33 @@ def test_sampler_uses_root_output_definition():
 
     assert draws.shape == (8,)
     assert np.all(draws == 13.0)
+
+
+def test_graph_builder_infers_derived_dependencies_from_definition():
+    builder = GraphBuilder()
+    theta = builder.latent("theta_gb", constraints=(sp.Symbol("theta_gb") - 1.0,))
+
+    eps_rv = Normal("eps_gb", 0, 1)
+    eps = builder.noise(eps_rv, law=eps_rv)
+
+    value = builder.derived("value_gb", definition=theta.symbol + eps.symbol)
+
+    assert {dep.symbol for dep in value.depends_on} == {theta.symbol, eps.symbol}
+
+
+def test_graph_builder_infers_noise_dependencies_from_law_parameters():
+    builder = GraphBuilder()
+    theta = builder.latent("theta_law_gb", constraints=(sp.Symbol("theta_law_gb") - 2.0,))
+
+    law = Normal("z_law_gb", theta.symbol, 1)
+    z = builder.noise("z_gb", law=law)
+
+    assert {dep.symbol for dep in z.depends_on} == {theta.symbol}
+
+
+def test_graph_builder_rejects_duplicate_symbol_registration():
+    builder = GraphBuilder()
+    builder.latent("dup_gb")
+
+    with pytest.raises(ValueError, match="already registered"):
+        builder.derived("dup_gb", definition=sp.Integer(1))

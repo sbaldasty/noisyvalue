@@ -68,6 +68,127 @@ class Node:
             all_constraints.extend(node.constraints)
         return tuple(all_constraints)
 
+
+class GraphBuilder:
+    """Build Node graphs with local symbol registration and dependency inference."""
+
+    def __init__(self):
+        self._nodes = {}
+
+    def register(self, node):
+        if not isinstance(node, Node):
+            raise TypeError(f"Expected Node, got {type(node).__name__}")
+
+        existing = self._nodes.get(node.symbol)
+        if existing is not None and existing is not node:
+            raise ValueError(f"A different node is already registered for symbol: {node.symbol}")
+
+        self._nodes[node.symbol] = node
+        return node
+
+    def get(self, symbol):
+        symbol = self._normalize_symbol(symbol)
+        return self._nodes.get(symbol)
+
+    def nodes(self):
+        return tuple(self._nodes[symbol] for symbol in sorted(self._nodes, key=str))
+
+    def latent(self, symbol=None, *, constraints=(), depends_on=None, definition=None):
+        symbol = self._normalize_symbol(symbol)
+        inferred = self._resolve_depends_on(
+            depends_on,
+            expressions=(definition, *constraints),
+            exclude_symbols={symbol},
+        )
+        node = Node(
+            symbol=symbol,
+            depends_on=inferred,
+            constraints=constraints,
+            law=None,
+            definition=definition,
+            role="latent",
+        )
+        return self.register(node)
+
+    def noise(self, symbol=None, *, law, constraints=(), depends_on=None, definition=None):
+        symbol = self._normalize_symbol(symbol)
+        inferred = self._resolve_depends_on(
+            depends_on,
+            expressions=(law, definition, *constraints),
+            exclude_symbols={symbol},
+        )
+        node = Node(
+            symbol=symbol,
+            depends_on=inferred,
+            constraints=constraints,
+            law=law,
+            definition=definition,
+            role="noise",
+        )
+        return self.register(node)
+
+    def derived(self, symbol=None, *, definition, constraints=(), depends_on=None):
+        symbol = self._normalize_symbol(symbol)
+        inferred = self._resolve_depends_on(
+            depends_on,
+            expressions=(definition, *constraints),
+            exclude_symbols={symbol},
+        )
+        node = Node(
+            symbol=symbol,
+            depends_on=inferred,
+            constraints=constraints,
+            law=None,
+            definition=definition,
+            role="derived",
+        )
+        return self.register(node)
+
+    def _resolve_depends_on(self, explicit_depends_on, expressions, exclude_symbols):
+        if explicit_depends_on is not None:
+            return tuple(explicit_depends_on)
+
+        symbols = self._extract_symbols(*expressions)
+        symbols -= set(exclude_symbols)
+
+        deps = [self._nodes[symbol] for symbol in sorted(symbols, key=str) if symbol in self._nodes]
+        return tuple(deps)
+
+    def _extract_symbols(self, *expressions):
+        symbols = set()
+        for expr in expressions:
+            if expr is None:
+                continue
+            expr = sympify(expr)
+            symbols |= set(expr.free_symbols)
+
+            pspace = getattr(expr, "pspace", None)
+            distribution = getattr(pspace, "distribution", None)
+            if distribution is not None:
+                for arg in distribution.args:
+                    arg_expr = sympify(arg)
+                    symbols |= set(arg_expr.free_symbols)
+                    for rv in random_symbols(arg_expr):
+                        symbols.add(rv)
+                        rv_symbol = getattr(rv, "symbol", None)
+                        if rv_symbol is not None:
+                            symbols.add(sympify(rv_symbol))
+
+            for rv in random_symbols(expr):
+                symbols.add(rv)
+                rv_symbol = getattr(rv, "symbol", None)
+                if rv_symbol is not None:
+                    symbols.add(sympify(rv_symbol))
+        return symbols
+
+    def _normalize_symbol(self, symbol):
+        if symbol is None:
+            return Symbol(fresh_name())
+        if isinstance(symbol, str):
+            return Symbol(symbol)
+        return sympify(symbol)
+
+
 def _as_node(value):
     root = getattr(value, "root", None)
     if not isinstance(root, Node):
