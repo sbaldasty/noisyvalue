@@ -87,20 +87,13 @@ def _symbolic_odds_ratio(a, b, c, d):
     return type(result).from_node(float(result), result.root, expr=expr)
 
 
-def _register_node_closure(builder, node):
-    for subnode in node.closure():
-        builder.register(subnode)
-
-
 def odds_ratio(tbl):
     tbl = as_noisy_float_array(tbl)
     assert tbl.shape == (2, 2)
 
     grp0_yes, grp0_no, grp1_yes, grp1_no = tbl.ravel()
 
-    builder = GraphBuilder()
-    for cell in (grp0_yes, grp0_no, grp1_yes, grp1_no):
-        _register_node_closure(builder, cell.root)
+    builder = GraphBuilder(grp0_yes, grp0_no, grp1_yes, grp1_no)
 
     g0_yes_obs = float(grp0_yes)
     g0_no_obs = float(grp0_no)
@@ -138,14 +131,8 @@ def odds_ratio(tbl):
     grp0_ratio_expr = grp0_yes_expr / (grp0_yes_expr + grp0_no_expr)
     grp1_ratio_expr = grp1_yes_expr / (grp1_yes_expr + grp1_no_expr)
 
-    grp0_yes_node = builder.noise(
-        law=Binomial(fresh_name(), grp0_total_expr, grp0_ratio_expr),
-        depends_on=(grp0_yes.root, grp0_no.root),
-    )
-    grp1_yes_node = builder.noise(
-        law=Binomial(fresh_name(), grp1_total_expr, grp1_ratio_expr),
-        depends_on=(grp1_yes.root, grp1_no.root),
-    )
+    grp0_yes_node = builder.noise(law=Binomial(fresh_name(), grp0_total_expr, grp0_ratio_expr))
+    grp1_yes_node = builder.noise(law=Binomial(fresh_name(), grp1_total_expr, grp1_ratio_expr))
 
     grp0_no_expr = grp0_total_expr - grp0_yes_node.symbol
     grp1_no_expr = grp1_total_expr - grp1_yes_node.symbol
@@ -170,17 +157,7 @@ def odds_ratio(tbl):
         (nan, True),
     )
 
-    root = builder.derived(
-        definition=expr,
-        depends_on=(
-            grp0_yes.root,
-            grp0_no.root,
-            grp1_yes.root,
-            grp1_no.root,
-            grp0_yes_node,
-            grp1_yes_node,
-        ),
-    )
+    root = builder.derived(definition=expr)
     return NoisyFloat.from_node(obs_or, root)
 
 

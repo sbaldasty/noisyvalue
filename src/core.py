@@ -72,8 +72,12 @@ class Node:
 class GraphBuilder:
     """Build Node graphs with local symbol registration and dependency inference."""
 
-    def __init__(self):
+    def __init__(self, *values, include_input_roots=True):
         self._nodes = {}
+        self._input_roots = ()
+        self._include_input_roots = bool(include_input_roots)
+        if values:
+            self.include_values(*values)
 
     def register(self, node):
         if not isinstance(node, Node):
@@ -92,6 +96,19 @@ class GraphBuilder:
 
     def nodes(self):
         return tuple(self._nodes[symbol] for symbol in sorted(self._nodes, key=str))
+
+    def include_values(self, *values):
+        roots = []
+        for value in values:
+            root = _as_node(value)
+            roots.append(root)
+            for node in root.closure():
+                self.register(node)
+
+        if self._include_input_roots:
+            self._input_roots = self._dedupe_nodes(self._input_roots + tuple(roots))
+
+        return tuple(roots)
 
     def latent(self, symbol=None, *, constraints=(), depends_on=None, definition=None):
         symbol = self._normalize_symbol(symbol)
@@ -146,13 +163,25 @@ class GraphBuilder:
 
     def _resolve_depends_on(self, explicit_depends_on, expressions, exclude_symbols):
         if explicit_depends_on is not None:
-            return tuple(explicit_depends_on)
+            return self._dedupe_nodes(tuple(explicit_depends_on))
 
         symbols = self._extract_symbols(*expressions)
         symbols -= set(exclude_symbols)
 
         deps = [self._nodes[symbol] for symbol in sorted(symbols, key=str) if symbol in self._nodes]
-        return tuple(deps)
+        if self._include_input_roots:
+            deps.extend(self._input_roots)
+        return self._dedupe_nodes(tuple(deps))
+
+    def _dedupe_nodes(self, nodes):
+        seen = set()
+        ordered = []
+        for node in nodes:
+            if node.symbol in seen:
+                continue
+            seen.add(node.symbol)
+            ordered.append(node)
+        return tuple(ordered)
 
     def _extract_symbols(self, *expressions):
         symbols = set()

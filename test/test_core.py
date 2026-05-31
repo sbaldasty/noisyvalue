@@ -271,3 +271,22 @@ def test_graph_builder_rejects_duplicate_symbol_registration():
 
     with pytest.raises(ValueError, match="already registered"):
         builder.derived("dup_gb", definition=sp.Integer(1))
+
+
+def test_graph_builder_initial_values_include_wrapper_roots_in_inferred_dependencies():
+    theta = sp.Symbol("theta_gb_input")
+    base_root = Node(
+        symbol=theta,
+        depends_on=(),
+        constraints=(theta - 2.0,),
+        law=None,
+        role="latent",
+    )
+    wrapped = NoisyFloat.from_node(obs=3.0, root=base_root, expr=theta + 1.0)
+
+    builder = GraphBuilder(wrapped)
+    out = builder.derived("out_gb_input", definition=theta + 2.0)
+
+    dep_symbols = {dep.symbol for dep in out.depends_on}
+    assert wrapped.root.symbol in dep_symbols
+    assert theta in dep_symbols
