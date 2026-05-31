@@ -95,32 +95,6 @@ def odds_ratio(tbl):
 
     builder = GraphBuilder(grp0_yes, grp0_no, grp1_yes, grp1_no)
 
-    g0_yes_obs = float(grp0_yes)
-    g0_no_obs = float(grp0_no)
-    g1_yes_obs = float(grp1_yes)
-    g1_no_obs = float(grp1_no)
-
-    grp0_obs_total = int(round(g0_yes_obs + g0_no_obs))
-    grp1_obs_total = int(round(g1_yes_obs + g1_no_obs))
-    if grp0_obs_total <= 0 or grp1_obs_total <= 0:
-        return None
-
-    grp0_obs_ratio = g0_yes_obs / (g0_yes_obs + g0_no_obs)
-    grp1_obs_ratio = g1_yes_obs / (g1_yes_obs + g1_no_obs)
-    if not (0.0 <= grp0_obs_ratio <= 1.0 and 0.0 <= grp1_obs_ratio <= 1.0):
-        return None
-
-    grp0_yes_obs_draw = int(round(grp0_obs_total * grp0_obs_ratio))
-    grp1_yes_obs_draw = int(round(grp1_obs_total * grp1_obs_ratio))
-    grp0_no_obs_draw = grp0_obs_total - grp0_yes_obs_draw
-    grp1_no_obs_draw = grp1_obs_total - grp1_yes_obs_draw
-    if min(grp0_yes_obs_draw, grp0_no_obs_draw, grp1_yes_obs_draw, grp1_no_obs_draw) <= 0:
-        return None
-
-    obs_or = (grp0_yes_obs_draw * grp1_no_obs_draw) / (grp0_no_obs_draw * grp1_yes_obs_draw)
-    if not isfinite(obs_or) or obs_or <= 0.0:
-        return None
-
     grp0_yes_expr = _preferred_value_expr(grp0_yes)
     grp0_no_expr = _preferred_value_expr(grp0_no)
     grp1_yes_expr = _preferred_value_expr(grp1_yes)
@@ -158,6 +132,20 @@ def odds_ratio(tbl):
     )
 
     root = builder.derived(definition=expr)
+
+    g0_yes_obs = float(grp0_yes)
+    g0_no_obs = float(grp0_no)
+    g1_yes_obs = float(grp1_yes)
+    g1_no_obs = float(grp1_no)
+
+    obs_denominator = g0_no_obs * g1_yes_obs
+    if obs_denominator <= 0:
+        obs_or = nan
+    else:
+        obs_or = (g0_yes_obs * g1_no_obs) / obs_denominator
+        if not isfinite(obs_or) or obs_or <= 0.0:
+            obs_or = nan
+
     return NoisyFloat.from_node(obs_or, root)
 
 

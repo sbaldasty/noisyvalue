@@ -149,6 +149,14 @@ def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
     assert np.all(np.isfinite(draws))
 
 
+def test_odds_ratio_returns_nan_observation_when_observed_ratio_is_invalid():
+    ratio = analysis.odds_ratio([[1.0, 0.0], [2.0, 3.0]])
+
+    assert isinstance(ratio, NoisyFloat)
+    assert np.isnan(float(ratio))
+    assert isinstance(ratio.root, Node)
+
+
 def test_confidence_interval_autosamples_when_needed(monkeypatch):
     model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
 
