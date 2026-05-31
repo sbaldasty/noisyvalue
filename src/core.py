@@ -641,6 +641,31 @@ class NoisyInt(NoisyFloat):
     def __index__(self):
         return self._obs
 
+    def resample(self, law, *, obs=None):
+        if callable(law):
+            law = law()
+        law = sympify(law)
+
+        builder = GraphBuilder(self)
+        noise_node = builder.noise(law=law)
+
+        if obs is None:
+            obs = self._obs
+        return NoisyInt.from_node(int(obs), noise_node, expr=noise_node.symbol)
+
+    def add_noise(self, law, *, obs_shift=0):
+        if callable(law):
+            law = law()
+        law = sympify(law)
+
+        builder = GraphBuilder(self)
+        noise_node = builder.noise(law=law)
+        expr = _preferred_value_expr(self) + noise_node.symbol
+        root = builder.derived(definition=expr)
+
+        obs = int(self._obs + int(obs_shift))
+        return NoisyInt.from_node(obs, root)
+
 
 class NoisyBool(NoisyValue):
     def __init__(self, obs, root):

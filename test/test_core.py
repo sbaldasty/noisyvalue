@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import sympy as sp
 
+from sympy.stats import Binomial
 from sympy.stats import Normal
 from sympy.stats.rv import random_symbols
 
@@ -236,6 +237,57 @@ def test_noisyfloat_zero_divide_zero_returns_nan_observation():
 
     assert isinstance(z, NoisyFloat)
     assert np.isnan(float(z))
+
+
+def test_noisyint_add_noise_keeps_observation_by_default_and_adds_randomness():
+    count = as_noisy_int(5)
+    noised = count.add_noise(Binomial("k_add_noise", 2, 0.5))
+
+    assert isinstance(noised, NoisyInt)
+    assert int(noised) == 5
+    assert any(node.role == "noise" and node.law is not None for node in noised.root.closure())
+
+    draws = noised.sample(n=128, rng=123)
+    assert draws.dtype == int
+    assert np.all(draws >= 5)
+    assert np.any(draws > 5)
+
+
+def test_noisyint_add_noise_allows_observation_shift_override():
+    count = as_noisy_int(7)
+    noised = count.add_noise(Binomial("k_add_noise_shift", 1, 0.5), obs_shift=2)
+
+    assert int(noised) == 9
+
+
+def test_noisyint_resample_replaces_value_with_new_law():
+    count = as_noisy_int(5)
+    resampled = count.resample(Binomial("k_resample", 2, 0.5))
+
+    assert isinstance(resampled, NoisyInt)
+    assert int(resampled) == 5
+    assert any(node.role == "noise" and node.law is not None for node in resampled.root.closure())
+
+    draws = resampled.sample(n=128, rng=123)
+    assert draws.dtype == int
+    assert np.all(draws >= 0)
+    assert np.all(draws <= 2)
+
+
+def test_noisyint_resample_preserves_upstream_dependency():
+    theta = sp.Symbol("theta_resample")
+    root = Node(
+        symbol=theta,
+        depends_on=(),
+        constraints=(theta - 3.0,),
+        law=None,
+        role="latent",
+    )
+    count = NoisyInt.from_node(obs=3, root=root, expr=theta)
+
+    resampled = count.resample(Binomial("k_resample_theta", theta, 0.5))
+
+    assert theta in resampled.root.latent_symbols()
 
 
 def test_sampler_resolves_multilayer_law_dependencies():

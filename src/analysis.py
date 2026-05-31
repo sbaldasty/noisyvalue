@@ -99,12 +99,10 @@ def odds_ratio(tbl):
     grp1_ratio = grp1_yes / (grp1_yes + grp1_no)
 
     builder = GraphBuilder(grp0_yes, grp0_no, grp1_yes, grp1_no)
-    grp0_yes_node = builder.noise(law=noise.binomial(grp0_total, grp0_ratio))
-    grp1_yes_node = builder.noise(law=noise.binomial(grp1_total, grp1_ratio))
+    grp0_yes_draw = grp0_yes.round_nearest().resample(noise.binomial(grp0_total, grp0_ratio))
+    grp1_yes_draw = grp1_yes.round_nearest().resample(noise.binomial(grp1_total, grp1_ratio))
+    builder.include_values(grp0_yes_draw, grp1_yes_draw)
 
-    # Wrap sampled yes counts so validity can be composed with NoisyBool operators.
-    grp0_yes_draw = NoisyInt.from_node(int(round(float(grp0_yes))), grp0_yes_node, expr=grp0_yes_node.symbol)
-    grp1_yes_draw = NoisyInt.from_node(int(round(float(grp1_yes))), grp1_yes_node, expr=grp1_yes_node.symbol)
     grp0_no_draw = grp0_total - grp0_yes_draw
     grp1_no_draw = grp1_total - grp1_yes_draw
 
