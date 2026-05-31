@@ -244,6 +244,24 @@ def _combine_float(x, y, op):
     return NoisyFloat.from_node(obs, root, expr=expr)
 
 
+def _divide_float(x, y, *, reverse=False):
+    y = as_noisy_float(y)
+    lhs_obs, rhs_obs = (y._obs, x._obs) if reverse else (x._obs, y._obs)
+    lhs_expr, rhs_expr = (
+        (_preferred_value_expr(y), _preferred_value_expr(x))
+        if reverse
+        else (_preferred_value_expr(x), _preferred_value_expr(y))
+    )
+
+    # Mirror numpy semantics for divide-by-zero at observation time.
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        obs = float(np.divide(lhs_obs, rhs_obs))
+
+    expr = sp.Mul(lhs_expr, sp.Pow(rhs_expr, -1, evaluate=False), evaluate=False)
+    root = _derive_node(x, y)
+    return NoisyFloat.from_node(obs, root, expr=expr)
+
+
 def _combine_bool(x, y, obs_op, expr_op):
     y = as_noisy_bool(y)
     obs = obs_op(x._obs, y._obs)
@@ -572,10 +590,10 @@ class NoisyFloat(NoisyValue):
         return _combine_float(self, other, lambda a, b: b * a)
 
     def __truediv__(self, other):
-        return _combine_float(self, other, lambda a, b: a / b)
+        return _divide_float(self, other)
 
     def __rtruediv__(self, other):
-        return _combine_float(self, other, lambda a, b: b / a)
+        return _divide_float(self, other, reverse=True)
 
     def __lt__(self, other):
         return _compare_float(self, other, lambda a, b: a < b)
@@ -600,6 +618,11 @@ class NoisyFloat(NoisyValue):
 
     def log(self):
         return _lift_unary_float(self, np.log, sp.log)
+
+    def round_nearest(self):
+        expr = sp.floor(_preferred_value_expr(self) + sp.Rational(1, 2))
+        obs = int(np.floor(float(self._obs) + 0.5))
+        return NoisyInt.from_node(obs, self.root, expr=expr)
 
     def sqrt(self):
         return _lift_unary_float(self, np.sqrt, sp.sqrt)

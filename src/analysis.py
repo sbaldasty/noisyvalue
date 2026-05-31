@@ -1,3 +1,4 @@
+from . import noise
 from .core import NoisyFloat
 from .core import NoisyInt
 from .core import GraphBuilder
@@ -11,7 +12,6 @@ import sympy as sp
 from .util import fresh_name
 from sympy import And
 from sympy import Piecewise
-from sympy import Symbol
 from sympy import nan
 from numpy import quantile
 from numpy import asarray
@@ -93,58 +93,53 @@ def odds_ratio(tbl):
 
     grp0_yes, grp0_no, grp1_yes, grp1_no = tbl.ravel()
 
+    grp0_total = (grp0_yes + grp0_no).round_nearest()
+    grp1_total = (grp1_yes + grp1_no).round_nearest()
+    grp0_ratio = grp0_yes / (grp0_yes + grp0_no)
+    grp1_ratio = grp1_yes / (grp1_yes + grp1_no)
+
     builder = GraphBuilder(grp0_yes, grp0_no, grp1_yes, grp1_no)
+    grp0_yes_node = builder.noise(law=noise.binomial(grp0_total, grp0_ratio))
+    grp1_yes_node = builder.noise(law=noise.binomial(grp1_total, grp1_ratio))
 
-    grp0_yes_expr = _preferred_value_expr(grp0_yes)
-    grp0_no_expr = _preferred_value_expr(grp0_no)
-    grp1_yes_expr = _preferred_value_expr(grp1_yes)
-    grp1_no_expr = _preferred_value_expr(grp1_no)
+    # Wrap sampled yes counts so validity can be composed with NoisyBool operators.
+    grp0_yes_draw = NoisyInt.from_node(int(round(float(grp0_yes))), grp0_yes_node, expr=grp0_yes_node.symbol)
+    grp1_yes_draw = NoisyInt.from_node(int(round(float(grp1_yes))), grp1_yes_node, expr=grp1_yes_node.symbol)
+    grp0_no_draw = grp0_total - grp0_yes_draw
+    grp1_no_draw = grp1_total - grp1_yes_draw
 
-    grp0_total_expr = sp.floor(grp0_yes_expr + grp0_no_expr + sp.Rational(1, 2))
-    grp1_total_expr = sp.floor(grp1_yes_expr + grp1_no_expr + sp.Rational(1, 2))
-    grp0_ratio_expr = grp0_yes_expr / (grp0_yes_expr + grp0_no_expr)
-    grp1_ratio_expr = grp1_yes_expr / (grp1_yes_expr + grp1_no_expr)
-
-    grp0_yes_node = builder.noise(law=Binomial(fresh_name(), grp0_total_expr, grp0_ratio_expr))
-    grp1_yes_node = builder.noise(law=Binomial(fresh_name(), grp1_total_expr, grp1_ratio_expr))
-
-    grp0_no_expr = grp0_total_expr - grp0_yes_node.symbol
-    grp1_no_expr = grp1_total_expr - grp1_yes_node.symbol
-
-    valid = And(
-        grp0_total_expr > 0,
-        grp1_total_expr > 0,
-        grp0_yes_expr + grp0_no_expr > 0,
-        grp1_yes_expr + grp1_no_expr > 0,
-        grp0_ratio_expr >= 0,
-        grp0_ratio_expr <= 1,
-        grp1_ratio_expr >= 0,
-        grp1_ratio_expr <= 1,
-        grp0_yes_node.symbol > 0,
-        grp0_no_expr > 0,
-        grp1_yes_node.symbol > 0,
-        grp1_no_expr > 0,
+    valid = _preferred_value_expr(
+        (grp0_total > 0)
+        & (grp1_total > 0)
+        & (grp0_yes + grp0_no > 0)
+        & (grp1_yes + grp1_no > 0)
+        & (grp0_ratio >= 0)
+        & (grp0_ratio <= 1)
+        & (grp1_ratio >= 0)
+        & (grp1_ratio <= 1)
+        & (grp0_yes_draw > 0)
+        & (grp0_no_draw > 0)
+        & (grp1_yes_draw > 0)
+        & (grp1_no_draw > 0)
     )
 
-    expr = Piecewise(
-        ((grp0_yes_node.symbol * grp1_no_expr) / (grp0_no_expr * grp1_yes_node.symbol), valid),
-        (nan, True),
-    )
+    ratio_draw = (grp0_yes_draw * grp1_no_draw) / (grp0_no_draw * grp1_yes_draw)
+    expr = Piecewise((_preferred_value_expr(ratio_draw), valid), (nan, True))
 
     root = builder.derived(definition=expr)
 
-    g0_yes_obs = float(grp0_yes)
-    g0_no_obs = float(grp0_no)
-    g1_yes_obs = float(grp1_yes)
-    g1_no_obs = float(grp1_no)
-
-    obs_denominator = g0_no_obs * g1_yes_obs
-    if obs_denominator <= 0:
-        obs_or = nan
-    else:
-        obs_or = (g0_yes_obs * g1_no_obs) / obs_denominator
+    obs_valid = bool(
+        (grp0_yes > 0)
+        & (grp0_no > 0)
+        & (grp1_yes > 0)
+        & (grp1_no > 0)
+    )
+    if obs_valid:
+        obs_or = float((grp0_yes * grp1_no) / (grp0_no * grp1_yes))
         if not isfinite(obs_or) or obs_or <= 0.0:
             obs_or = nan
+    else:
+        obs_or = nan
 
     return NoisyFloat.from_node(obs_or, root)
 

@@ -190,6 +190,54 @@ def test_sampler_uses_root_constraints():
     assert np.all(draws == 3.5)
 
 
+def test_noisyfloat_round_nearest_for_deterministic_value():
+    value = as_noisy_float(2.6)
+    rounded = value.round_nearest()
+
+    assert isinstance(rounded, NoisyInt)
+    assert int(rounded) == 3
+    draws = rounded.sample(n=5, rng=123)
+    assert np.all(draws == 3)
+
+
+def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
+    theta = sp.Symbol("theta_round_tie")
+    root = Node(
+        symbol=theta,
+        depends_on=(),
+        constraints=(theta - 2.5,),
+        law=None,
+        role="latent",
+    )
+
+    value = NoisyFloat.from_node(obs=2.5, root=root, expr=theta)
+    rounded = value.round_nearest()
+
+    assert int(rounded) == 3
+    draws = rounded.sample(n=4, rng=123)
+    assert np.all(draws == 3)
+
+
+def test_noisyfloat_divide_by_zero_returns_inf_observation():
+    x = as_noisy_float(1.0)
+    y = as_noisy_float(0.0)
+
+    z = x / y
+
+    assert isinstance(z, NoisyFloat)
+    assert np.isinf(float(z))
+
+
+def test_noisyfloat_zero_divide_zero_returns_nan_observation():
+    x = as_noisy_float(0.0)
+    y = as_noisy_float(0.0)
+
+    z = x / y
+
+    assert isinstance(z, NoisyFloat)
+    assert np.isnan(float(z))
+
+
 def test_sampler_resolves_multilayer_law_dependencies():
     z1_symbol = sp.Symbol("z1_layered")
     z2_symbol = sp.Symbol("z2_layered")
