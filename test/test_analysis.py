@@ -7,6 +7,7 @@ import src.analysis as analysis
 from src.core import NoisyFloat
 from src.core import NoisyInt
 from src.core import Node
+from sympy.stats import Normal
 from sympy.stats.rv import random_symbols
 from src.util import fresh_name
 
@@ -129,6 +130,23 @@ def test_odds_ratio_sample2_ci_tracks_sample_ci():
 
     assert lo_2 == pytest.approx(lo_1, rel=0.12)
     assert hi_2 == pytest.approx(hi_1, rel=0.12)
+
+
+def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
+    theta = sp.Symbol("theta_odds_ratio")
+    eps = Normal("eps_odds_ratio", 0, 1)
+
+    noisy_a = _rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta + eps - 5.0])
+
+    ratio = analysis.odds_ratio([[noisy_a, 7.0], [11.0, 13.0]])
+
+    assert isinstance(ratio, NoisyFloat)
+    assert theta in ratio.root.latent_symbols()
+    assert any(node.role == "noise" and node.law is not None for node in ratio.root.closure())
+
+    draws = ratio.sample(n=128, rng=123)
+    assert draws.shape == (128,)
+    assert np.all(np.isfinite(draws))
 
 
 def test_confidence_interval_autosamples_when_needed(monkeypatch):

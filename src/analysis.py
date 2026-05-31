@@ -1,5 +1,6 @@
 from .core import NoisyFloat
 from .core import NoisyInt
+from .core import GraphBuilder
 from .core import Node
 from .core import as_noisy_float
 from .core import _preferred_value_expr
@@ -84,6 +85,103 @@ def _symbolic_odds_ratio(a, b, c, d):
     )
     result = (a * d) / (b * c)
     return type(result).from_node(float(result), result.root, expr=expr)
+
+
+def _register_node_closure(builder, node):
+    for subnode in node.closure():
+        builder.register(subnode)
+
+
+def odds_ratio(tbl):
+    tbl = as_noisy_float_array(tbl)
+    assert tbl.shape == (2, 2)
+
+    grp0_yes, grp0_no, grp1_yes, grp1_no = tbl.ravel()
+
+    builder = GraphBuilder()
+    for cell in (grp0_yes, grp0_no, grp1_yes, grp1_no):
+        _register_node_closure(builder, cell.root)
+
+    g0_yes_obs = float(grp0_yes)
+    g0_no_obs = float(grp0_no)
+    g1_yes_obs = float(grp1_yes)
+    g1_no_obs = float(grp1_no)
+
+    grp0_obs_total = int(round(g0_yes_obs + g0_no_obs))
+    grp1_obs_total = int(round(g1_yes_obs + g1_no_obs))
+    if grp0_obs_total <= 0 or grp1_obs_total <= 0:
+        return None
+
+    grp0_obs_ratio = g0_yes_obs / (g0_yes_obs + g0_no_obs)
+    grp1_obs_ratio = g1_yes_obs / (g1_yes_obs + g1_no_obs)
+    if not (0.0 <= grp0_obs_ratio <= 1.0 and 0.0 <= grp1_obs_ratio <= 1.0):
+        return None
+
+    grp0_yes_obs_draw = int(round(grp0_obs_total * grp0_obs_ratio))
+    grp1_yes_obs_draw = int(round(grp1_obs_total * grp1_obs_ratio))
+    grp0_no_obs_draw = grp0_obs_total - grp0_yes_obs_draw
+    grp1_no_obs_draw = grp1_obs_total - grp1_yes_obs_draw
+    if min(grp0_yes_obs_draw, grp0_no_obs_draw, grp1_yes_obs_draw, grp1_no_obs_draw) <= 0:
+        return None
+
+    obs_or = (grp0_yes_obs_draw * grp1_no_obs_draw) / (grp0_no_obs_draw * grp1_yes_obs_draw)
+    if not isfinite(obs_or) or obs_or <= 0.0:
+        return None
+
+    grp0_yes_expr = _preferred_value_expr(grp0_yes)
+    grp0_no_expr = _preferred_value_expr(grp0_no)
+    grp1_yes_expr = _preferred_value_expr(grp1_yes)
+    grp1_no_expr = _preferred_value_expr(grp1_no)
+
+    grp0_total_expr = sp.floor(grp0_yes_expr + grp0_no_expr + sp.Rational(1, 2))
+    grp1_total_expr = sp.floor(grp1_yes_expr + grp1_no_expr + sp.Rational(1, 2))
+    grp0_ratio_expr = grp0_yes_expr / (grp0_yes_expr + grp0_no_expr)
+    grp1_ratio_expr = grp1_yes_expr / (grp1_yes_expr + grp1_no_expr)
+
+    grp0_yes_node = builder.noise(
+        law=Binomial(fresh_name(), grp0_total_expr, grp0_ratio_expr),
+        depends_on=(grp0_yes.root, grp0_no.root),
+    )
+    grp1_yes_node = builder.noise(
+        law=Binomial(fresh_name(), grp1_total_expr, grp1_ratio_expr),
+        depends_on=(grp1_yes.root, grp1_no.root),
+    )
+
+    grp0_no_expr = grp0_total_expr - grp0_yes_node.symbol
+    grp1_no_expr = grp1_total_expr - grp1_yes_node.symbol
+
+    valid = And(
+        grp0_total_expr > 0,
+        grp1_total_expr > 0,
+        grp0_yes_expr + grp0_no_expr > 0,
+        grp1_yes_expr + grp1_no_expr > 0,
+        grp0_ratio_expr >= 0,
+        grp0_ratio_expr <= 1,
+        grp1_ratio_expr >= 0,
+        grp1_ratio_expr <= 1,
+        grp0_yes_node.symbol > 0,
+        grp0_no_expr > 0,
+        grp1_yes_node.symbol > 0,
+        grp1_no_expr > 0,
+    )
+
+    expr = Piecewise(
+        ((grp0_yes_node.symbol * grp1_no_expr) / (grp0_no_expr * grp1_yes_node.symbol), valid),
+        (nan, True),
+    )
+
+    root = builder.derived(
+        definition=expr,
+        depends_on=(
+            grp0_yes.root,
+            grp0_no.root,
+            grp1_yes.root,
+            grp1_no.root,
+            grp0_yes_node,
+            grp1_yes_node,
+        ),
+    )
+    return NoisyFloat.from_node(obs_or, root)
 
 
 def noisy_min(*values):
@@ -178,101 +276,7 @@ class OddsRatio(MonteCarlo):
         return self
 
     def _composed_or_value(self):
-        grp0_yes, grp0_no, grp1_yes, grp1_no = self.tbl.ravel()
-
-        grp0_yes_expr = _preferred_value_expr(grp0_yes)
-        grp0_no_expr = _preferred_value_expr(grp0_no)
-        grp1_yes_expr = _preferred_value_expr(grp1_yes)
-        grp1_no_expr = _preferred_value_expr(grp1_no)
-
-        g0_yes_obs = float(grp0_yes)
-        g0_no_obs = float(grp0_no)
-        g1_yes_obs = float(grp1_yes)
-        g1_no_obs = float(grp1_no)
-
-        grp0_obs_total = int(round(g0_yes_obs + g0_no_obs))
-        grp1_obs_total = int(round(g1_yes_obs + g1_no_obs))
-        if grp0_obs_total <= 0 or grp1_obs_total <= 0:
-            return None
-
-        grp0_obs_ratio = g0_yes_obs / (g0_yes_obs + g0_no_obs)
-        grp1_obs_ratio = g1_yes_obs / (g1_yes_obs + g1_no_obs)
-        if not (0.0 <= grp0_obs_ratio <= 1.0 and 0.0 <= grp1_obs_ratio <= 1.0):
-            return None
-
-        grp0_yes_obs_draw = int(round(grp0_obs_total * grp0_obs_ratio))
-        grp1_yes_obs_draw = int(round(grp1_obs_total * grp1_obs_ratio))
-        grp0_no_obs_draw = grp0_obs_total - grp0_yes_obs_draw
-        grp1_no_obs_draw = grp1_obs_total - grp1_yes_obs_draw
-        if min(grp0_yes_obs_draw, grp0_no_obs_draw, grp1_yes_obs_draw, grp1_no_obs_draw) <= 0:
-            return None
-
-        obs_or = (grp0_yes_obs_draw * grp1_no_obs_draw) / (grp0_no_obs_draw * grp1_yes_obs_draw)
-        if not isfinite(obs_or) or obs_or <= 0.0:
-            return None
-
-        grp0_total_expr = sp.floor(grp0_yes_expr + grp0_no_expr + sp.Rational(1, 2))
-        grp1_total_expr = sp.floor(grp1_yes_expr + grp1_no_expr + sp.Rational(1, 2))
-        grp0_ratio_expr = grp0_yes_expr / (grp0_yes_expr + grp0_no_expr)
-        grp1_ratio_expr = grp1_yes_expr / (grp1_yes_expr + grp1_no_expr)
-
-        grp0_yes_symbol = Symbol(fresh_name())
-        grp1_yes_symbol = Symbol(fresh_name())
-
-        grp0_yes_node = Node(
-            symbol=grp0_yes_symbol,
-            depends_on=(grp0_yes.root, grp0_no.root),
-            constraints=(),
-            law=Binomial(fresh_name(), grp0_total_expr, grp0_ratio_expr),
-            role="noise",
-        )
-        grp1_yes_node = Node(
-            symbol=grp1_yes_symbol,
-            depends_on=(grp1_yes.root, grp1_no.root),
-            constraints=(),
-            law=Binomial(fresh_name(), grp1_total_expr, grp1_ratio_expr),
-            role="noise",
-        )
-
-        grp0_no_expr = grp0_total_expr - grp0_yes_symbol
-        grp1_no_expr = grp1_total_expr - grp1_yes_symbol
-
-        valid = And(
-            grp0_total_expr > 0,
-            grp1_total_expr > 0,
-            grp0_yes_expr + grp0_no_expr > 0,
-            grp1_yes_expr + grp1_no_expr > 0,
-            grp0_ratio_expr >= 0,
-            grp0_ratio_expr <= 1,
-            grp1_ratio_expr >= 0,
-            grp1_ratio_expr <= 1,
-            grp0_yes_symbol > 0,
-            grp0_no_expr > 0,
-            grp1_yes_symbol > 0,
-            grp1_no_expr > 0,
-        )
-
-        expr = Piecewise(
-            ((grp0_yes_symbol * grp1_no_expr) / (grp0_no_expr * grp1_yes_symbol), valid),
-            (nan, True),
-        )
-
-        root = Node(
-            symbol=Symbol(fresh_name()),
-            depends_on=(
-                grp0_yes.root,
-                grp0_no.root,
-                grp1_yes.root,
-                grp1_no.root,
-                grp0_yes_node,
-                grp1_yes_node,
-            ),
-            constraints=(),
-            law=None,
-            role="derived",
-        )
-
-        return NoisyFloat.from_node(obs_or, root, expr=expr)
+        return odds_ratio(self.tbl)
 
     def sample2(self, n=10000, rng=None, lib="scipy"):
         n = int(n)
