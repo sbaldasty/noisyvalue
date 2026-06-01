@@ -8,7 +8,6 @@ from .core import _preferred_value_expr
 from .core import _combine_float
 from .core import as_noisy_float_array
 from .core import sample_float_array
-import sympy as sp
 from .util import fresh_name
 from sympy import And
 from sympy import Piecewise
@@ -100,6 +99,10 @@ def odds_ratio(tbl):
     grp0_ratio = grp0_yes / (grp0_yes + grp0_no)
     grp1_ratio = grp1_yes / (grp1_yes + grp1_no)
 
+    # Observation for the result is calculation over inputs or NaN if nonpositive counts
+    obs_valid = bool((grp0_yes > 0) & (grp0_no > 0) & (grp1_yes > 0) & (grp1_no > 0))
+    obs_or = float((grp0_yes * grp1_no) / (grp0_no * grp1_yes)) if obs_valid else nan
+
     # Chain symbolic binomial distributions for sampling uncertainty
     grp0_yes_draw = grp0_yes.round_nearest().resample(noise.binomial(grp0_total, grp0_ratio))
     grp1_yes_draw = grp1_yes.round_nearest().resample(noise.binomial(grp1_total, grp1_ratio))
@@ -127,10 +130,6 @@ def odds_ratio(tbl):
     builder = GraphBuilder(grp0_yes, grp0_no, grp1_yes, grp1_no)
     builder.include_values(grp0_yes_draw, grp1_yes_draw)
     root = builder.derived(definition=expr)
-
-    # Observation for the result is calculation over inputs or NaN if nonpositive counts
-    obs_valid = bool((grp0_yes > 0) & (grp0_no > 0) & (grp1_yes > 0) & (grp1_no > 0))
-    obs_or = float((grp0_yes * grp1_no) / (grp0_no * grp1_yes)) if obs_valid else nan
 
     return NoisyFloat.from_node(obs_or, root)
 

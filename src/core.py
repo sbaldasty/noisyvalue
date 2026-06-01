@@ -494,6 +494,11 @@ def sample_noisy_values(*vals, n=1000, lib="scipy", rng=None, **kwargs):
     return sampler.sample(n=n, rng=rng)
 
 
+def credible_interval(draws, p=0.95):
+    alpha = (1 - p) / 2
+    return np.quantile(draws, [alpha, 1 - alpha], method="linear")
+
+
 def float_array_sampler(vals, lib="scipy", **kwargs):
     """Prepare a reusable sampler for tensor-like value collections.
 
@@ -529,6 +534,9 @@ class NoisyValue:
         self._obs = obs
         self._root = root
 
+    def __repr__(self):
+        return f"~{self._obs}"
+
     @classmethod
     def from_node(cls, obs, root, expr=None):
         if not isinstance(root, Node):
@@ -551,11 +559,13 @@ class NoisyValue:
     def root(self):
         return self._root
 
-    def __repr__(self):
-        return f"~{self._obs}"
+    def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
+        sampler = noisy_value_sampler(self, lib=lib, **kwargs)
+        return sampler.sample(n, rng)
 
-    def sample(self, n=1000, rng=None):
-        return noisy_value_sampler(self).sample(n, rng)
+    def credible_interval(self, p=0.95, n=1000, lib="scipy", rng=None, **kwargs):
+        draws = self.sample(n=n, lib=lib, rng=rng, **kwargs)
+        return credible_interval(draws, p)
 
 
 class NoisyFloat(NoisyValue):
