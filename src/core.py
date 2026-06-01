@@ -760,18 +760,6 @@ class NoisyInt(NoisyFloat):
             obs = self._obs
         return NoisyInt.from_node(int(obs), noise_node, expr=noise_node.symbol)
 
-    def add_noise(self, law, *, obs_shift=0):
-        if callable(law):
-            law = law()
-        law = sympify(law)
-
-        noise_node = _noise_node(law=law)
-        expr = _preferred_value_expr(self) + noise_node.symbol
-        root = _derived_node(definition=expr)
-
-        obs = int(self._obs + int(obs_shift))
-        return NoisyInt.from_node(obs, root)
-
 
 class NoisyBool(NoisyValue):
     def __init__(self, obs, root):

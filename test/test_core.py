@@ -241,27 +241,6 @@ def test_noisyfloat_zero_divide_zero_returns_nan_observation():
     assert np.isnan(float(z))
 
 
-def test_noisyint_add_noise_keeps_observation_by_default_and_adds_randomness():
-    count = as_noisy_int(5)
-    noised = count.add_noise(Binomial("k_add_noise", 2, 0.5))
-
-    assert isinstance(noised, NoisyInt)
-    assert int(noised) == 5
-    assert any(node.role == "noise" and node.law is not None for node in noised.root.closure())
-
-    draws = noised.sample(n=128, rng=123)
-    assert draws.dtype == int
-    assert np.all(draws >= 5)
-    assert np.any(draws > 5)
-
-
-def test_noisyint_add_noise_allows_observation_shift_override():
-    count = as_noisy_int(7)
-    noised = count.add_noise(Binomial("k_add_noise_shift", 1, 0.5), obs_shift=2)
-
-    assert int(noised) == 9
-
-
 def test_noisyint_resample_replaces_value_with_new_law():
     count = as_noisy_int(5)
     resampled = count.resample(Binomial("k_resample", 2, 0.5))
