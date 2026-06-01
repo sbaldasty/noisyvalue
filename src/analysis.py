@@ -90,6 +90,7 @@ def _symbolic_odds_ratio(a, b, c, d):
 def odds_ratio(tbl):
     tbl = as_noisy_float_array(tbl)
     assert tbl.shape == (2, 2)
+    assert isfinite(asarray([float(value) for value in tbl.ravel()], dtype=float)).all()
 
     grp0_yes, grp0_no, grp1_yes, grp1_no = tbl.ravel()
 
@@ -118,8 +119,7 @@ def odds_ratio(tbl):
         & (grp0_yes_draw > 0)
         & (grp0_no_draw > 0)
         & (grp1_yes_draw > 0)
-        & (grp1_no_draw > 0)
-    )
+        & (grp1_no_draw > 0))
 
     ratio_draw = (grp0_yes_draw * grp1_no_draw) / (grp0_no_draw * grp1_yes_draw)
     expr = Piecewise((_preferred_value_expr(ratio_draw), valid), (nan, True))
@@ -130,15 +130,9 @@ def odds_ratio(tbl):
         (grp0_yes > 0)
         & (grp0_no > 0)
         & (grp1_yes > 0)
-        & (grp1_no > 0)
-    )
-    if obs_valid:
-        obs_or = float((grp0_yes * grp1_no) / (grp0_no * grp1_yes))
-        if not isfinite(obs_or) or obs_or <= 0.0:
-            obs_or = nan
-    else:
-        obs_or = nan
+        & (grp1_no > 0))
 
+    obs_or = float((grp0_yes * grp1_no) / (grp0_no * grp1_yes)) if obs_valid else nan
     return NoisyFloat.from_node(obs_or, root)
 
 
