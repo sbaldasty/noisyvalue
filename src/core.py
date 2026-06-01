@@ -328,6 +328,71 @@ def _instantiate_law(law, substitutions):
     return ctor(fresh_name(), *args)
 
 
+def _try_fast_numpy_sample(rv, rng, *, size=None):
+    """Try to sample common RVs through NumPy for speed.
+
+    Returns `None` when the RV is not recognized or parameters are not
+    numerically instantiated, so callers can fall back to SymPy sampling.
+    """
+    pspace = getattr(rv, "pspace", None)
+    distribution = getattr(pspace, "distribution", None)
+    if distribution is None:
+        return None
+
+    dist_name = distribution.__class__.__name__
+
+    if dist_name == "BinomialDistribution":
+        if len(distribution.args) < 2:
+            return None
+        n_arg = distribution.args[0]
+        p_arg = distribution.args[1]
+        try:
+            n = int(sympify(n_arg))
+            p = float(sympify(p_arg))
+        except (TypeError, ValueError):
+            return None
+
+        if n < 0 or not np.isfinite(p) or p < 0.0 or p > 1.0:
+            return None
+
+        return rng.binomial(n, p, size=size)
+
+    if dist_name == "NormalDistribution":
+        mu_arg, sigma_arg = distribution.args
+        try:
+            mu = float(sympify(mu_arg))
+            sigma = float(sympify(sigma_arg))
+        except (TypeError, ValueError):
+            return None
+
+        if not np.isfinite(mu) or not np.isfinite(sigma) or sigma < 0.0:
+            return None
+
+        return rng.normal(mu, sigma, size=size)
+
+    return None
+
+
+def _sample_rv(rv, rng, *, lib, kwargs, next_seed, size=None):
+    fast = _try_fast_numpy_sample(rv, rng, size=size)
+    if fast is not None:
+        arr = np.asarray(fast)
+        if size is None:
+            return arr.item()
+        return arr
+
+    sampled = sample(
+        rv,
+        size=size,
+        library=lib,
+        seed=next_seed(),
+        **kwargs,
+    )
+    if size is None:
+        return sampled
+    return np.asarray(sampled)
+
+
 def _expanded_definitions(root):
     expanded = {}
     for node in reversed(root.closure()):
@@ -725,14 +790,13 @@ class NoisyValueSampler:
 
         if self._vars:
             noise_draws = {
-                rv: np.asarray(
-                    sample(
-                        rv,
-                        size=n,
-                        library=self._lib,
-                        seed=next_seed(),
-                        **self._kwargs,
-                    )
+                rv: _sample_rv(
+                    rv,
+                    rng,
+                    lib=self._lib,
+                    kwargs=self._kwargs,
+                    next_seed=next_seed,
+                    size=n,
                 )
                 for rv in self._vars
             }
@@ -774,11 +838,12 @@ class NoisyValueSampler:
                         continue
 
                     sampled_law = _instantiate_law(node.law, resolved_values)
-                    sampled_value = sample(
+                    sampled_value = _sample_rv(
                         sampled_law,
-                        library=self._lib,
-                        seed=next_seed(),
-                        **self._kwargs,
+                        rng,
+                        lib=self._lib,
+                        kwargs=self._kwargs,
+                        next_seed=next_seed,
                     )
                     draws[node.symbol] = sampled_value
                     resolved_values[node.symbol] = sampled_value
