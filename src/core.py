@@ -775,6 +775,36 @@ class NoisyValueSampler:
         self._lib = lib
         self._kwargs = dict(kwargs)
 
+        # Pre-substitute latent solutions into outputs once to avoid repeated
+        # per-draw theta substitution.
+        self._resolved_exprs = tuple(sympify(expr).subs(self._subs) for expr in self._exprs)
+
+        law_symbols = {node.symbol for node in self._law_nodes}
+        self._theta_static = []
+        self._theta_dynamic = []
+        for theta, rhs in self._subs.items():
+            rhs_expr = sympify(rhs)
+            if rhs_expr.free_symbols & law_symbols:
+                self._theta_dynamic.append((theta, rhs_expr))
+            else:
+                self._theta_static.append((theta, rhs_expr))
+
+        self._theta_static = tuple(self._theta_static)
+        self._theta_dynamic = tuple(self._theta_dynamic)
+
+        eval_symbols = set(self._vars)
+        eval_symbols |= {node.symbol for node in self._law_nodes}
+        self._eval_symbols = tuple(sorted(eval_symbols, key=str))
+        self._resolved_expr_eval_fns = ()
+        try:
+            self._resolved_expr_eval_fns = tuple(
+                sp.lambdify(self._eval_symbols, expr, modules="numpy")
+                for expr in self._resolved_exprs
+            )
+        except Exception:
+            # Keep robust symbolic fallback for unsupported expressions.
+            self._resolved_expr_eval_fns = ()
+
     def sample(self, n=1000, rng=None):
         dtypes = tuple(type(value._obs) for value in self._vals)
 
@@ -809,8 +839,13 @@ class NoisyValueSampler:
             draws = {rv: noise_draws[rv][idx] for rv in self._vars}
             theta_values = {
                 theta: rhs.subs(draws)
-                for theta, rhs in self._subs.items()
+                for theta, rhs in self._theta_static
             }
+            if self._theta_dynamic:
+                theta_values.update({
+                    theta: rhs.subs(draws)
+                    for theta, rhs in self._theta_dynamic
+                })
 
             unresolved = list(self._law_nodes)
             resolved_values = dict(draws)
@@ -848,11 +883,12 @@ class NoisyValueSampler:
                     draws[node.symbol] = sampled_value
                     resolved_values[node.symbol] = sampled_value
 
-                    theta_values = {
-                        theta: rhs.subs(draws)
-                        for theta, rhs in self._subs.items()
-                    }
-                    resolved_values.update(theta_values)
+                    if self._theta_dynamic:
+                        theta_values.update({
+                            theta: rhs.subs(draws)
+                            for theta, rhs in self._theta_dynamic
+                        })
+                        resolved_values.update(theta_values)
                     progress = True
 
                 if not progress:
@@ -874,9 +910,14 @@ class NoisyValueSampler:
 
                 unresolved = next_unresolved
 
-            for out_idx, sampled_value_expr in enumerate(self._exprs):
-                sampled_expr = sampled_value_expr.subs(theta_values).subs(draws)
-                outputs[out_idx][idx] = dtypes[out_idx](sampled_expr)
+            if self._resolved_expr_eval_fns:
+                eval_args = tuple(draws[symbol] for symbol in self._eval_symbols)
+                for out_idx, eval_fn in enumerate(self._resolved_expr_eval_fns):
+                    outputs[out_idx][idx] = dtypes[out_idx](eval_fn(*eval_args))
+            else:
+                for out_idx, sampled_value_expr in enumerate(self._resolved_exprs):
+                    sampled_expr = sampled_value_expr.subs(draws)
+                    outputs[out_idx][idx] = dtypes[out_idx](sampled_expr)
 
         result = tuple(outputs)
         return result[0] if len(result) == 1 else result
