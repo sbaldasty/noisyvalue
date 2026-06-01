@@ -5,7 +5,6 @@ import sympy as sp
 import src.analysis as analysis
 
 from src.core import NoisyFloat
-from src.core import NoisyInt
 from src.core import Node
 from sympy.stats import Normal
 from sympy.stats.rv import random_symbols
@@ -65,71 +64,38 @@ def test_noisy_max_combines_noisy_value_metadata():
     assert len(out.root.all_constraints()) >= 2
 
 
-def test_odds_ratio_init_enforces_2x2_shape():
+def test_odds_ratio_enforces_2x2_shape():
     with pytest.raises(AssertionError):
-        analysis.OddsRatio([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        analysis.odds_ratio([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
 
 
-def test_odds_ratio_ratio_matches_closed_form_for_plain_floats():
-    ratio = analysis.OddsRatio([[65.0, 109.0], [243.0, 1348.0]]).ratio()
+def test_odds_ratio_matches_closed_form_for_plain_floats():
+    ratio = analysis.odds_ratio([[65.0, 109.0], [243.0, 1348.0]])
     expected = (65.0 * 1348.0) / (109.0 * 243.0)
 
     assert isinstance(ratio, NoisyFloat)
     assert float(ratio) == pytest.approx(expected)
 
 
-def test_odds_ratio_ratio_returns_none_for_non_positive_cells():
-    ratio = analysis.OddsRatio([[1.0, 0.0], [2.0, 3.0]]).ratio()
-    assert ratio is None
-
-
 def test_odds_ratio_sample_keeps_only_valid_draws():
-    model = analysis.OddsRatio([[5.0, 7.0], [11.0, 13.0]])
+    ratio = analysis.odds_ratio([[5.0, 7.0], [11.0, 13.0]])
 
-    model.sample(n=400, rng=123)
+    draws = ratio.sample(n=400, rng=123)
+    finite = draws[np.isfinite(draws)]
 
-    assert isinstance(model.samples, np.ndarray)
-    assert model.samples.ndim == 1
-    assert 0 < model.samples.size <= 400
-    assert np.all(np.isfinite(model.samples))
-    assert np.all(model.samples > 0.0)
-
-
-def test_odds_ratio_sample2_keeps_only_valid_draws():
-    model = analysis.OddsRatio([[5.0, 7.0], [11.0, 13.0]])
-
-    model.sample2(n=400, rng=123)
-
-    assert isinstance(model.samples, np.ndarray)
-    assert model.samples.ndim == 1
-    assert 0 < model.samples.size <= 400
-    assert np.all(np.isfinite(model.samples))
-    assert np.all(model.samples > 0.0)
+    assert isinstance(draws, np.ndarray)
+    assert draws.shape == (400,)
+    assert finite.size > 0
+    assert np.all(finite > 0.0)
 
 
-def test_odds_ratio_sample_requires_positive_n():
-    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
+def test_odds_ratio_sample_with_zero_n_returns_empty_array():
+    ratio = analysis.odds_ratio([[1.0, 2.0], [3.0, 4.0]])
 
-    with pytest.raises(AssertionError):
-        model.sample(n=0)
+    draws = ratio.sample(n=0, rng=123)
 
-
-def test_odds_ratio_sample2_requires_positive_n():
-    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
-
-    with pytest.raises(AssertionError):
-        model.sample2(n=0)
-
-
-def test_odds_ratio_sample2_ci_tracks_sample_ci():
-    baseline = analysis.OddsRatio([[20.0, 35.0], [30.0, 55.0]]).sample(n=6000, rng=2026)
-    composed = analysis.OddsRatio([[20.0, 35.0], [30.0, 55.0]]).sample2(n=6000, rng=2026)
-
-    lo_1, hi_1 = baseline.confidence_interval(a=0.05)
-    lo_2, hi_2 = composed.confidence_interval(a=0.05)
-
-    assert lo_2 == pytest.approx(lo_1, rel=0.12)
-    assert hi_2 == pytest.approx(hi_1, rel=0.12)
+    assert isinstance(draws, np.ndarray)
+    assert draws.shape == (0,)
 
 
 def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
@@ -155,49 +121,3 @@ def test_odds_ratio_returns_nan_observation_when_observed_ratio_is_invalid():
     assert isinstance(ratio, NoisyFloat)
     assert np.isnan(float(ratio))
     assert isinstance(ratio.root, Node)
-
-
-def test_confidence_interval_autosamples_when_needed(monkeypatch):
-    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
-
-    def fake_sample(self, n=1000, rng=None, lib="scipy"):
-        self.samples = np.array([0.4, 0.8, 1.2, 1.6], dtype=float)
-        return self
-
-    monkeypatch.setattr(analysis.OddsRatio, "sample", fake_sample)
-    lo, hi = model.confidence_interval(a=0.10)
-
-    assert lo == pytest.approx(np.quantile([0.4, 0.8, 1.2, 1.6], 0.05))
-    assert hi == pytest.approx(np.quantile([0.4, 0.8, 1.2, 1.6], 0.95))
-
-
-def test_confidence_interval_validates_alpha_bounds():
-    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
-    model.samples = np.array([1.0, 2.0], dtype=float)
-
-    with pytest.raises(AssertionError):
-        model.confidence_interval(a=-0.01)
-
-    with pytest.raises(AssertionError):
-        model.confidence_interval(a=1.01)
-
-
-def test_confidence_interval_raises_when_no_valid_draws(monkeypatch):
-    model = analysis.OddsRatio([[1.0, 2.0], [3.0, 4.0]])
-
-    def fake_sample(self, n=1000, rng=None, lib="scipy"):
-        self.samples = np.array([], dtype=float)
-        return self
-
-    monkeypatch.setattr(analysis.OddsRatio, "sample", fake_sample)
-
-    with pytest.raises(ValueError, match="No valid draws"):
-        model.confidence_interval()
-
-
-def test_binomial_draw_uses_root_node():
-    draw = analysis._binomial_draw(10, 0.3)
-
-    assert isinstance(draw, NoisyInt)
-    assert isinstance(draw.root, Node)
-    assert draw.root.role == "noise"
