@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from collections import defaultdict
 import sympy as sp
 import sympy.stats as spstats
 import numpy as np
@@ -12,8 +13,14 @@ from sympy import Symbol
 from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
+from weakref import WeakValueDictionary
+from weakref import WeakSet
 
 from .util import fresh_name
+
+
+_SYMBOL_NODES = WeakValueDictionary()
+_SYMBOL_ASSOCIATED_NODES = defaultdict(WeakSet)
 
 
 @dataclass(frozen=True)
@@ -69,153 +76,178 @@ class Node:
         return tuple(all_constraints)
 
 
-class GraphBuilder:
-    """Build Node graphs with local symbol registration and dependency inference."""
+def _is_registerable_symbol(symbol):
+    if isinstance(symbol, Symbol):
+        return True
+    try:
+        return bool(random_symbols(sympify(symbol)))
+    except Exception:
+        return False
 
-    def __init__(self, *values, include_input_roots=True):
-        self._nodes = {}
-        self._input_roots = ()
-        self._include_input_roots = bool(include_input_roots)
-        if values:
-            self.include_values(*values)
 
-    def register(self, node):
-        if not isinstance(node, Node):
-            raise TypeError(f"Expected Node, got {type(node).__name__}")
+def _register_node(node, *, strict=True):
+    if not isinstance(node, Node):
+        raise TypeError(f"Expected Node, got {type(node).__name__}")
 
-        existing = self._nodes.get(node.symbol)
-        if existing is not None and existing is not node:
-            raise ValueError(f"A different node is already registered for symbol: {node.symbol}")
-
-        self._nodes[node.symbol] = node
+    if not _is_registerable_symbol(node.symbol):
         return node
 
-    def get(self, symbol):
-        symbol = self._normalize_symbol(symbol)
-        return self._nodes.get(symbol)
+    existing = _SYMBOL_NODES.get(node.symbol)
+    if existing is not None and existing is not node and strict:
+        raise ValueError(f"A different node is already registered for symbol: {node.symbol}")
 
-    def nodes(self):
-        return tuple(self._nodes[symbol] for symbol in sorted(self._nodes, key=str))
+    if existing is None:
+        _SYMBOL_NODES[node.symbol] = node
 
-    def include_values(self, *values):
-        roots = []
-        for value in values:
-            root = _as_node(value)
-            roots.append(root)
-            for node in root.closure():
-                self.register(node)
+    associated_symbols = {node.symbol}
+    associated_symbols |= _extract_symbols(node.definition, node.law, *node.constraints)
+    for symbol in associated_symbols:
+        if _is_registerable_symbol(symbol):
+            _SYMBOL_ASSOCIATED_NODES[symbol].add(node)
 
-        if self._include_input_roots:
-            self._input_roots = self._dedupe_nodes(self._input_roots + tuple(roots))
+    return node
 
-        return tuple(roots)
 
-    def latent(self, symbol=None, *, constraints=(), depends_on=None, definition=None):
-        symbol = self._normalize_symbol(symbol)
-        inferred = self._resolve_depends_on(
-            depends_on,
-            expressions=(definition, *constraints),
-            exclude_symbols={symbol},
-        )
-        node = Node(
-            symbol=symbol,
-            depends_on=inferred,
-            constraints=constraints,
-            law=None,
-            definition=definition,
-            role="latent",
-        )
-        return self.register(node)
+def _register_closure(root):
+    root = root if isinstance(root, Node) else _as_node(root)
+    for node in root.closure():
+        _register_node(node, strict=False)
+    return root
 
-    def noise(self, symbol=None, *, law, constraints=(), depends_on=None, definition=None):
-        symbol = self._normalize_symbol(symbol)
-        inferred = self._resolve_depends_on(
-            depends_on,
-            expressions=(law, definition, *constraints),
-            exclude_symbols={symbol},
-        )
-        node = Node(
-            symbol=symbol,
-            depends_on=inferred,
-            constraints=constraints,
-            law=law,
-            definition=definition,
-            role="noise",
-        )
-        return self.register(node)
 
-    def derived(self, symbol=None, *, definition, constraints=(), depends_on=None):
-        symbol = self._normalize_symbol(symbol)
-        inferred = self._resolve_depends_on(
-            depends_on,
-            expressions=(definition, *constraints),
-            exclude_symbols={symbol},
-        )
-        node = Node(
-            symbol=symbol,
-            depends_on=inferred,
-            constraints=constraints,
-            law=None,
-            definition=definition,
-            role="derived",
-        )
-        return self.register(node)
+def _normalize_symbol(symbol):
+    if symbol is None:
+        return Symbol(fresh_name())
+    if isinstance(symbol, str):
+        return Symbol(symbol)
+    return sympify(symbol)
 
-    def _resolve_depends_on(self, explicit_depends_on, expressions, exclude_symbols):
-        if explicit_depends_on is not None:
-            return self._dedupe_nodes(tuple(explicit_depends_on))
 
-        symbols = self._extract_symbols(*expressions)
-        symbols -= set(exclude_symbols)
+def _dedupe_nodes(nodes):
+    seen = set()
+    ordered = []
+    for node in nodes:
+        if not isinstance(node, Node):
+            raise TypeError(f"Node dependencies must contain Node instances, got {type(node).__name__}")
+        if node.symbol in seen:
+            continue
+        seen.add(node.symbol)
+        ordered.append(node)
+    return tuple(ordered)
 
-        deps = [self._nodes[symbol] for symbol in sorted(symbols, key=str) if symbol in self._nodes]
-        if self._include_input_roots:
-            deps.extend(self._input_roots)
-        return self._dedupe_nodes(tuple(deps))
 
-    def _dedupe_nodes(self, nodes):
-        seen = set()
-        ordered = []
-        for node in nodes:
-            if node.symbol in seen:
-                continue
-            seen.add(node.symbol)
-            ordered.append(node)
-        return tuple(ordered)
+def _extract_symbols(*expressions):
+    symbols = set()
+    for expr in expressions:
+        if expr is None:
+            continue
+        expr = sympify(expr)
+        symbols |= set(expr.free_symbols)
 
-    def _extract_symbols(self, *expressions):
-        symbols = set()
-        for expr in expressions:
-            if expr is None:
-                continue
-            expr = sympify(expr)
-            symbols |= set(expr.free_symbols)
+        pspace = getattr(expr, "pspace", None)
+        distribution = getattr(pspace, "distribution", None)
+        if distribution is not None:
+            for arg in distribution.args:
+                arg_expr = sympify(arg)
+                symbols |= set(arg_expr.free_symbols)
+                for rv in random_symbols(arg_expr):
+                    symbols.add(rv)
+                    rv_symbol = getattr(rv, "symbol", None)
+                    if rv_symbol is not None:
+                        symbols.add(sympify(rv_symbol))
 
-            pspace = getattr(expr, "pspace", None)
-            distribution = getattr(pspace, "distribution", None)
-            if distribution is not None:
-                for arg in distribution.args:
-                    arg_expr = sympify(arg)
-                    symbols |= set(arg_expr.free_symbols)
-                    for rv in random_symbols(arg_expr):
-                        symbols.add(rv)
-                        rv_symbol = getattr(rv, "symbol", None)
-                        if rv_symbol is not None:
-                            symbols.add(sympify(rv_symbol))
+        for rv in random_symbols(expr):
+            symbols.add(rv)
+            rv_symbol = getattr(rv, "symbol", None)
+            if rv_symbol is not None:
+                symbols.add(sympify(rv_symbol))
+    return symbols
 
-            for rv in random_symbols(expr):
-                symbols.add(rv)
-                rv_symbol = getattr(rv, "symbol", None)
-                if rv_symbol is not None:
-                    symbols.add(sympify(rv_symbol))
-        return symbols
 
-    def _normalize_symbol(self, symbol):
-        if symbol is None:
-            return Symbol(fresh_name())
-        if isinstance(symbol, str):
-            return Symbol(symbol)
-        return sympify(symbol)
+def _resolve_depends_on(explicit_depends_on, expressions, exclude_symbols, include_roots=()):
+    if explicit_depends_on is not None:
+        return _dedupe_nodes(tuple(explicit_depends_on))
+
+    symbols = _extract_symbols(*expressions)
+    symbols -= set(exclude_symbols)
+
+    deps = []
+    for symbol in sorted(symbols, key=str):
+        direct = _SYMBOL_NODES.get(symbol)
+        if direct is not None:
+            deps.append(direct)
+
+        associated = _SYMBOL_ASSOCIATED_NODES.get(symbol)
+        if associated is not None:
+            deps.extend(sorted(associated, key=lambda node: str(node.symbol)))
+
+    deps.extend(include_roots)
+    return _dedupe_nodes(tuple(deps))
+
+
+def _include_values(*values):
+    roots = []
+    for value in values:
+        root = _register_closure(_as_node(value))
+        roots.append(root)
+    return _dedupe_nodes(tuple(roots))
+
+
+def _latent_node(symbol=None, *, constraints=(), depends_on=None, definition=None, include_roots=()):
+    symbol = _normalize_symbol(symbol)
+    inferred = _resolve_depends_on(
+        depends_on,
+        expressions=(definition, *constraints),
+        exclude_symbols={symbol},
+        include_roots=include_roots,
+    )
+    node = Node(
+        symbol=symbol,
+        depends_on=inferred,
+        constraints=constraints,
+        law=None,
+        definition=definition,
+        role="latent",
+    )
+    return _register_node(node)
+
+
+def _noise_node(symbol=None, *, law, constraints=(), depends_on=None, definition=None, include_roots=()):
+    symbol = _normalize_symbol(symbol)
+    inferred = _resolve_depends_on(
+        depends_on,
+        expressions=(law, definition, *constraints),
+        exclude_symbols={symbol},
+        include_roots=include_roots,
+    )
+    node = Node(
+        symbol=symbol,
+        depends_on=inferred,
+        constraints=constraints,
+        law=law,
+        definition=definition,
+        role="noise",
+    )
+    return _register_node(node)
+
+
+def _derived_node(symbol=None, *, definition, constraints=(), depends_on=None, include_roots=()):
+    symbol = _normalize_symbol(symbol)
+    inferred = _resolve_depends_on(
+        depends_on,
+        expressions=(definition, *constraints),
+        exclude_symbols={symbol},
+        include_roots=include_roots,
+    )
+    node = Node(
+        symbol=symbol,
+        depends_on=inferred,
+        constraints=constraints,
+        law=None,
+        definition=definition,
+        role="derived",
+    )
+    return _register_node(node)
 
 
 def _as_node(value):
@@ -227,13 +259,13 @@ def _as_node(value):
 
 def _derive_node(*parents):
     parent_nodes = tuple(_as_node(parent) for parent in parents)
-    return Node(
+    return _register_node(Node(
         symbol=Symbol(fresh_name()),
         depends_on=parent_nodes,
         constraints=(),
         law=None,
         role="derived",
-    )
+    ))
 
 
 def _combine_float(x, y, op):
@@ -618,6 +650,7 @@ class NoisyValue:
                 definition=expr,
                 role="derived",
             )
+        _register_closure(root)
         return cls(obs, root)
 
     @property
@@ -721,8 +754,7 @@ class NoisyInt(NoisyFloat):
             law = law()
         law = sympify(law)
 
-        builder = GraphBuilder(self)
-        noise_node = builder.noise(law=law)
+        noise_node = _noise_node(law=law)
 
         if obs is None:
             obs = self._obs
@@ -733,10 +765,9 @@ class NoisyInt(NoisyFloat):
             law = law()
         law = sympify(law)
 
-        builder = GraphBuilder(self)
-        noise_node = builder.noise(law=law)
+        noise_node = _noise_node(law=law)
         expr = _preferred_value_expr(self) + noise_node.symbol
-        root = builder.derived(definition=expr)
+        root = _derived_node(definition=expr)
 
         obs = int(self._obs + int(obs_shift))
         return NoisyInt.from_node(obs, root)

@@ -8,8 +8,10 @@ from sympy.stats.rv import random_symbols
 
 from src.core import NoisyFloat
 from src.core import NoisyInt
-from src.core import GraphBuilder
 from src.core import Node
+from src.core import _derived_node
+from src.core import _latent_node
+from src.core import _noise_node
 from src.core import as_noisy_float
 from src.core import as_noisy_int
 from src.core import noisy_value_sampler
@@ -343,37 +345,36 @@ def test_sampler_uses_root_output_definition():
     assert np.all(draws == 13.0)
 
 
-def test_graph_builder_infers_derived_dependencies_from_definition():
-    builder = GraphBuilder()
-    theta = builder.latent("theta_gb", constraints=(sp.Symbol("theta_gb") - 1.0,))
+def test_registry_infers_derived_dependencies_from_definition():
+    theta = _latent_node("theta_gb", constraints=(sp.Symbol("theta_gb") - 1.0,))
 
     eps_rv = Normal("eps_gb", 0, 1)
-    eps = builder.noise(eps_rv, law=eps_rv)
+    eps = _noise_node(eps_rv, law=eps_rv)
 
-    value = builder.derived("value_gb", definition=theta.symbol + eps.symbol)
+    value = _derived_node("value_gb", definition=theta.symbol + eps.symbol)
 
     assert {dep.symbol for dep in value.depends_on} == {theta.symbol, eps.symbol}
 
 
-def test_graph_builder_infers_noise_dependencies_from_law_parameters():
-    builder = GraphBuilder()
-    theta = builder.latent("theta_law_gb", constraints=(sp.Symbol("theta_law_gb") - 2.0,))
+def test_registry_infers_noise_dependencies_from_law_parameters():
+    theta = _latent_node("theta_law_gb", constraints=(sp.Symbol("theta_law_gb") - 2.0,))
 
     law = Normal("z_law_gb", theta.symbol, 1)
-    z = builder.noise("z_gb", law=law)
+    z = _noise_node("z_gb", law=law)
 
     assert {dep.symbol for dep in z.depends_on} == {theta.symbol}
 
 
-def test_graph_builder_rejects_duplicate_symbol_registration():
-    builder = GraphBuilder()
-    builder.latent("dup_gb")
+def test_registry_rejects_duplicate_symbol_registration():
+    existing = _latent_node("dup_gb")
 
     with pytest.raises(ValueError, match="already registered"):
-        builder.derived("dup_gb", definition=sp.Integer(1))
+        _derived_node("dup_gb", definition=sp.Integer(1))
+
+    assert existing.symbol == sp.Symbol("dup_gb")
 
 
-def test_graph_builder_initial_values_include_wrapper_roots_in_inferred_dependencies():
+def test_registry_auto_includes_wrapper_roots_from_expression_symbols():
     theta = sp.Symbol("theta_gb_input")
     base_root = Node(
         symbol=theta,
@@ -384,8 +385,7 @@ def test_graph_builder_initial_values_include_wrapper_roots_in_inferred_dependen
     )
     wrapped = NoisyFloat.from_node(obs=3.0, root=base_root, expr=theta + 1.0)
 
-    builder = GraphBuilder(wrapped)
-    out = builder.derived("out_gb_input", definition=theta + 2.0)
+    out = _derived_node("out_gb_input", definition=theta + 2.0)
 
     dep_symbols = {dep.symbol for dep in out.depends_on}
     assert wrapped.root.symbol in dep_symbols

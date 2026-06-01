@@ -1,10 +1,10 @@
 from . import noise
 from .core import NoisyFloat
-from .core import GraphBuilder
 from .core import as_noisy_float
 from .core import _preferred_value_expr
 from .core import _combine_float
 from .core import as_noisy_float_array
+from .core import _derived_node
 from sympy import Piecewise
 from sympy import nan
 from numpy import asarray
@@ -63,11 +63,7 @@ def odds_ratio(tbl):
 
     ratio_draw = (grp0_yes_draw * grp1_no_draw) / (grp0_no_draw * grp1_yes_draw)
     expr = Piecewise((_preferred_value_expr(ratio_draw), valid), (nan, True))
-
-    builder = GraphBuilder(grp0_yes, grp0_no, grp1_yes, grp1_no)
-    builder.include_values(grp0_yes_draw, grp1_yes_draw)
-    root = builder.derived(definition=expr)
-
+    root = _derived_node(definition=expr)
     return NoisyFloat.from_node(obs_or, root)
 
 
