@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import sympy as sp
+from scipy.stats import chi2_contingency
 
 import src.analysis as analysis
 
@@ -67,6 +68,41 @@ def test_noisy_max_combines_noisy_value_metadata():
 def test_odds_ratio_enforces_2x2_shape():
     with pytest.raises(AssertionError):
         analysis.odds_ratio([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+
+def test_chi_squared_enforces_2d_shape():
+    with pytest.raises(AssertionError):
+        analysis.chi_squared([1.0, 2.0, 3.0])
+
+
+def test_chi_squared_matches_scipy_for_plain_floats():
+    table = [[65.0, 109.0], [243.0, 1348.0]]
+    result = analysis.chi_squared(table)
+    expected = chi2_contingency(table, correction=False).statistic
+
+    assert isinstance(result, NoisyFloat)
+    assert float(result) == pytest.approx(expected)
+
+
+def test_chi_squared_returns_nan_when_a_row_has_no_mass():
+    result = analysis.chi_squared([[1.0, 2.0], [0.0, 0.0]])
+
+    assert isinstance(result, NoisyFloat)
+    assert np.isnan(float(result))
+
+
+def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
+    theta = sp.Symbol("theta_chi_squared")
+    noisy_a = _rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta - 5.0])
+
+    result = analysis.chi_squared([[noisy_a, 7.0], [11.0, 13.0]])
+
+    assert isinstance(result, NoisyFloat)
+    assert theta in result.root.latent_symbols()
+
+    draws = result.sample(n=128, rng=123)
+    assert draws.shape == (128,)
+    assert np.all(np.isfinite(draws))
 
 
 def test_odds_ratio_matches_closed_form_for_plain_floats():

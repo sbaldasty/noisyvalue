@@ -23,11 +23,58 @@ def _fold_float(values, op):
     return result
 
 
-def odds_ratio(tbl):
-    # Must have 2x2 table of noisy floats with postive finite observations
+def as_contingency_table(tbl):
+    # Elements should be noisy floats if they aren't already
     tbl = as_noisy_float_array(tbl)
-    assert tbl.shape == (2, 2)
+    # Must be 2D with positive dimensions
+    assert tbl.ndim == 2
+    assert tbl.shape[0] > 0 and tbl.shape[1] > 0
+    # All observations must be finite
     assert isfinite(asarray([float(value) for value in tbl.ravel()], dtype=float)).all()
+    # Return a fresh copy
+    return tbl
+
+
+def chi_squared(tbl):
+    tbl = as_contingency_table(tbl)
+
+    n_rows, n_cols = tbl.shape
+    row_totals = tuple(sum(tbl[row_idx, :]) for row_idx in range(n_rows))
+    col_totals = tuple(sum(tbl[:, col_idx]) for col_idx in range(n_cols))
+    total = sum(row_totals)
+
+    expected = tuple(
+        tuple(
+            (row_totals[row_idx] * col_totals[col_idx]) / total
+            for col_idx in range(n_cols)
+        )
+        for row_idx in range(n_rows)
+    )
+    stat = sum(
+        ((tbl[row_idx, col_idx] - expected[row_idx][col_idx])
+         * (tbl[row_idx, col_idx] - expected[row_idx][col_idx]))
+        / expected[row_idx][col_idx]
+        for row_idx in range(n_rows)
+        for col_idx in range(n_cols)
+    )
+
+    valid = total > 0
+    for row_total in row_totals:
+        valid = valid & (row_total > 0)
+    for col_total in col_totals:
+        valid = valid & (col_total > 0)
+    for cell in tbl.ravel():
+        valid = valid & (cell >= 0)
+
+    obs_stat = float(stat) if bool(valid) else nan
+    expr = Piecewise((_preferred_value_expr(stat), _preferred_value_expr(valid)), (nan, True))
+    root = _derived_node(definition=expr)
+    return NoisyFloat.from_node(obs_stat, root)
+
+
+def odds_ratio(tbl):
+    tbl = as_contingency_table(tbl)
+    assert tbl.shape == (2, 2)
 
     # Compute totals and ratios as noisy floats for each group
     grp0_yes, grp0_no, grp1_yes, grp1_no = tbl.ravel()
