@@ -7,11 +7,13 @@ from sympy.stats import Normal
 from sympy.stats.rv import random_symbols
 
 from src.core import NoisyFloat
+from src.core import NoisyBool
 from src.core import NoisyInt
 from src.core import Node
 from src.core import _derived_node
 from src.core import _latent_node
 from src.core import _noise_node
+from src.core import as_noisy_bool
 from src.core import as_noisy_float
 from src.core import as_noisy_int
 from src.core import noisy_value_sampler
@@ -74,6 +76,18 @@ def test_literal_conversions_use_native_root_model():
     assert isinstance(converted.root, Node)
     assert converted.root.constraints == ()
     assert float(converted) == 7.0
+
+
+def test_noisybool_true_false_constants_exist_and_are_boolean():
+    assert isinstance(NoisyBool.TRUE, NoisyBool)
+    assert isinstance(NoisyBool.FALSE, NoisyBool)
+    assert bool(NoisyBool.TRUE)
+    assert not bool(NoisyBool.FALSE)
+
+
+def test_noisybool_true_false_constants_match_literal_conversion_singletons():
+    assert NoisyBool.TRUE is as_noisy_bool(True)
+    assert NoisyBool.FALSE is as_noisy_bool(False)
 
 
 def test_integer_noisy_values_sample_as_integers():
@@ -236,6 +250,34 @@ def test_noisyfloat_zero_divide_zero_returns_nan_observation():
     y = as_noisy_float(0.0)
 
     z = x / y
+
+    assert isinstance(z, NoisyFloat)
+    assert np.isnan(float(z))
+
+
+def test_noisyfloat_power_supports_plain_exponent():
+    x = as_noisy_float(3.0)
+
+    z = x ** 2
+
+    assert isinstance(z, NoisyFloat)
+    assert float(z) == pytest.approx(9.0)
+
+
+def test_noisyfloat_reverse_power_supports_plain_base():
+    x = as_noisy_float(3.0)
+
+    z = 2.0 ** x
+
+    assert isinstance(z, NoisyFloat)
+    assert float(z) == pytest.approx(8.0)
+
+
+def test_noisyfloat_invalid_real_power_returns_nan_observation():
+    x = as_noisy_float(-1.0)
+    y = as_noisy_float(0.5)
+
+    z = x ** y
 
     assert isinstance(z, NoisyFloat)
     assert np.isnan(float(z))

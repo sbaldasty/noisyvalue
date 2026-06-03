@@ -294,6 +294,24 @@ def _divide_float(x, y, *, reverse=False):
     return NoisyFloat.from_node(obs, root, expr=expr)
 
 
+def _power_float(x, y, *, reverse=False):
+    y = as_noisy_float(y)
+    lhs_obs, rhs_obs = (y._obs, x._obs) if reverse else (x._obs, y._obs)
+    lhs_expr, rhs_expr = (
+        (_preferred_value_expr(y), _preferred_value_expr(x))
+        if reverse
+        else (_preferred_value_expr(x), _preferred_value_expr(y))
+    )
+
+    # Mirror numpy semantics for invalid real powers and overflow.
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        obs = float(np.power(lhs_obs, rhs_obs))
+
+    expr = sp.Pow(lhs_expr, rhs_expr, evaluate=False)
+    root = _derive_node(x, y)
+    return NoisyFloat.from_node(obs, root, expr=expr)
+
+
 def _combine_bool(x, y, obs_op, expr_op):
     y = as_noisy_bool(y)
     obs = obs_op(x._obs, y._obs)
@@ -479,9 +497,19 @@ def as_noisy_bool(value):
     if isinstance(value, NoisyBool):
         return value
     if isinstance(value, (bool, np.bool_)):
-        expr = sympify(bool(value))
+        bool_value = bool(value)
+
+        # Reuse canonical class constants once the NoisyBool class is initialized.
+        noisy_bool_cls = globals().get("NoisyBool")
+        if noisy_bool_cls is not None:
+            if bool_value and getattr(noisy_bool_cls, "TRUE", None) is not None:
+                return noisy_bool_cls.TRUE
+            if (not bool_value) and getattr(noisy_bool_cls, "FALSE", None) is not None:
+                return noisy_bool_cls.FALSE
+
+        expr = sympify(bool_value)
         root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-        return NoisyBool.from_node(bool(value), root, expr=expr)
+        return NoisyBool.from_node(bool_value, root, expr=expr)
     raise TypeError(f"Expected bool or NoisyBool, got {type(value).__name__}")
 
 
@@ -711,6 +739,12 @@ class NoisyFloat(NoisyValue):
     def __rtruediv__(self, other):
         return _divide_float(self, other, reverse=True)
 
+    def __pow__(self, other):
+        return _power_float(self, other)
+
+    def __rpow__(self, other):
+        return _power_float(self, other, reverse=True)
+
     def __lt__(self, other):
         return _compare_float(self, other, lambda a, b: a < b)
 
@@ -770,6 +804,9 @@ class NoisyInt(NoisyFloat):
 
 
 class NoisyBool(NoisyValue):
+    TRUE = None
+    FALSE = None
+
     def __init__(self, obs, root):
         super().__init__(bool(obs), root)
 
@@ -790,6 +827,9 @@ class NoisyBool(NoisyValue):
 
     def __invert__(self):
         return _lift_unary_bool(self, lambda a: not a, Not)
+
+NoisyBool.TRUE = as_noisy_bool(True)
+NoisyBool.FALSE = as_noisy_bool(False)
 
 
 class NoisyValueSampler:
