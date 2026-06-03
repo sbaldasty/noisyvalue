@@ -425,6 +425,14 @@ def _sample_rv(rv, rng, *, lib, kwargs, next_seed, size=None):
     return np.asarray(sampled)
 
 
+def _is_binomial_rv(rv):
+    pspace = getattr(rv, "pspace", None)
+    distribution = getattr(pspace, "distribution", None)
+    if distribution is None:
+        return False
+    return distribution.__class__.__name__ == "BinomialDistribution"
+
+
 def _expanded_definitions(root):
     expanded = {}
     for node in reversed(root.closure()):
@@ -891,14 +899,20 @@ class NoisyValueSampler:
                         next_unresolved.append(node)
                         continue
 
-                    sampled_law = _instantiate_law(node.law, resolved_values)
-                    sampled_value = _sample_rv(
-                        sampled_law,
-                        rng,
-                        lib=self._lib,
-                        kwargs=self._kwargs,
-                        next_seed=next_seed,
-                    )
+                    try:
+                        sampled_law = _instantiate_law(node.law, resolved_values)
+                        sampled_value = _sample_rv(
+                            sampled_law,
+                            rng,
+                            lib=self._lib,
+                            kwargs=self._kwargs,
+                            next_seed=next_seed,
+                        )
+                    except (TypeError, ValueError):
+                        if _is_binomial_rv(node.law):
+                            sampled_value = np.nan
+                        else:
+                            raise
                     draws[node.symbol] = sampled_value
                     resolved_values[node.symbol] = sampled_value
 

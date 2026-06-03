@@ -121,3 +121,15 @@ def test_odds_ratio_returns_nan_observation_when_observed_ratio_is_invalid():
     assert isinstance(ratio, NoisyFloat)
     assert np.isnan(float(ratio))
     assert isinstance(ratio.root, Node)
+
+
+def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():
+    # This table implies grp0_ratio = 5 / (5 + -1) = 1.25, which is out of
+    # bounds for Binomial p. Sampling should stay robust and return NaNs.
+    ratio = analysis.odds_ratio([[5.0, -1.0], [11.0, 13.0]])
+
+    draws = ratio.sample(n=64, rng=123)
+
+    assert isinstance(draws, np.ndarray)
+    assert draws.shape == (64,)
+    assert np.all(np.isnan(draws))

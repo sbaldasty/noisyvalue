@@ -271,6 +271,25 @@ def test_noisyint_resample_preserves_upstream_dependency():
     assert theta in resampled.root.latent_symbols()
 
 
+def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
+    theta = sp.Symbol("theta_bad_binomial")
+    root = Node(
+        symbol=theta,
+        depends_on=(),
+        constraints=(theta - 1.5,),
+        law=None,
+        role="latent",
+    )
+    count = NoisyInt.from_node(obs=3, root=root, expr=sp.Integer(10))
+    resampled = count.resample(Binomial("k_bad_binomial", 10, theta))
+
+    noisy_float = NoisyFloat.from_node(obs=float(int(resampled)), root=resampled.root, expr=resampled.root.symbol)
+    draws = noisy_float.sample(n=16, rng=123)
+
+    assert draws.shape == (16,)
+    assert np.all(np.isnan(draws))
+
+
 def test_sampler_resolves_multilayer_law_dependencies():
     z1_symbol = sp.Symbol("z1_layered")
     z2_symbol = sp.Symbol("z2_layered")
