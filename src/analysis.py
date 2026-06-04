@@ -64,25 +64,19 @@ def contingency_table_predictive(tbl):
 
     for i in range(n_rows):
         row = tuple(tbl[i, :])
-        row_total = sum(row).round_nearest()
-
         row_draws = []
-        remaining_total = row_total
+        remaining_total = sum(row).round_nearest()
         remaining_mass = sum(row)
 
-        for j in range(n_cols):
+        for j in range(n_cols - 1):
             cell = row[j]
-
-            if j == n_cols - 1:
-                draw = remaining_total
-            else:
-                prob = cell / remaining_mass
-                draw = cell.round_nearest().resample(noise.binomial(remaining_total, prob))
-                remaining_total = remaining_total - draw
-                remaining_mass = remaining_mass - cell
-
+            prob = cell / remaining_mass
+            draw = cell.round_nearest().resample(noise.binomial(remaining_total, prob))
+            remaining_total = remaining_total - draw
+            remaining_mass = remaining_mass - cell
             row_draws.append(draw)
 
+        row_draws.append(remaining_total)
         predictive.append(row_draws)
 
     return as_noisy_float_array(predictive)
