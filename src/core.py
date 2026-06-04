@@ -670,6 +670,15 @@ class NoisyValue:
     def __repr__(self):
         return f"~{self._obs}"
 
+    def __float__(self):
+        return float(self._obs)
+
+    def __int__(self):
+        return int(self._obs)
+
+    def __bool__(self):
+        return bool(self._obs)
+
     @classmethod
     def from_node(cls, obs, root, expr=None):
         if not isinstance(root, Node):
@@ -705,12 +714,6 @@ class NoisyValue:
 class NoisyFloat(NoisyValue):
     def __init__(self, obs, root):
         super().__init__(float(obs), root)
-
-    def __float__(self):
-        return self._obs
-
-    def __int__(self):
-        return int(self._obs)
 
     def guarded(self, guard, fallback=sp.nan):
         guard = as_noisy_bool(guard)
@@ -794,12 +797,6 @@ class NoisyInt(NoisyFloat):
     def __init__(self, obs, root):
         NoisyValue.__init__(self, int(obs), root)
 
-    def __float__(self):
-        return float(self._obs)
-
-    def __int__(self):
-        return self._obs
-
     def __index__(self):
         return self._obs
 
@@ -821,9 +818,6 @@ class NoisyBool(NoisyValue):
 
     def __init__(self, obs, root):
         super().__init__(bool(obs), root)
-
-    def __bool__(self):
-        return self._obs
 
     def __and__(self, other):
         return _combine_bool(self, other, lambda a, b: a and b, And)
