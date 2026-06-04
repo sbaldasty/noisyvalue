@@ -1,13 +1,8 @@
 from . import noise
 from .core import NoisyBool
-from .core import NoisyFloat
 from .core import as_noisy_float
-from .core import _preferred_value_expr
 from .core import _combine_float
 from .core import as_noisy_float_array
-from .core import _derived_node
-from sympy import Piecewise
-from sympy import nan
 from numpy import asarray
 from numpy import isfinite
 from sympy import Max
@@ -58,52 +53,49 @@ def chi_squared(tbl):
     for cell in tbl.ravel():
         valid &= cell >= 0
 
-    obs_stat = float(stat) if bool(valid) else nan
-    expr = Piecewise((_preferred_value_expr(stat), _preferred_value_expr(valid)), (nan, True))
-    root = _derived_node(definition=expr)
-    return NoisyFloat.from_node(obs_stat, root)
+    return stat.guarded(valid)
+
+
+def contingency_table_predictive(tbl):
+    tbl = as_contingency_table(tbl)
+
+    n_rows, n_cols = tbl.shape
+    predictive = []
+
+    for i in range(n_rows):
+        row = tuple(tbl[i, :])
+        row_total = sum(row).round_nearest()
+
+        row_draws = []
+        remaining_total = row_total
+        remaining_mass = sum(row)
+
+        for j in range(n_cols):
+            cell = row[j]
+
+            if j == n_cols - 1:
+                draw = remaining_total
+            else:
+                prob = cell / remaining_mass
+                draw = cell.round_nearest().resample(noise.binomial(remaining_total, prob))
+                remaining_total = remaining_total - draw
+                remaining_mass = remaining_mass - cell
+
+            row_draws.append(draw)
+
+        predictive.append(row_draws)
+
+    return as_noisy_float_array(predictive)
 
 
 def odds_ratio(tbl):
     tbl = as_contingency_table(tbl)
     assert tbl.shape == (2, 2)
 
-    # Compute totals and ratios as noisy floats for each group
     grp0_yes, grp0_no, grp1_yes, grp1_no = tbl.ravel()
-    grp0_total = (grp0_yes + grp0_no).round_nearest()
-    grp1_total = (grp1_yes + grp1_no).round_nearest()
-    grp0_ratio = grp0_yes / (grp0_yes + grp0_no)
-    grp1_ratio = grp1_yes / (grp1_yes + grp1_no)
-
-    # Observation for the result is calculation over inputs or NaN if nonpositive counts
-    obs_valid = bool((grp0_yes > 0) & (grp0_no > 0) & (grp1_yes > 0) & (grp1_no > 0))
-    obs_or = float((grp0_yes * grp1_no) / (grp0_no * grp1_yes)) if obs_valid else nan
-
-    # Chain symbolic binomial distributions for sampling uncertainty
-    grp0_yes_draw = grp0_yes.round_nearest().resample(noise.binomial(grp0_total, grp0_ratio))
-    grp1_yes_draw = grp1_yes.round_nearest().resample(noise.binomial(grp1_total, grp1_ratio))
-    grp0_no_draw = grp0_total - grp0_yes_draw
-    grp1_no_draw = grp1_total - grp1_yes_draw
-
-    # Basically deferred sample filtering
-    valid = _preferred_value_expr(
-        (grp0_total > 0)
-        & (grp1_total > 0)
-        & (grp0_yes + grp0_no > 0)
-        & (grp1_yes + grp1_no > 0)
-        & (grp0_ratio >= 0)
-        & (grp0_ratio <= 1)
-        & (grp1_ratio >= 0)
-        & (grp1_ratio <= 1)
-        & (grp0_yes_draw > 0)
-        & (grp0_no_draw > 0)
-        & (grp1_yes_draw > 0)
-        & (grp1_no_draw > 0))
-
-    ratio_draw = (grp0_yes_draw * grp1_no_draw) / (grp0_no_draw * grp1_yes_draw)
-    expr = Piecewise((_preferred_value_expr(ratio_draw), valid), (nan, True))
-    root = _derived_node(definition=expr)
-    return NoisyFloat.from_node(obs_or, root)
+    stat = (grp0_yes * grp1_no) / (grp0_no * grp1_yes)
+    valid = (grp0_yes > 0) & (grp0_no > 0) & (grp1_yes > 0) & (grp1_no > 0)
+    return stat.guarded(valid)
 
 
 def noisy_min(*values):

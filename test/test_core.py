@@ -255,6 +255,43 @@ def test_noisyfloat_zero_divide_zero_returns_nan_observation():
     assert np.isnan(float(z))
 
 
+def test_noisyfloat_guarded_returns_value_when_guard_true():
+    x = as_noisy_float(3.5)
+
+    guarded = x.guarded(True)
+
+    assert isinstance(guarded, NoisyFloat)
+    assert float(guarded) == pytest.approx(3.5)
+    draws = guarded.sample(n=5, rng=123)
+    assert np.all(draws == 3.5)
+
+
+def test_noisyfloat_guarded_returns_nan_when_guard_false():
+    x = as_noisy_float(3.5)
+
+    guarded = x.guarded(False)
+
+    assert isinstance(guarded, NoisyFloat)
+    assert np.isnan(float(guarded))
+    draws = guarded.sample(n=5, rng=123)
+    assert np.all(np.isnan(draws))
+
+
+def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
+    theta = sp.Symbol("theta_guarded")
+    eps = Normal("eps_guarded", 0, 1)
+    constraints = [theta + eps - 4.0]
+
+    value = _rooted_float(obs=4.0, expr=theta, thetas={theta}, eqns=constraints)
+    guarded = value.guarded(value > 0)
+
+    assert isinstance(guarded, NoisyFloat)
+    draws = guarded.sample(n=128, rng=123)
+    finite = draws[np.isfinite(draws)]
+    assert draws.shape == (128,)
+    assert finite.size > 0
+
+
 def test_noisyfloat_power_supports_plain_exponent():
     x = as_noisy_float(3.0)
 

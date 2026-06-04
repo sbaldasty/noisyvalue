@@ -115,14 +115,14 @@ def test_odds_ratio_matches_closed_form_for_plain_floats():
 
 def test_odds_ratio_sample_keeps_only_valid_draws():
     ratio = analysis.odds_ratio([[5.0, 7.0], [11.0, 13.0]])
+    expected = (5.0 * 13.0) / (7.0 * 11.0)
 
     draws = ratio.sample(n=400, rng=123)
-    finite = draws[np.isfinite(draws)]
 
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (400,)
-    assert finite.size > 0
-    assert np.all(finite > 0.0)
+    assert np.all(np.isfinite(draws))
+    assert np.allclose(draws, expected)
 
 
 def test_odds_ratio_sample_with_zero_n_returns_empty_array():
@@ -160,8 +160,7 @@ def test_odds_ratio_returns_nan_observation_when_observed_ratio_is_invalid():
 
 
 def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():
-    # This table implies grp0_ratio = 5 / (5 + -1) = 1.25, which is out of
-    # bounds for Binomial p. Sampling should stay robust and return NaNs.
+    # Invalid observed counts produce NaNs through the validity gate.
     ratio = analysis.odds_ratio([[5.0, -1.0], [11.0, 13.0]])
 
     draws = ratio.sample(n=64, rng=123)
@@ -169,3 +168,37 @@ def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (64,)
     assert np.all(np.isnan(draws))
+
+
+def test_contingency_table_predictive_supports_general_2d_shape():
+    table = [[10.0, 20.0, 30.0], [9.0, 3.0, 8.0]]
+
+    predictive = analysis.contingency_table_predictive(table)
+
+    assert predictive.shape == (2, 3)
+    assert np.isfinite(np.asarray([float(value) for value in predictive.ravel()], dtype=float)).all()
+
+
+def test_chi_squared_accepts_predictive_contingency_table():
+    table = [[65.0, 109.0], [243.0, 1348.0]]
+
+    stat = analysis.chi_squared(analysis.contingency_table_predictive(table))
+    draws = stat.sample(n=256, rng=123)
+
+    assert isinstance(stat, NoisyFloat)
+    assert draws.shape == (256,)
+    assert np.isfinite(draws).all()
+    assert np.std(draws) > 0.0
+
+
+def test_odds_ratio_accepts_predictive_contingency_table():
+    table = [[65.0, 109.0], [243.0, 1348.0]]
+
+    ratio = analysis.odds_ratio(analysis.contingency_table_predictive(table))
+    draws = ratio.sample(n=256, rng=123)
+    finite = draws[np.isfinite(draws)]
+
+    assert isinstance(ratio, NoisyFloat)
+    assert draws.shape == (256,)
+    assert finite.size > 0
+    assert np.std(finite) > 0.0

@@ -712,6 +712,18 @@ class NoisyFloat(NoisyValue):
     def __int__(self):
         return int(self._obs)
 
+    def guarded(self, guard, fallback=sp.nan):
+        guard = as_noisy_bool(guard)
+        fallback = sympify(fallback)
+
+        obs = self._obs if bool(guard) else float(fallback)
+        expr = sp.Piecewise(
+            (_preferred_value_expr(self), _preferred_value_expr(guard)),
+            (fallback, True),
+        )
+        root = _derived_node(definition=expr)
+        return NoisyFloat.from_node(obs, root)
+
     def __abs__(self):
         return _lift_unary_float(self, abs, Abs)
 
