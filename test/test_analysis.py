@@ -65,27 +65,52 @@ def test_noisy_max_combines_noisy_value_metadata():
     assert len(out.root.all_constraints()) >= 2
 
 
+def test_as_contingency_table_returns_noisy_contingency_table():
+    table = analysis.NoisyContingencyTable([[1.0, 2.0], [3.0, 4.0]])
+
+    assert isinstance(table, analysis.NoisyContingencyTable)
+    assert table.tbl.shape == (2, 2)
+
+
 def test_odds_ratio_enforces_2x2_shape():
     with pytest.raises(AssertionError):
-        analysis.odds_ratio([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        analysis.NoisyContingencyTable([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).odds_ratio()
+
+
+def test_noisy_contingency_table_odds_ratio_enforces_2x2_shape():
+    with pytest.raises(AssertionError):
+        analysis.NoisyContingencyTable([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]).odds_ratio()
 
 
 def test_chi_squared_enforces_2d_shape():
     with pytest.raises(AssertionError):
-        analysis.chi_squared([1.0, 2.0, 3.0])
+        analysis.NoisyContingencyTable([1.0, 2.0, 3.0]).chi_squared()
 
 
 def test_chi_squared_matches_scipy_for_plain_floats():
     table = [[65.0, 109.0], [243.0, 1348.0]]
-    result = analysis.chi_squared(table)
+    result = analysis.NoisyContingencyTable(table).chi_squared()
     expected = chi2_contingency(table, correction=False).statistic
 
     assert isinstance(result, NoisyFloat)
     assert float(result) == pytest.approx(expected)
 
 
+def test_noisy_contingency_table_repeatability_on_same_input():
+    table_data = [[65.0, 109.0], [243.0, 1348.0]]
+
+    table = analysis.NoisyContingencyTable(table_data)
+    chi_a = table.chi_squared()
+    or_a = table.odds_ratio()
+    chi_b = table.chi_squared()
+    or_b = table.odds_ratio()
+
+    assert float(chi_a) == pytest.approx(float(chi_b))
+    assert float(or_a) == pytest.approx(float(or_b))
+
+
 def test_chi_squared_returns_nan_when_a_row_has_no_mass():
-    result = analysis.chi_squared([[1.0, 2.0], [0.0, 0.0]])
+    result = analysis.NoisyContingencyTable([[1.0, 2.0], [0.0, 0.0]]).chi_squared()
 
     assert isinstance(result, NoisyFloat)
     assert np.isnan(float(result))
@@ -95,7 +120,7 @@ def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
     theta = sp.Symbol("theta_chi_squared")
     noisy_a = _rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta - 5.0])
 
-    result = analysis.chi_squared([[noisy_a, 7.0], [11.0, 13.0]])
+    result = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).chi_squared()
 
     assert isinstance(result, NoisyFloat)
     assert theta in result.root.latent_symbols()
@@ -106,7 +131,7 @@ def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
 
 
 def test_odds_ratio_matches_closed_form_for_plain_floats():
-    ratio = analysis.odds_ratio([[65.0, 109.0], [243.0, 1348.0]])
+    ratio = analysis.NoisyContingencyTable([[65.0, 109.0], [243.0, 1348.0]]).odds_ratio()
     expected = (65.0 * 1348.0) / (109.0 * 243.0)
 
     assert isinstance(ratio, NoisyFloat)
@@ -114,7 +139,7 @@ def test_odds_ratio_matches_closed_form_for_plain_floats():
 
 
 def test_odds_ratio_sample_keeps_only_valid_draws():
-    ratio = analysis.odds_ratio([[5.0, 7.0], [11.0, 13.0]])
+    ratio = analysis.NoisyContingencyTable([[5.0, 7.0], [11.0, 13.0]]).odds_ratio()
     expected = (5.0 * 13.0) / (7.0 * 11.0)
 
     draws = ratio.sample(n=400, rng=123)
@@ -126,7 +151,7 @@ def test_odds_ratio_sample_keeps_only_valid_draws():
 
 
 def test_odds_ratio_sample_with_zero_n_returns_empty_array():
-    ratio = analysis.odds_ratio([[1.0, 2.0], [3.0, 4.0]])
+    ratio = analysis.NoisyContingencyTable([[1.0, 2.0], [3.0, 4.0]]).odds_ratio()
 
     draws = ratio.sample(n=0, rng=123)
 
@@ -140,7 +165,7 @@ def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
 
     noisy_a = _rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta + eps - 5.0])
 
-    ratio = analysis.odds_ratio([[noisy_a, 7.0], [11.0, 13.0]])
+    ratio = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).odds_ratio()
 
     assert isinstance(ratio, NoisyFloat)
     assert theta in ratio.root.latent_symbols()
@@ -152,7 +177,7 @@ def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
 
 
 def test_odds_ratio_returns_nan_observation_when_observed_ratio_is_invalid():
-    ratio = analysis.odds_ratio([[1.0, 0.0], [2.0, 3.0]])
+    ratio = analysis.NoisyContingencyTable([[1.0, 0.0], [2.0, 3.0]]).odds_ratio()
 
     assert isinstance(ratio, NoisyFloat)
     assert np.isnan(float(ratio))
@@ -161,7 +186,7 @@ def test_odds_ratio_returns_nan_observation_when_observed_ratio_is_invalid():
 
 def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():
     # Invalid observed counts produce NaNs through the validity gate.
-    ratio = analysis.odds_ratio([[5.0, -1.0], [11.0, 13.0]])
+    ratio = analysis.NoisyContingencyTable([[5.0, -1.0], [11.0, 13.0]]).odds_ratio()
 
     draws = ratio.sample(n=64, rng=123)
 
@@ -173,16 +198,26 @@ def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():
 def test_contingency_table_predictive_supports_general_2d_shape():
     table = [[10.0, 20.0, 30.0], [9.0, 3.0, 8.0]]
 
-    predictive = analysis.contingency_table_predictive(table)
+    predictive = analysis.NoisyContingencyTable(table).with_sampling_uncertainty().tbl
 
     assert predictive.shape == (2, 3)
     assert np.isfinite(np.asarray([float(value) for value in predictive.ravel()], dtype=float)).all()
 
 
+def test_with_sampling_uncertainty_returns_noisy_contingency_table():
+    table = analysis.NoisyContingencyTable([[10.0, 20.0, 30.0], [9.0, 3.0, 8.0]])
+
+    predictive = table.with_sampling_uncertainty()
+
+    assert isinstance(predictive, analysis.NoisyContingencyTable)
+    assert predictive.tbl.shape == (2, 3)
+    assert np.isfinite(np.asarray([float(value) for value in predictive.tbl.ravel()], dtype=float)).all()
+
+
 def test_chi_squared_accepts_predictive_contingency_table():
     table = [[65.0, 109.0], [243.0, 1348.0]]
 
-    stat = analysis.chi_squared(analysis.contingency_table_predictive(table))
+    stat = analysis.NoisyContingencyTable(table).with_sampling_uncertainty().chi_squared()
     draws = stat.sample(n=256, rng=123)
 
     assert isinstance(stat, NoisyFloat)
@@ -194,7 +229,7 @@ def test_chi_squared_accepts_predictive_contingency_table():
 def test_odds_ratio_accepts_predictive_contingency_table():
     table = [[65.0, 109.0], [243.0, 1348.0]]
 
-    ratio = analysis.odds_ratio(analysis.contingency_table_predictive(table))
+    ratio = analysis.NoisyContingencyTable(table).with_sampling_uncertainty().odds_ratio()
     draws = ratio.sample(n=256, rng=123)
     finite = draws[np.isfinite(draws)]
 

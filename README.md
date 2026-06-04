@@ -87,21 +87,23 @@ There would have to be support for "noise cloning".
 
 The contingency-table statistics are now split into two layers:
 
-- Statistic calculators: `chi_squared(tbl)` and `odds_ratio(tbl)`
-- Sampling-uncertainty model for counts: `contingency_table_predictive(tbl)`
+- Statistic methods: `NoisyContingencyTable(tbl).chi_squared()` and
+	`NoisyContingencyTable(tbl).odds_ratio()`
+- Sampling-uncertainty model for counts:
+	`NoisyContingencyTable(tbl).with_sampling_uncertainty()`
 
 This lets you compose them explicitly:
 
 ```python
-from src.analysis import chi_squared, odds_ratio, contingency_table_predictive
+from src.analysis import NoisyContingencyTable
 
-tbl_pred = contingency_table_predictive(tbl)
+tbl_pred = NoisyContingencyTable(tbl).with_sampling_uncertainty()
 
-chi2 = chi_squared(tbl_pred)
-or_ = odds_ratio(tbl_pred)  # still requires a 2x2 table
+chi2 = tbl_pred.chi_squared()
+or_ = tbl_pred.odds_ratio()  # still requires a 2x2 table
 ```
 
-### What `contingency_table_predictive` does
+### What `with_sampling_uncertainty` does
 
 - Accepts any non-empty 2D contingency table.
 - Builds a predictive noisy table row by row.
@@ -128,9 +130,11 @@ After decoupling, those responsibilities are separated:
 	all four cells in the 2x2 table must be strictly positive for a finite value.
 	Otherwise it yields `nan` via its Piecewise validity gate.
 - `chi_squared` keeps its own validity gate (positive row totals, positive
+
+- `chi_squared` keeps its own validity gate (positive row totals, positive
 	column totals, nonnegative cells).
 - Parameter-domain checks such as probability bounds are now naturally handled
-	by `contingency_table_predictive` during sampling. If a sampled binomial
+	by `with_sampling_uncertainty` during sampling. If a sampled binomial
 	parameter is invalid, draws become `nan` and downstream statistics propagate
 	that invalidity.
 
