@@ -269,7 +269,7 @@ def _derive_node(*parents):
 
 
 def _combine_float(x, y, op):
-    y = as_noisy_float(y)
+    y = NoisyFloat.from_value(y)
     obs = op(x._obs, y._obs)
     expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
     root = _derive_node(x, y)
@@ -277,7 +277,7 @@ def _combine_float(x, y, op):
 
 
 def _divide_float(x, y, *, reverse=False):
-    y = as_noisy_float(y)
+    y = NoisyFloat.from_value(y)
     lhs_obs, rhs_obs = (y._obs, x._obs) if reverse else (x._obs, y._obs)
     lhs_expr, rhs_expr = (
         (_preferred_value_expr(y), _preferred_value_expr(x))
@@ -295,7 +295,7 @@ def _divide_float(x, y, *, reverse=False):
 
 
 def _power_float(x, y, *, reverse=False):
-    y = as_noisy_float(y)
+    y = NoisyFloat.from_value(y)
     lhs_obs, rhs_obs = (y._obs, x._obs) if reverse else (x._obs, y._obs)
     lhs_expr, rhs_expr = (
         (_preferred_value_expr(y), _preferred_value_expr(x))
@@ -313,7 +313,7 @@ def _power_float(x, y, *, reverse=False):
 
 
 def _combine_bool(x, y, obs_op, expr_op):
-    y = as_noisy_bool(y)
+    y = NoisyBool.from_value(y)
     obs = obs_op(x._obs, y._obs)
     expr = expr_op(_preferred_value_expr(x), _preferred_value_expr(y))
     root = _derive_node(x, y)
@@ -321,7 +321,7 @@ def _combine_bool(x, y, obs_op, expr_op):
 
 
 def _compare_float(x, y, op):
-    y = as_noisy_float(y)
+    y = NoisyFloat.from_value(y)
     obs = op(x._obs, y._obs)
     expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
     root = _derive_node(x, y)
@@ -329,12 +329,12 @@ def _compare_float(x, y, op):
 
 
 def _lift_unary_bool(x, obs_fn, expr_fn):
-    x = as_noisy_bool(x)
+    x = NoisyBool.from_value(x)
     return NoisyBool.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
 
 
 def _lift_unary_float(x, obs_fn, expr_fn):
-    x = as_noisy_float(x)
+    x = NoisyFloat.from_value(x)
     return NoisyFloat.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
 
 
@@ -493,46 +493,10 @@ def _filter_theta_equations(eqns, thetas):
     return tuple(theta_eqns)
 
 
-def as_noisy_bool(value):
-    if isinstance(value, NoisyBool):
-        return value
-    if isinstance(value, (bool, np.bool_)):
-        bool_value = bool(value)
-
-        # Reuse canonical class constants once the NoisyBool class is initialized.
-        noisy_bool_cls = globals().get("NoisyBool")
-        if noisy_bool_cls is not None:
-            if bool_value and getattr(noisy_bool_cls, "TRUE", None) is not None:
-                return noisy_bool_cls.TRUE
-            if (not bool_value) and getattr(noisy_bool_cls, "FALSE", None) is not None:
-                return noisy_bool_cls.FALSE
-
-        expr = sympify(bool_value)
-        root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-        return NoisyBool.from_node(bool_value, root, expr=expr)
-    raise TypeError(f"Expected bool or NoisyBool, got {type(value).__name__}")
-
-
-def as_noisy_float(value):
-    if isinstance(value, NoisyFloat):
-        return value
-    expr = sympify(value)
-    root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-    return NoisyFloat.from_node(float(expr), root, expr=expr)
-
-
-def as_noisy_int(value):
-    if isinstance(value, NoisyInt):
-        return value
-    expr = sympify(value)
-    root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-    return NoisyInt.from_node(int(expr), root, expr=expr)
-
-
 def as_noisy_float_array(array):
     values = np.asarray(array, dtype=object)
     flat = values.reshape(-1)
-    converted = np.array([as_noisy_float(value) for value in flat], dtype=object)
+    converted = np.array([NoisyFloat.from_value(value) for value in flat], dtype=object)
     return converted.reshape(values.shape)
 
 
@@ -540,10 +504,10 @@ def as_noisy_value(value):
     if isinstance(value, NoisyValue):
         return value
     if isinstance(value, (bool, np.bool_)):
-        return as_noisy_bool(value)
+        return NoisyBool.from_value(value)
     if isinstance(value, (int, np.integer)):
-        return as_noisy_int(value)
-    return as_noisy_float(value)
+        return NoisyInt.from_value(value)
+    return NoisyFloat.from_value(value)
 
 
 def _sampler_inputs_from_roots(values):
@@ -693,6 +657,14 @@ class NoisyValue:
         _register_closure(root)
         return cls(obs, root)
 
+    @classmethod
+    def from_value(cls, value):
+        if isinstance(value, cls):
+            return value
+        expr = sympify(value)
+        root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
+        return cls.from_node(expr, root, expr=expr)
+
     @property
     def root(self):
         return self._root
@@ -709,7 +681,7 @@ class NoisyFloat(NoisyValue):
         super().__init__(float(obs), root)
 
     def guarded(self, guard, fallback=sp.nan):
-        guard = as_noisy_bool(guard)
+        guard = NoisyBool.from_value(guard)
         fallback = sympify(fallback)
 
         obs = self._obs if bool(guard) else float(fallback)
@@ -806,9 +778,6 @@ class NoisyInt(NoisyFloat):
 
 
 class NoisyBool(NoisyValue):
-    TRUE = None
-    FALSE = None
-
     def __init__(self, obs, root):
         super().__init__(bool(obs), root)
 
@@ -826,9 +795,6 @@ class NoisyBool(NoisyValue):
 
     def __invert__(self):
         return _lift_unary_bool(self, lambda a: not a, Not)
-
-NoisyBool.TRUE = as_noisy_bool(True)
-NoisyBool.FALSE = as_noisy_bool(False)
 
 
 class NoisyValueSampler:

@@ -13,9 +13,6 @@ from src.core import Node
 from src.core import _derived_node
 from src.core import _latent_node
 from src.core import _noise_node
-from src.core import as_noisy_bool
-from src.core import as_noisy_float
-from src.core import as_noisy_int
 from src.core import noisy_value_sampler
 from src.core import float_array_sampler
 from src.core import sample_noisy_values
@@ -64,27 +61,15 @@ def test_joint_sampling_preserves_shared_latent_dependency():
 
 
 def test_literal_conversions_use_native_root_model():
-    converted = as_noisy_float(7.0)
+    converted = NoisyFloat.from_value(7.0)
 
     assert isinstance(converted.root, Node)
     assert converted.root.constraints == ()
     assert float(converted) == 7.0
 
 
-def test_noisybool_true_false_constants_exist_and_are_boolean():
-    assert isinstance(NoisyBool.TRUE, NoisyBool)
-    assert isinstance(NoisyBool.FALSE, NoisyBool)
-    assert bool(NoisyBool.TRUE)
-    assert not bool(NoisyBool.FALSE)
-
-
-def test_noisybool_true_false_constants_match_literal_conversion_singletons():
-    assert NoisyBool.TRUE is as_noisy_bool(True)
-    assert NoisyBool.FALSE is as_noisy_bool(False)
-
-
 def test_integer_noisy_values_sample_as_integers():
-    count = as_noisy_int(3)
+    count = NoisyInt.from_value(3)
     draws = sample_noisy_values(count, n=5, rng=123)[0].draws
 
     assert isinstance(draws, np.ndarray)
@@ -203,7 +188,7 @@ def test_sampler_uses_root_constraints():
 
 
 def test_noisyfloat_round_nearest_for_deterministic_value():
-    value = as_noisy_float(2.6)
+    value = NoisyFloat.from_value(2.6)
     rounded = value.round_nearest()
 
     assert isinstance(rounded, NoisyInt)
@@ -231,8 +216,8 @@ def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
 
 
 def test_noisyfloat_divide_by_zero_returns_inf_observation():
-    x = as_noisy_float(1.0)
-    y = as_noisy_float(0.0)
+    x = NoisyFloat.from_value(1.0)
+    y = NoisyFloat.from_value(0.0)
 
     z = x / y
 
@@ -241,8 +226,8 @@ def test_noisyfloat_divide_by_zero_returns_inf_observation():
 
 
 def test_noisyfloat_zero_divide_zero_returns_nan_observation():
-    x = as_noisy_float(0.0)
-    y = as_noisy_float(0.0)
+    x = NoisyFloat.from_value(0.0)
+    y = NoisyFloat.from_value(0.0)
 
     z = x / y
 
@@ -251,7 +236,7 @@ def test_noisyfloat_zero_divide_zero_returns_nan_observation():
 
 
 def test_noisyfloat_guarded_returns_value_when_guard_true():
-    x = as_noisy_float(3.5)
+    x = NoisyFloat.from_value(3.5)
 
     guarded = x.guarded(True)
 
@@ -262,7 +247,7 @@ def test_noisyfloat_guarded_returns_value_when_guard_true():
 
 
 def test_noisyfloat_guarded_returns_nan_when_guard_false():
-    x = as_noisy_float(3.5)
+    x = NoisyFloat.from_value(3.5)
 
     guarded = x.guarded(False)
 
@@ -288,7 +273,7 @@ def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
 
 
 def test_noisyfloat_power_supports_plain_exponent():
-    x = as_noisy_float(3.0)
+    x = NoisyFloat.from_value(3.0)
 
     z = x ** 2
 
@@ -297,7 +282,7 @@ def test_noisyfloat_power_supports_plain_exponent():
 
 
 def test_noisyfloat_reverse_power_supports_plain_base():
-    x = as_noisy_float(3.0)
+    x = NoisyFloat.from_value(3.0)
 
     z = 2.0 ** x
 
@@ -306,8 +291,8 @@ def test_noisyfloat_reverse_power_supports_plain_base():
 
 
 def test_noisyfloat_invalid_real_power_returns_nan_observation():
-    x = as_noisy_float(-1.0)
-    y = as_noisy_float(0.5)
+    x = NoisyFloat.from_value(-1.0)
+    y = NoisyFloat.from_value(0.5)
 
     z = x ** y
 
@@ -316,7 +301,7 @@ def test_noisyfloat_invalid_real_power_returns_nan_observation():
 
 
 def test_noisyint_resample_replaces_value_with_new_law():
-    count = as_noisy_int(5)
+    count = NoisyInt.from_value(5)
     resampled = count.resample(Binomial("k_resample", 2, 0.5))
 
     assert isinstance(resampled, NoisyInt)

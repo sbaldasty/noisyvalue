@@ -1,6 +1,6 @@
 from . import noise
 from .core import NoisyBool
-from .core import as_noisy_float
+from .core import NoisyFloat
 from .core import _combine_float
 from .core import as_noisy_float_array
 from numpy import asarray
@@ -13,9 +13,9 @@ def _fold_float(values, op):
     if not values:
         raise ValueError("Requires at least one value")
 
-    result = as_noisy_float(values[0])
+    result = NoisyFloat.from_value(values[0])
     for value in values[1:]:
-        result = _combine_float(result, as_noisy_float(value), op)
+        result = _combine_float(result, NoisyFloat.from_value(value), op)
     return result
 
 
@@ -42,7 +42,7 @@ class NoisyContingencyTable:
                 expected = (row_totals[i] * col_totals[j]) / total
                 stat += (tbl[i, j] - expected) ** 2 / expected
 
-        valid = NoisyBool.TRUE
+        valid = NoisyBool.from_value(True)
         for row_total in row_totals:
             valid &= row_total > 0
         for col_total in col_totals:
