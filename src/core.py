@@ -627,11 +627,6 @@ def sample_noisy_values(*vals, n=1000, lib="scipy", rng=None, **kwargs):
     return sampler.sample(n=n, rng=rng)
 
 
-def credible_interval(draws, p=0.95):
-    alpha = (1 - p) / 2
-    return np.quantile(draws, [alpha, 1 - alpha], method="linear")
-
-
 def float_array_sampler(vals, lib="scipy", **kwargs):
     """Prepare a reusable sampler for tensor-like value collections.
 
@@ -703,12 +698,10 @@ class NoisyValue:
         return self._root
 
     def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
-        sampler = noisy_value_sampler(self, lib=lib, **kwargs)
-        return sampler.sample(n, rng)
+        return noisy_value_sampler(self, lib=lib, **kwargs).sample(n, rng)[0]
 
     def credible_interval(self, p=0.95, n=1000, lib="scipy", rng=None, **kwargs):
-        draws = self.sample(n=n, lib=lib, rng=rng, **kwargs)
-        return credible_interval(draws, p)
+        return self.sample(n=n, lib=lib, rng=rng, **kwargs).credible_interval(p)
 
 
 class NoisyFloat(NoisyValue):
@@ -888,8 +881,7 @@ class NoisyValueSampler:
             return int(rng.integers(0, np.iinfo(np.int64).max))
 
         if n <= 0:
-            empty = tuple(np.array([], dtype=dtype) for dtype in dtypes)
-            return empty[0] if len(empty) == 1 else empty
+            return tuple(SampleBatch(np.array([], dtype=dtype)) for dtype in dtypes)
 
         if self._vars:
             noise_draws = {
@@ -998,8 +990,7 @@ class NoisyValueSampler:
                     sampled_expr = sampled_value_expr.subs(draws)
                     outputs[out_idx][idx] = dtypes[out_idx](sampled_expr)
 
-        result = tuple(outputs)
-        return result[0] if len(result) == 1 else result
+        return tuple(SampleBatch(x) for x in outputs)
 
 
 class FloatArraySampler:
@@ -1010,9 +1001,9 @@ class FloatArraySampler:
     def sample(self, n=1000, rng=None, axis=-1):
         raw = self._delegate.sample(n=n, rng=rng)
         if isinstance(raw, tuple):
-            flat = np.stack(raw, axis=0)
+            flat = np.stack([batch.draws for batch in raw], axis=0)
         else:
-            flat = raw[np.newaxis, :]
+            flat = raw.draws[np.newaxis, :]
 
         shaped = np.asarray(flat.reshape(self._shape + (n,)), dtype=float)
         if axis == -1:
@@ -1023,3 +1014,14 @@ class FloatArraySampler:
         if axis < 0 or axis >= ndim:
             raise np.AxisError(axis, ndim=ndim)
         return np.moveaxis(shaped, -1, axis)
+
+
+class SampleBatch:
+    def __init__(self, draws):
+        draws = np.asarray(draws)
+        assert draws.ndim == 1
+        self.draws = draws
+
+    def credible_interval(self, p=0.95):
+        alpha = (1 - p) / 2
+        return np.quantile(self.draws, [alpha, 1 - alpha], method="linear")

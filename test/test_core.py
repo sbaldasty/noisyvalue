@@ -54,20 +54,13 @@ def test_joint_sampling_preserves_shared_latent_dependency():
     noisy_a = _rooted_float(obs=0.0, expr=theta, thetas={theta}, eqns=constraints)
     noisy_b = _rooted_float(obs=0.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
 
-    draws_a, draws_b = sample_noisy_values(noisy_a, noisy_b, n=2000, rng=123)
+    batch_a, batch_b = sample_noisy_values(noisy_a, noisy_b, n=2000, rng=123)
+    draws_a = batch_a.draws
+    draws_b = batch_b.draws
 
     assert draws_a.shape == (2000,)
     assert draws_b.shape == (2000,)
     assert np.allclose(draws_b, 2.0 * draws_a)
-
-
-def test_joint_sampling_returns_single_array_for_single_value():
-    x = as_noisy_float(7.0)
-    draws = sample_noisy_values(x, n=5, rng=123)
-
-    assert isinstance(draws, np.ndarray)
-    assert draws.shape == (5,)
-    assert np.all(draws == 7.0)
 
 
 def test_literal_conversions_use_native_root_model():
@@ -92,7 +85,7 @@ def test_noisybool_true_false_constants_match_literal_conversion_singletons():
 
 def test_integer_noisy_values_sample_as_integers():
     count = as_noisy_int(3)
-    draws = sample_noisy_values(count, n=5, rng=123)
+    draws = sample_noisy_values(count, n=5, rng=123)[0].draws
 
     assert isinstance(draws, np.ndarray)
     assert draws.dtype == int
@@ -108,7 +101,9 @@ def test_prepared_sampler_preserves_shared_latent_dependency():
     noisy_b = _rooted_float(obs=0.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
 
     prepared = noisy_value_sampler(noisy_a, noisy_b)
-    draws_a, draws_b = prepared.sample(n=2000, rng=123)
+    batch_a, batch_b = prepared.sample(n=2000, rng=123)
+    draws_a = batch_a.draws
+    draws_b = batch_b.draws
 
     assert draws_a.shape == (2000,)
     assert draws_b.shape == (2000,)
@@ -127,8 +122,8 @@ def test_prepared_sampler_matches_direct_sampling_for_same_seed():
     prepared = noisy_value_sampler(noisy_a, noisy_b)
     prepared_a, prepared_b = prepared.sample(n=250, rng=777)
 
-    assert np.allclose(prepared_a, direct_a)
-    assert np.allclose(prepared_b, direct_b)
+    assert np.allclose(prepared_a.draws, direct_a.draws)
+    assert np.allclose(prepared_b.draws, direct_b.draws)
 
 
 def test_sample_shaped_returns_table_shape_plus_sample_axis():
@@ -201,7 +196,7 @@ def test_sampler_uses_root_constraints():
     )
 
     value = NoisyFloat.from_node(obs=3.5, root=root, expr=theta)
-    draws = value.sample(n=6, rng=123)
+    draws = value.sample(n=6, rng=123).draws
 
     assert draws.shape == (6,)
     assert np.all(draws == 3.5)
@@ -213,7 +208,7 @@ def test_noisyfloat_round_nearest_for_deterministic_value():
 
     assert isinstance(rounded, NoisyInt)
     assert int(rounded) == 3
-    draws = rounded.sample(n=5, rng=123)
+    draws = rounded.sample(n=5, rng=123).draws
     assert np.all(draws == 3)
 
 
@@ -231,7 +226,7 @@ def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
     rounded = value.round_nearest()
 
     assert int(rounded) == 3
-    draws = rounded.sample(n=4, rng=123)
+    draws = rounded.sample(n=4, rng=123).draws
     assert np.all(draws == 3)
 
 
@@ -262,7 +257,7 @@ def test_noisyfloat_guarded_returns_value_when_guard_true():
 
     assert isinstance(guarded, NoisyFloat)
     assert float(guarded) == pytest.approx(3.5)
-    draws = guarded.sample(n=5, rng=123)
+    draws = guarded.sample(n=5, rng=123).draws
     assert np.all(draws == 3.5)
 
 
@@ -273,7 +268,7 @@ def test_noisyfloat_guarded_returns_nan_when_guard_false():
 
     assert isinstance(guarded, NoisyFloat)
     assert np.isnan(float(guarded))
-    draws = guarded.sample(n=5, rng=123)
+    draws = guarded.sample(n=5, rng=123).draws
     assert np.all(np.isnan(draws))
 
 
@@ -286,7 +281,7 @@ def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
     guarded = value.guarded(value > 0)
 
     assert isinstance(guarded, NoisyFloat)
-    draws = guarded.sample(n=128, rng=123)
+    draws = guarded.sample(n=128, rng=123).draws
     finite = draws[np.isfinite(draws)]
     assert draws.shape == (128,)
     assert finite.size > 0
@@ -328,7 +323,7 @@ def test_noisyint_resample_replaces_value_with_new_law():
     assert int(resampled) == 5
     assert any(node.role == "noise" and node.law is not None for node in resampled.root.closure())
 
-    draws = resampled.sample(n=128, rng=123)
+    draws = resampled.sample(n=128, rng=123).draws
     assert draws.dtype == int
     assert np.all(draws >= 0)
     assert np.all(draws <= 2)
@@ -363,7 +358,7 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
     resampled = count.resample(Binomial("k_bad_binomial", 10, theta))
 
     noisy_float = NoisyFloat.from_node(obs=float(int(resampled)), root=resampled.root, expr=resampled.root.symbol)
-    draws = noisy_float.sample(n=16, rng=123)
+    draws = noisy_float.sample(n=16, rng=123).draws
 
     assert draws.shape == (16,)
     assert np.all(np.isnan(draws))
@@ -396,7 +391,7 @@ def test_sampler_resolves_multilayer_law_dependencies():
     )
 
     value = NoisyFloat.from_node(obs=0.0, root=root, expr=z2_symbol)
-    draws = value.sample(n=4000, rng=123)
+    draws = value.sample(n=4000, rng=123).draws
 
     assert draws.shape == (4000,)
     assert np.all(np.isfinite(draws))
@@ -416,7 +411,7 @@ def test_sampler_uses_root_output_definition():
     value = NoisyFloat.from_node(obs=4.0, root=root, expr=theta + 9.0)
     assert value.root.definition == theta + 9.0
     assert value.root.constraints == ()
-    draws = value.sample(n=8, rng=123)
+    draws = value.sample(n=8, rng=123).draws
 
     assert draws.shape == (8,)
     assert np.all(draws == 13.0)
