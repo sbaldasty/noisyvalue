@@ -7,7 +7,6 @@ import src.analysis as analysis
 
 from src.core import NoisyFloat
 from src.core import Node
-from src.core import SampleBatch
 from sympy.stats import Normal
 from sympy.stats.rv import random_symbols
 from src.util import fresh_name

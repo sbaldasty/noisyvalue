@@ -9,6 +9,7 @@ from sympy import And
 from sympy import Eq
 from sympy import Not
 from sympy import Or
+from sympy import Pow
 from sympy import Symbol
 from sympy import sympify
 from sympy.stats import sample
@@ -17,7 +18,6 @@ from weakref import WeakValueDictionary
 from weakref import WeakSet
 
 from .util import fresh_name
-
 
 _SYMBOL_NODES = WeakValueDictionary()
 _SYMBOL_ASSOCIATED_NODES = defaultdict(WeakSet)
@@ -268,66 +268,6 @@ def _derive_node(*parents):
     ))
 
 
-def _combine_float(x, y, op):
-    y = NoisyFloat.from_value(y)
-    obs = op(x._obs, y._obs)
-    expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
-    root = _derive_node(x, y)
-    return NoisyFloat.from_node(obs, root, expr=expr)
-
-
-def _divide_float(x, y, *, reverse=False):
-    y = NoisyFloat.from_value(y)
-    lhs_obs, rhs_obs = (y._obs, x._obs) if reverse else (x._obs, y._obs)
-    lhs_expr, rhs_expr = (
-        (_preferred_value_expr(y), _preferred_value_expr(x))
-        if reverse
-        else (_preferred_value_expr(x), _preferred_value_expr(y))
-    )
-
-    # Mirror numpy semantics for divide-by-zero at observation time.
-    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-        obs = float(np.divide(lhs_obs, rhs_obs))
-
-    expr = sp.Mul(lhs_expr, sp.Pow(rhs_expr, -1, evaluate=False), evaluate=False)
-    root = _derive_node(x, y)
-    return NoisyFloat.from_node(obs, root, expr=expr)
-
-
-def _power_float(x, y, *, reverse=False):
-    y = NoisyFloat.from_value(y)
-    lhs_obs, rhs_obs = (y._obs, x._obs) if reverse else (x._obs, y._obs)
-    lhs_expr, rhs_expr = (
-        (_preferred_value_expr(y), _preferred_value_expr(x))
-        if reverse
-        else (_preferred_value_expr(x), _preferred_value_expr(y))
-    )
-
-    # Mirror numpy semantics for invalid real powers and overflow.
-    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-        obs = float(np.power(lhs_obs, rhs_obs))
-
-    expr = sp.Pow(lhs_expr, rhs_expr, evaluate=False)
-    root = _derive_node(x, y)
-    return NoisyFloat.from_node(obs, root, expr=expr)
-
-
-def _combine_bool(x, y, obs_op, expr_op):
-    y = NoisyBool.from_value(y)
-    obs = obs_op(x._obs, y._obs)
-    expr = expr_op(_preferred_value_expr(x), _preferred_value_expr(y))
-    root = _derive_node(x, y)
-    return NoisyBool.from_node(obs, root, expr=expr)
-
-
-def _compare_float(x, y, op):
-    y = NoisyFloat.from_value(y)
-    obs = op(x._obs, y._obs)
-    expr = op(_preferred_value_expr(x), _preferred_value_expr(y))
-    root = _derive_node(x, y)
-    return NoisyBool.from_node(obs, root, expr=expr)
-
-
 def _lift_unary_bool(x, obs_fn, expr_fn):
     x = NoisyBool.from_value(x)
     return NoisyBool.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
@@ -376,6 +316,13 @@ def _instantiate_law(law, substitutions):
 
     args = tuple(sympify(arg).subs(substitutions) for arg in distribution.args)
     return ctor(fresh_name(), *args)
+
+
+def _safe_sympy_divide(x, y):
+    try:
+        return x / y
+    except ZeroDivisionError:
+        return sp.NaN if x == 0 else sp.oo if x > 0 else -sp.oo
 
 
 def _try_fast_numpy_sample(rv, rng, *, size=None):
@@ -675,6 +622,19 @@ class NoisyValue:
     def credible_interval(self, p=0.95, n=1000, lib="scipy", rng=None, **kwargs):
         return self.sample(n=n, lib=lib, rng=rng, **kwargs).credible_interval(p)
 
+    def bin_op(self, x, out_cls, obs_op, expr_op=None):
+        x = type(self).from_value(x)
+
+        if expr_op is None:
+            expr_op = obs_op
+
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            obs = obs_op(self._obs, x._obs)
+
+        expr = expr_op(_preferred_value_expr(self), _preferred_value_expr(x))
+        root = _derive_node(self, x)
+        return out_cls.from_node(obs, root, expr)
+
 
 class NoisyFloat(NoisyValue):
     def __init__(self, obs, root):
@@ -696,52 +656,52 @@ class NoisyFloat(NoisyValue):
         return _lift_unary_float(self, abs, Abs)
 
     def __add__(self, other):
-        return _combine_float(self, other, lambda a, b: a + b)
+        return self.bin_op(other, NoisyFloat, lambda a, b: a + b)
 
     def __radd__(self, other):
-        return _combine_float(self, other, lambda a, b: b + a)
+        return self.bin_op(other, NoisyFloat, lambda a, b: b + a)
 
     def __sub__(self, other):
-        return _combine_float(self, other, lambda a, b: a - b)
+        return self.bin_op(other, NoisyFloat, lambda a, b: a - b)
 
     def __rsub__(self, other):
-        return _combine_float(self, other, lambda a, b: b - a)
+        return self.bin_op(other, NoisyFloat, lambda a, b: b - a)
 
     def __mul__(self, other):
-        return _combine_float(self, other, lambda a, b: a * b)
+        return self.bin_op(other, NoisyFloat, lambda a, b: a * b)
 
     def __rmul__(self, other):
-        return _combine_float(self, other, lambda a, b: b * a)
+        return self.bin_op(other, NoisyFloat, lambda a, b: b * a)
 
     def __truediv__(self, other):
-        return _divide_float(self, other)
+        return self.bin_op(other, NoisyFloat, lambda a, b: np.divide(a, b), lambda a, b: _safe_sympy_divide(a, b))
 
     def __rtruediv__(self, other):
-        return _divide_float(self, other, reverse=True)
+        return self.bin_op(other, NoisyFloat, lambda a, b: np.divide(b, a), lambda a, b: _safe_sympy_divide(b, a))
 
     def __pow__(self, other):
-        return _power_float(self, other)
+        return self.bin_op(other, NoisyFloat, lambda a, b: np.power(a, b), lambda a, b: Pow(a, b, evaluate=False))
 
     def __rpow__(self, other):
-        return _power_float(self, other, reverse=True)
+        return self.bin_op(other, NoisyFloat, lambda a, b: np.power(b, a), lambda a, b: Pow(b, a, evaluate=False))
 
     def __lt__(self, other):
-        return _compare_float(self, other, lambda a, b: a < b)
+        return self.bin_op(other, NoisyBool, lambda a, b: a < b)
 
     def __le__(self, other):
-        return _compare_float(self, other, lambda a, b: a <= b)
+        return self.bin_op(other, NoisyBool, lambda a, b: a <= b)
 
     def __gt__(self, other):
-        return _compare_float(self, other, lambda a, b: a > b)
+        return self.bin_op(other, NoisyBool, lambda a, b: a > b)
 
     def __ge__(self, other):
-        return _compare_float(self, other, lambda a, b: a >= b)
+        return self.bin_op(other, NoisyBool, lambda a, b: a >= b)
 
     def __eq__(self, other):
-        return _compare_float(self, other, lambda a, b: a == b)
+        return self.bin_op(other, NoisyBool, lambda a, b: a == b)
 
     def __ne__(self, other):
-        return _compare_float(self, other, lambda a, b: a != b)
+        return self.bin_op(other, NoisyBool, lambda a, b: a != b)
 
     def exp(self):
         return _lift_unary_float(self, np.exp, sp.exp)
@@ -782,16 +742,16 @@ class NoisyBool(NoisyValue):
         super().__init__(bool(obs), root)
 
     def __and__(self, other):
-        return _combine_bool(self, other, lambda a, b: a and b, And)
+        return self.bin_op(other, NoisyBool, lambda a, b: a and b, And)
 
     def __rand__(self, other):
-        return _combine_bool(self, other, lambda a, b: b and a, And)
+        return self.bin_op(other, NoisyBool, lambda a, b: b and a, And)
 
     def __or__(self, other):
-        return _combine_bool(self, other, lambda a, b: a or b, Or)
+        return self.bin_op(other, NoisyBool, lambda a, b: a or b, Or)
 
     def __ror__(self, other):
-        return _combine_bool(self, other, lambda a, b: b or a, Or)
+        return self.bin_op(other, NoisyBool, lambda a, b: b or a, Or)
 
     def __invert__(self):
         return _lift_unary_bool(self, lambda a: not a, Not)

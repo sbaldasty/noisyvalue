@@ -1,7 +1,6 @@
 from . import noise
 from .core import NoisyBool
 from .core import NoisyFloat
-from .core import _combine_float
 from .core import as_noisy_float_array
 from numpy import asarray
 from numpy import isfinite
@@ -15,7 +14,7 @@ def _fold_float(values, op):
 
     result = NoisyFloat.from_value(values[0])
     for value in values[1:]:
-        result = _combine_float(result, NoisyFloat.from_value(value), op)
+        result = result.bin_op(value, NoisyFloat, op)
     return result
 
 
