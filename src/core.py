@@ -76,6 +76,58 @@ class Node:
             all_constraints.extend(node.constraints)
         return tuple(all_constraints)
 
+    @classmethod
+    def latent(cls, symbol=None, *, constraints=(), depends_on=None, definition=None):
+        symbol = _normalize_symbol(symbol)
+        inferred = _resolve_depends_on(
+            depends_on,
+            expressions=(definition, *constraints),
+            exclude_symbols={symbol},
+        )
+        node = cls(
+            symbol=symbol,
+            depends_on=inferred,
+            constraints=constraints,
+            definition=definition,
+            role="latent",
+        )
+        return _register_node(node)
+
+    @classmethod
+    def noise(cls, symbol=None, *, law, constraints=(), depends_on=None, definition=None):
+        symbol = _normalize_symbol(symbol)
+        inferred = _resolve_depends_on(
+            depends_on,
+            expressions=(law, definition, *constraints),
+            exclude_symbols={symbol},
+        )
+        node = cls(
+            symbol=symbol,
+            depends_on=inferred,
+            constraints=constraints,
+            law=law,
+            definition=definition,
+            role="noise",
+        )
+        return _register_node(node)
+
+    @classmethod
+    def derived(cls, symbol=None, *, definition, constraints=(), depends_on=None):
+        symbol = _normalize_symbol(symbol)
+        inferred = _resolve_depends_on(
+            depends_on,
+            expressions=(definition, *constraints),
+            exclude_symbols={symbol},
+        )
+        node = cls(
+            symbol=symbol,
+            depends_on=inferred,
+            constraints=constraints,
+            definition=definition,
+            role="derived",
+        )
+        return _register_node(node)
+
 
 def _is_registerable_symbol(symbol):
     if isinstance(symbol, Symbol):
@@ -183,60 +235,6 @@ def _resolve_depends_on(explicit_depends_on, expressions, exclude_symbols):
             deps.extend(sorted(associated, key=lambda node: str(node.symbol)))
 
     return _dedupe_nodes(tuple(deps))
-
-
-def _latent_node(symbol=None, *, constraints=(), depends_on=None, definition=None):
-    symbol = _normalize_symbol(symbol)
-    inferred = _resolve_depends_on(
-        depends_on,
-        expressions=(definition, *constraints),
-        exclude_symbols={symbol},
-    )
-    node = Node(
-        symbol=symbol,
-        depends_on=inferred,
-        constraints=constraints,
-        law=None,
-        definition=definition,
-        role="latent",
-    )
-    return _register_node(node)
-
-
-def _noise_node(symbol=None, *, law, constraints=(), depends_on=None, definition=None):
-    symbol = _normalize_symbol(symbol)
-    inferred = _resolve_depends_on(
-        depends_on,
-        expressions=(law, definition, *constraints),
-        exclude_symbols={symbol},
-    )
-    node = Node(
-        symbol=symbol,
-        depends_on=inferred,
-        constraints=constraints,
-        law=law,
-        definition=definition,
-        role="noise",
-    )
-    return _register_node(node)
-
-
-def _derived_node(symbol=None, *, definition, constraints=(), depends_on=None):
-    symbol = _normalize_symbol(symbol)
-    inferred = _resolve_depends_on(
-        depends_on,
-        expressions=(definition, *constraints),
-        exclude_symbols={symbol},
-    )
-    node = Node(
-        symbol=symbol,
-        depends_on=inferred,
-        constraints=constraints,
-        law=None,
-        definition=definition,
-        role="derived",
-    )
-    return _register_node(node)
 
 
 def _as_node(value):
@@ -629,7 +627,7 @@ class NoisyFloat(NoisyValue):
             (_preferred_value_expr(self), _preferred_value_expr(guard)),
             (fallback, True),
         )
-        root = _derived_node(definition=expr)
+        root = Node.derived(definition=expr)
         return NoisyFloat.from_node(obs, root)
 
     def __abs__(self):
@@ -710,7 +708,7 @@ class NoisyInt(NoisyFloat):
             law = law()
         law = sympify(law)
 
-        noise_node = _noise_node(law=law)
+        noise_node = Node.noise(law=law)
 
         if obs is None:
             obs = self._obs

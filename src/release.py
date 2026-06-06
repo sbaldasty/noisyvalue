@@ -19,14 +19,13 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
     obs_expr = theta + noise_rv
     obs = float(sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs))
 
-    theta_node = Node(symbol=theta, depends_on=(), constraints=(), law=None, role="latent")
-    noise_node = Node(symbol=noise_rv, depends_on=(), constraints=(), law=noise_rv, role="noise")
-    root = Node(
+    theta_node = Node.latent(theta)
+    noise_node = Node.noise(noise_rv, law=noise_rv)
+    root = Node.derived(
         symbol=Symbol(fresh_name()),
         depends_on=(theta_node, noise_node),
         constraints=(obs_expr - obs,),
-        law=None,
-        role="derived",
+        definition=theta,
     )
 
     return NoisyFloat.from_node(obs, root, expr=theta)

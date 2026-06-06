@@ -10,9 +10,6 @@ from src.core import NoisyFloat
 from src.core import NoisyBool
 from src.core import NoisyInt
 from src.core import Node
-from src.core import _derived_node
-from src.core import _latent_node
-from src.core import _noise_node
 from src.core import noisy_value_sampler
 from src.core import float_array_sampler
 from src.core import sample_noisy_values
@@ -405,30 +402,30 @@ def test_sampler_uses_root_output_definition():
 
 
 def test_registry_infers_derived_dependencies_from_definition():
-    theta = _latent_node("theta_gb", constraints=(sp.Symbol("theta_gb") - 1.0,))
+    theta = Node.latent("theta_gb", constraints=(sp.Symbol("theta_gb") - 1.0,))
 
     eps_rv = Normal("eps_gb", 0, 1)
-    eps = _noise_node(eps_rv, law=eps_rv)
+    eps = Node.noise(eps_rv, law=eps_rv)
 
-    value = _derived_node("value_gb", definition=theta.symbol + eps.symbol)
+    value = Node.derived("value_gb", definition=theta.symbol + eps.symbol)
 
     assert {dep.symbol for dep in value.depends_on} == {theta.symbol, eps.symbol}
 
 
 def test_registry_infers_noise_dependencies_from_law_parameters():
-    theta = _latent_node("theta_law_gb", constraints=(sp.Symbol("theta_law_gb") - 2.0,))
+    theta = Node.latent("theta_law_gb", constraints=(sp.Symbol("theta_law_gb") - 2.0,))
 
     law = Normal("z_law_gb", theta.symbol, 1)
-    z = _noise_node("z_gb", law=law)
+    z = Node.noise("z_gb", law=law)
 
     assert {dep.symbol for dep in z.depends_on} == {theta.symbol}
 
 
 def test_registry_rejects_duplicate_symbol_registration():
-    existing = _latent_node("dup_gb")
+    existing = Node.latent("dup_gb")
 
     with pytest.raises(ValueError, match="already registered"):
-        _derived_node("dup_gb", definition=sp.Integer(1))
+        Node.derived("dup_gb", definition=sp.Integer(1))
 
     assert existing.symbol == sp.Symbol("dup_gb")
 
@@ -444,7 +441,7 @@ def test_registry_auto_includes_wrapper_roots_from_expression_symbols():
     )
     wrapped = NoisyFloat.from_node(obs=3.0, root=base_root, expr=theta + 1.0)
 
-    out = _derived_node("out_gb_input", definition=theta + 2.0)
+    out = Node.derived("out_gb_input", definition=theta + 2.0)
 
     dep_symbols = {dep.symbol for dep in out.depends_on}
     assert wrapped._root.symbol in dep_symbols
