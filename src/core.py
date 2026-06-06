@@ -246,12 +246,12 @@ def _as_node(value):
 
 def _lift_unary_bool(x, obs_fn, expr_fn):
     x = NoisyBool.from_value(x)
-    return NoisyBool.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
+    return NoisyBool.from_node(obs_fn(x._obs), x._root, expr=expr_fn(_preferred_value_expr(x)))
 
 
 def _lift_unary_float(x, obs_fn, expr_fn):
     x = NoisyFloat.from_value(x)
-    return NoisyFloat.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
+    return NoisyFloat.from_node(obs_fn(x._obs), x._root, expr=expr_fn(_preferred_value_expr(x)))
 
 
 def _solve_theta_substitutions(thetas, eqns):
@@ -596,7 +596,7 @@ class NoisyValue:
             obs = obs_op(lhs._obs, rhs._obs)
 
         expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
-        root = Node.derived(depends_on=(_as_node(self), _as_node(x)), definition=expr)
+        root = Node.derived(depends_on=(self._root, x._root), definition=expr)
         return out_cls.from_node(obs, root, expr)
 
 
