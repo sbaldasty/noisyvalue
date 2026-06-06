@@ -244,16 +244,6 @@ def _as_node(value):
     return root
 
 
-def _lift_unary_bool(x, obs_fn, expr_fn):
-    x = NoisyBool.from_value(x)
-    return NoisyBool.from_node(obs_fn(x._obs), x._root, expr=expr_fn(_preferred_value_expr(x)))
-
-
-def _lift_unary_float(x, obs_fn, expr_fn):
-    x = NoisyFloat.from_value(x)
-    return NoisyFloat.from_node(obs_fn(x._obs), x._root, expr=expr_fn(_preferred_value_expr(x)))
-
-
 def _solve_theta_substitutions(thetas, eqns):
     if not thetas:
         return {}
@@ -599,6 +589,9 @@ class NoisyValue:
         root = Node.derived(depends_on=(self._root, x._root), definition=expr)
         return out_cls.from_node(obs, root, expr)
 
+    def unary_op(self, out_cls, obs_op, expr_op):
+        return out_cls.from_node(obs_op(self._obs), self._root, expr=expr_op(_preferred_value_expr(self)))
+
 
 class NoisyFloat(NoisyValue):
     def __init__(self, obs, root):
@@ -617,7 +610,7 @@ class NoisyFloat(NoisyValue):
         return NoisyFloat.from_node(obs, root)
 
     def __abs__(self):
-        return _lift_unary_float(self, abs, Abs)
+        return self.unary_op(NoisyFloat, abs, Abs)
 
     def __add__(self, other):
         return self.bin_op(other, NoisyFloat, operator.add)
@@ -668,10 +661,10 @@ class NoisyFloat(NoisyValue):
         return self.bin_op(other, NoisyBool, operator.ne)
 
     def exp(self):
-        return _lift_unary_float(self, np.exp, sp.exp)
+        return self.unary_op(NoisyFloat, np.exp, sp.exp)
 
     def log(self):
-        return _lift_unary_float(self, np.log, sp.log)
+        return self.unary_op(NoisyFloat, np.log, sp.log)
 
     def round_nearest(self):
         expr = sp.floor(_preferred_value_expr(self) + sp.Rational(1, 2))
@@ -679,7 +672,7 @@ class NoisyFloat(NoisyValue):
         return NoisyInt.from_node(obs, self._root, expr=expr)
 
     def sqrt(self):
-        return _lift_unary_float(self, np.sqrt, sp.sqrt)
+        return self.unary_op(NoisyFloat, np.sqrt, sp.sqrt)
 
 
 class NoisyInt(NoisyFloat):
@@ -718,7 +711,7 @@ class NoisyBool(NoisyValue):
         return self.bin_op(other, NoisyBool, operator.or_, Or, rev=True)
 
     def __invert__(self):
-        return _lift_unary_bool(self, operator.not_, Not)
+        return self.unary_op(NoisyBool, operator.not_, Not)
 
 
 class NoisyValueSampler:
