@@ -63,8 +63,8 @@ def test_joint_sampling_preserves_shared_latent_dependency():
 def test_literal_conversions_use_native_root_model():
     converted = NoisyFloat.from_value(7.0)
 
-    assert isinstance(converted.root, Node)
-    assert converted.root.constraints == ()
+    assert isinstance(converted._root, Node)
+    assert converted._root.constraints == ()
     assert float(converted) == 7.0
 
 
@@ -165,9 +165,9 @@ def test_noisyvalue_from_node_uses_root_and_constraints():
 
     value = NoisyFloat.from_node(obs=2.0, root=root)
 
-    assert value.root is root
-    assert value.root.latent_symbols() == {theta}
-    assert value.root.all_constraints() == (theta - 2.0,)
+    assert value._root is root
+    assert value._root.latent_symbols() == {theta}
+    assert value._root.all_constraints() == (theta - 2.0,)
 
 
 def test_sampler_uses_root_constraints():
@@ -308,7 +308,7 @@ def test_noisyint_resample_replaces_value_with_new_law():
 
     assert isinstance(resampled, NoisyInt)
     assert int(resampled) == 5
-    assert any(node.role == "noise" and node.law is not None for node in resampled.root.closure())
+    assert any(node.role == "noise" and node.law is not None for node in resampled._root.closure())
 
     draws = resampled.sample(n=128, rng=123).draws
     assert draws.dtype == int
@@ -329,7 +329,7 @@ def test_noisyint_resample_preserves_upstream_dependency():
 
     resampled = count.resample(Binomial("k_resample_theta", theta, 0.5))
 
-    assert theta in resampled.root.latent_symbols()
+    assert theta in resampled._root.latent_symbols()
 
 
 def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
@@ -344,7 +344,7 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
     count = NoisyInt.from_node(obs=3, root=root, expr=sp.Integer(10))
     resampled = count.resample(Binomial("k_bad_binomial", 10, theta))
 
-    noisy_float = NoisyFloat.from_node(obs=float(int(resampled)), root=resampled.root, expr=resampled.root.symbol)
+    noisy_float = NoisyFloat.from_node(obs=float(int(resampled)), root=resampled._root, expr=resampled._root.symbol)
     draws = noisy_float.sample(n=16, rng=123).draws
 
     assert draws.shape == (16,)
@@ -396,8 +396,8 @@ def test_sampler_uses_root_output_definition():
     )
 
     value = NoisyFloat.from_node(obs=4.0, root=root, expr=theta + 9.0)
-    assert value.root.definition == theta + 9.0
-    assert value.root.constraints == ()
+    assert value._root.definition == theta + 9.0
+    assert value._root.constraints == ()
     draws = value.sample(n=8, rng=123).draws
 
     assert draws.shape == (8,)
@@ -447,5 +447,5 @@ def test_registry_auto_includes_wrapper_roots_from_expression_symbols():
     out = _derived_node("out_gb_input", definition=theta + 2.0)
 
     dep_symbols = {dep.symbol for dep in out.depends_on}
-    assert wrapped.root.symbol in dep_symbols
+    assert wrapped._root.symbol in dep_symbols
     assert theta in dep_symbols

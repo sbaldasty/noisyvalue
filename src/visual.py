@@ -61,8 +61,8 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     if quadrature_points < 2:
         raise ValueError("quadrature_points must be at least 2")
 
-    thetas = noisy_value.root.latent_symbols()
-    constraints = noisy_value.root.all_constraints()
+    thetas = noisy_value._root.latent_symbols()
+    constraints = noisy_value._root.all_constraints()
     theta_constraints = _filter_theta_equations(constraints, thetas)
 
     if thetas:

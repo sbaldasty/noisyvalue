@@ -61,8 +61,8 @@ def test_noisy_max_combines_noisy_value_metadata():
 
     assert isinstance(out, NoisyFloat)
     assert float(out) == 2.0
-    assert out.root.latent_symbols() == {theta}
-    assert len(out.root.all_constraints()) >= 2
+    assert out._root.latent_symbols() == {theta}
+    assert len(out._root.all_constraints()) >= 2
 
 
 def test_as_contingency_table_returns_noisy_contingency_table():
@@ -123,7 +123,7 @@ def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
     result = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).chi_squared()
 
     assert isinstance(result, NoisyFloat)
-    assert theta in result.root.latent_symbols()
+    assert theta in result._root.latent_symbols()
 
     draws = result.sample(n=128, rng=123).draws
     assert draws.shape == (128,)
@@ -167,8 +167,8 @@ def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
     ratio = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).odds_ratio()
 
     assert isinstance(ratio, NoisyFloat)
-    assert theta in ratio.root.latent_symbols()
-    assert any(node.role == "noise" and node.law is not None for node in ratio.root.closure())
+    assert theta in ratio._root.latent_symbols()
+    assert any(node.role == "noise" and node.law is not None for node in ratio._root.closure())
 
     draws = ratio.sample(n=128, rng=123).draws
     assert draws.shape == (128,)
@@ -180,7 +180,7 @@ def test_odds_ratio_returns_nan_observation_when_observed_ratio_is_invalid():
 
     assert isinstance(ratio, NoisyFloat)
     assert np.isnan(float(ratio))
-    assert isinstance(ratio.root, Node)
+    assert isinstance(ratio._root, Node)
 
 
 def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():

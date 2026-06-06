@@ -252,7 +252,7 @@ def _derived_node(symbol=None, *, definition, constraints=(), depends_on=None, i
 
 
 def _as_node(value):
-    root = getattr(value, "root", None)
+    root = getattr(value, "_root", None)
     if not isinstance(root, Node):
         raise TypeError(f"Expected value with Node root, got {type(value).__name__}")
     return root
@@ -606,10 +606,6 @@ class NoisyValue:
         root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
         return cls.from_node(expr, root, expr=expr)
 
-    @property
-    def root(self):
-        return self._root
-
     def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
         return noisy_value_sampler(self, lib=lib, **kwargs).sample(n, rng)[0]
 
@@ -708,7 +704,7 @@ class NoisyFloat(NoisyValue):
     def round_nearest(self):
         expr = sp.floor(_preferred_value_expr(self) + sp.Rational(1, 2))
         obs = int(np.floor(float(self._obs) + 0.5))
-        return NoisyInt.from_node(obs, self.root, expr=expr)
+        return NoisyInt.from_node(obs, self._root, expr=expr)
 
     def sqrt(self):
         return _lift_unary_float(self, np.sqrt, sp.sqrt)

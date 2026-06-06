@@ -25,9 +25,9 @@ def test_noisy_float_uses_root_node():
     noise_factory = noise.gaussian(loc=0, scale=1)
     noisy_float = release.noisy_float(5.0, noise_factory, seed=_rng_factory())
 
-    assert isinstance(noisy_float.root, Node)
-    assert noisy_float.root.role == "derived"
-    assert noisy_float.root.latent_symbols()
+    assert isinstance(noisy_float._root, Node)
+    assert noisy_float._root.role == "derived"
+    assert noisy_float._root.latent_symbols()
 
 
 def test_noisy_float_array_shape_and_type():
