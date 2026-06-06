@@ -165,7 +165,7 @@ def _extract_symbols(*expressions):
     return symbols
 
 
-def _resolve_depends_on(explicit_depends_on, expressions, exclude_symbols, include_roots=()):
+def _resolve_depends_on(explicit_depends_on, expressions, exclude_symbols):
     if explicit_depends_on is not None:
         return _dedupe_nodes(tuple(explicit_depends_on))
 
@@ -182,25 +182,15 @@ def _resolve_depends_on(explicit_depends_on, expressions, exclude_symbols, inclu
         if associated is not None:
             deps.extend(sorted(associated, key=lambda node: str(node.symbol)))
 
-    deps.extend(include_roots)
     return _dedupe_nodes(tuple(deps))
 
 
-def _include_values(*values):
-    roots = []
-    for value in values:
-        root = _register_closure(_as_node(value))
-        roots.append(root)
-    return _dedupe_nodes(tuple(roots))
-
-
-def _latent_node(symbol=None, *, constraints=(), depends_on=None, definition=None, include_roots=()):
+def _latent_node(symbol=None, *, constraints=(), depends_on=None, definition=None):
     symbol = _normalize_symbol(symbol)
     inferred = _resolve_depends_on(
         depends_on,
         expressions=(definition, *constraints),
         exclude_symbols={symbol},
-        include_roots=include_roots,
     )
     node = Node(
         symbol=symbol,
@@ -213,13 +203,12 @@ def _latent_node(symbol=None, *, constraints=(), depends_on=None, definition=Non
     return _register_node(node)
 
 
-def _noise_node(symbol=None, *, law, constraints=(), depends_on=None, definition=None, include_roots=()):
+def _noise_node(symbol=None, *, law, constraints=(), depends_on=None, definition=None):
     symbol = _normalize_symbol(symbol)
     inferred = _resolve_depends_on(
         depends_on,
         expressions=(law, definition, *constraints),
         exclude_symbols={symbol},
-        include_roots=include_roots,
     )
     node = Node(
         symbol=symbol,
@@ -232,13 +221,12 @@ def _noise_node(symbol=None, *, law, constraints=(), depends_on=None, definition
     return _register_node(node)
 
 
-def _derived_node(symbol=None, *, definition, constraints=(), depends_on=None, include_roots=()):
+def _derived_node(symbol=None, *, definition, constraints=(), depends_on=None):
     symbol = _normalize_symbol(symbol)
     inferred = _resolve_depends_on(
         depends_on,
         expressions=(definition, *constraints),
         exclude_symbols={symbol},
-        include_roots=include_roots,
     )
     node = Node(
         symbol=symbol,
