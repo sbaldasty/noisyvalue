@@ -15,11 +15,11 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
     if set(random_symbols(noise_rv)) != {noise_rv}:
         raise TypeError("noise_factory must return a random variable")
 
-    theta = Symbol(fresh_name())
+    theta_node = Node.latent()
+    theta = theta_node.symbol
     obs_expr = theta + noise_rv
     obs = float(sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs))
 
-    theta_node = Node.latent(theta)
     noise_node = Node.noise(noise_rv, law=noise_rv)
     root = Node.derived(
         symbol=Symbol(fresh_name()),

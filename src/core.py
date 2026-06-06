@@ -244,17 +244,6 @@ def _as_node(value):
     return root
 
 
-def _derive_node(*parents):
-    parent_nodes = tuple(_as_node(parent) for parent in parents)
-    return _register_node(Node(
-        symbol=Symbol(fresh_name()),
-        depends_on=parent_nodes,
-        constraints=(),
-        law=None,
-        role="derived",
-    ))
-
-
 def _lift_unary_bool(x, obs_fn, expr_fn):
     x = NoisyBool.from_value(x)
     return NoisyBool.from_node(obs_fn(x._obs), _as_node(x), expr=expr_fn(_preferred_value_expr(x)))
@@ -573,13 +562,10 @@ class NoisyValue:
         expr = root.symbol if expr is None else sympify(expr)
         if expr != root.symbol:
             output_symbol = Symbol(fresh_name())
-            root = Node(
+            root = Node.derived(
                 symbol=output_symbol,
                 depends_on=(root,),
-                constraints=(),
-                law=None,
                 definition=expr,
-                role="derived",
             )
         _register_closure(root)
         return cls(obs, root)
@@ -589,8 +575,8 @@ class NoisyValue:
         if isinstance(value, cls):
             return value
         expr = sympify(value)
-        root = Node(symbol=expr, depends_on=(), constraints=(), law=None, role="derived")
-        return cls.from_node(expr, root, expr=expr)
+        root = Node.derived(definition=expr)
+        return cls.from_node(expr, root)
 
     def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
         return noisy_value_sampler(self, lib=lib, **kwargs).sample(n, rng)[0]
@@ -610,7 +596,7 @@ class NoisyValue:
             obs = obs_op(lhs._obs, rhs._obs)
 
         expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
-        root = _derive_node(self, x)
+        root = Node.derived(depends_on=(_as_node(self), _as_node(x)), definition=expr)
         return out_cls.from_node(obs, root, expr)
 
 
