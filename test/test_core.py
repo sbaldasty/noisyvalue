@@ -216,8 +216,9 @@ def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
 
 
 def test_noisyfloat_divide_by_zero_returns_inf_observation():
-    x = NoisyFloat.from_value(1.0)
-    y = NoisyFloat.from_value(0.0)
+    node = Node(symbol=sp.Symbol("symbol"))
+    x = NoisyFloat(1.0, node)
+    y = NoisyFloat(0.0, node)
 
     z = x / y
 
@@ -226,8 +227,9 @@ def test_noisyfloat_divide_by_zero_returns_inf_observation():
 
 
 def test_noisyfloat_zero_divide_zero_returns_nan_observation():
-    x = NoisyFloat.from_value(0.0)
-    y = NoisyFloat.from_value(0.0)
+    node = Node(symbol=sp.Symbol("symbol"))
+    x = NoisyFloat(0.0, node)
+    y = NoisyFloat(0.0, node)
 
     z = x / y
 

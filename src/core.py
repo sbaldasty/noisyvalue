@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from collections import defaultdict
+import operator
 import sympy as sp
 import sympy.stats as spstats
 import numpy as np
@@ -318,13 +319,6 @@ def _instantiate_law(law, substitutions):
     return ctor(fresh_name(), *args)
 
 
-def _safe_sympy_divide(x, y):
-    try:
-        return x / y
-    except ZeroDivisionError:
-        return sp.NaN if x == 0 else sp.oo if x > 0 else -sp.oo
-
-
 def _try_fast_numpy_sample(rv, rng, *, size=None):
     """Try to sample common RVs through NumPy for speed.
 
@@ -622,16 +616,18 @@ class NoisyValue:
     def credible_interval(self, p=0.95, n=1000, lib="scipy", rng=None, **kwargs):
         return self.sample(n=n, lib=lib, rng=rng, **kwargs).credible_interval(p)
 
-    def bin_op(self, x, out_cls, obs_op, expr_op=None):
+    def bin_op(self, x, out_cls, obs_op, expr_op=None, rev=False):
         x = type(self).from_value(x)
+        lhs = x if rev else self
+        rhs = self if rev else x
 
         if expr_op is None:
             expr_op = obs_op
 
         with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-            obs = obs_op(self._obs, x._obs)
+            obs = obs_op(lhs._obs, rhs._obs)
 
-        expr = expr_op(_preferred_value_expr(self), _preferred_value_expr(x))
+        expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
         root = _derive_node(self, x)
         return out_cls.from_node(obs, root, expr)
 
@@ -656,52 +652,52 @@ class NoisyFloat(NoisyValue):
         return _lift_unary_float(self, abs, Abs)
 
     def __add__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: a + b)
+        return self.bin_op(other, NoisyFloat, operator.add)
 
     def __radd__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: b + a)
+        return self.bin_op(other, NoisyFloat, operator.add, rev=True)
 
     def __sub__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: a - b)
+        return self.bin_op(other, NoisyFloat, operator.sub)
 
     def __rsub__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: b - a)
+        return self.bin_op(other, NoisyFloat, operator.sub, rev=True)
 
     def __mul__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: a * b)
+        return self.bin_op(other, NoisyFloat, operator.mul)
 
     def __rmul__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: b * a)
+        return self.bin_op(other, NoisyFloat, operator.mul, rev=True)
 
     def __truediv__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: np.divide(a, b), lambda a, b: _safe_sympy_divide(a, b))
+        return self.bin_op(other, NoisyFloat, np.divide, operator.truediv)
 
     def __rtruediv__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: np.divide(b, a), lambda a, b: _safe_sympy_divide(b, a))
+        return self.bin_op(other, NoisyFloat, np.divide, operator.truediv, rev=True)
 
     def __pow__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: np.power(a, b), lambda a, b: Pow(a, b, evaluate=False))
+        return self.bin_op(other, NoisyFloat, np.power, Pow)
 
     def __rpow__(self, other):
-        return self.bin_op(other, NoisyFloat, lambda a, b: np.power(b, a), lambda a, b: Pow(b, a, evaluate=False))
+        return self.bin_op(other, NoisyFloat, np.power, Pow, rev=True)
 
     def __lt__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a < b)
+        return self.bin_op(other, NoisyBool, operator.lt)
 
     def __le__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a <= b)
+        return self.bin_op(other, NoisyBool, operator.le)
 
     def __gt__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a > b)
+        return self.bin_op(other, NoisyBool, operator.gt)
 
     def __ge__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a >= b)
+        return self.bin_op(other, NoisyBool, operator.ge)
 
     def __eq__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a == b)
+        return self.bin_op(other, NoisyBool, operator.eq)
 
     def __ne__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a != b)
+        return self.bin_op(other, NoisyBool, operator.ne)
 
     def exp(self):
         return _lift_unary_float(self, np.exp, sp.exp)
@@ -742,19 +738,19 @@ class NoisyBool(NoisyValue):
         super().__init__(bool(obs), root)
 
     def __and__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a and b, And)
+        return self.bin_op(other, NoisyBool, operator.and_, And)
 
     def __rand__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: b and a, And)
+        return self.bin_op(other, NoisyBool, operator.and_, And, rev=True)
 
     def __or__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: a or b, Or)
+        return self.bin_op(other, NoisyBool, operator.or_, Or)
 
     def __ror__(self, other):
-        return self.bin_op(other, NoisyBool, lambda a, b: b or a, Or)
+        return self.bin_op(other, NoisyBool, operator.or_, Or, rev=True)
 
     def __invert__(self):
-        return _lift_unary_bool(self, lambda a: not a, Not)
+        return _lift_unary_bool(self, operator.not_, Not)
 
 
 class NoisyValueSampler:
