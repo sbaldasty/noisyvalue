@@ -139,14 +139,10 @@ def test_prepared_shaped_sampler_moves_sample_axis():
     assert draws.shape == (7, 2, 2)
 
 
-def test_node_is_immutable_and_validates_role():
+def test_node_validates_role():
     theta = sp.Symbol("theta_node")
-    node = Node(symbol=theta, role="latent")
 
-    with pytest.raises(Exception):
-        node.role = "noise"
-
-    with pytest.raises(ValueError):
+    with pytest.raises(AssertionError):
         Node(symbol=theta, role="not_a_role")
 
 

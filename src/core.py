@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from collections import defaultdict
 import operator
 import sympy as sp
@@ -24,33 +23,17 @@ _SYMBOL_NODES = WeakValueDictionary()
 _SYMBOL_ASSOCIATED_NODES = defaultdict(WeakSet)
 
 
-@dataclass(frozen=True)
 class Node:
-    symbol: sp.Basic
-    depends_on: tuple["Node", ...] = ()
-    constraints: tuple[sp.Expr, ...] = ()
-    law: sp.Expr | None = None
-    definition: sp.Expr | None = None
-    role: str = "derived"
-
-    def __post_init__(self):
-        if self.role not in {"latent", "noise", "derived"}:
-            raise ValueError(f"Invalid role: {self.role}")
-
-        symbol = sympify(self.symbol)
-        if not isinstance(symbol, sp.Basic):
-            raise TypeError("Node.symbol must be a sympy expression atom")
-        object.__setattr__(self, "symbol", symbol)
-
-        deps = tuple(self.depends_on)
-        if not all(isinstance(dep, Node) for dep in deps):
-            raise TypeError("Node.depends_on must contain Node instances")
-        object.__setattr__(self, "depends_on", deps)
-
-        constraints = tuple(sympify(expr) for expr in self.constraints)
-        object.__setattr__(self, "constraints", constraints)
-        object.__setattr__(self, "law", None if self.law is None else sympify(self.law))
-        object.__setattr__(self, "definition", self.symbol if self.definition is None else sympify(self.definition))
+    def __init__(self, symbol, depends_on=(), constraints=(), law=None, definition=None, role="derived"):
+        assert role in {"latent", "noise", "derived"}
+        self.symbol = sympify(symbol)
+        assert isinstance(self.symbol, sp.Basic)
+        self.depends_on = tuple(depends_on)
+        assert all(isinstance(x, Node) for x in self.depends_on)
+        self.constraints = tuple(sympify(x) for x in constraints)
+        self.law = None if law is None else sympify(law)
+        self.definition = self.symbol if definition is None else sympify(definition)
+        self.role = role
 
     def closure(self):
         seen = set()
