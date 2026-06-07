@@ -4,6 +4,7 @@ import sympy as sp
 from scipy.stats import chi2_contingency
 
 import src.analysis as analysis
+import src.core as core_module
 
 from src.core import NoisyFloat
 from src.core import Node
@@ -15,23 +16,24 @@ from src.util import fresh_name
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
     theta_nodes = tuple(
-        Node(symbol=sp.sympify(theta), depends_on=(), constraints=(), law=None, definition=None, role="latent")
+        core_module._SYMBOL_NODES.get(sp.sympify(theta))
+        or Node.latent(symbol=sp.sympify(theta), depends_on=(), constraints=())
         for theta in sorted(set(thetas), key=str)
     )
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
     noise_nodes = tuple(
-        Node(symbol=rv, depends_on=(), constraints=(), law=rv, definition=None, role="noise")
+        core_module._SYMBOL_NODES.get(rv)
+        or Node.noise(symbol=rv, law=rv, depends_on=(), constraints=())
         for rv in sorted(random_rvs, key=str)
     )
-    root = Node(
-        symbol=sp.Symbol(f"root_{fresh_name()}"),
+    root_symbol = sp.Symbol(f"root_{fresh_name()}")
+    root = Node.derived(
+        symbol=root_symbol,
         depends_on=theta_nodes + noise_nodes,
         constraints=eqns,
-        law=None,
-        definition=None,
-        role="derived",
+        definition=root_symbol,
     )
     return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 
