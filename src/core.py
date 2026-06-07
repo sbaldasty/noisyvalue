@@ -135,13 +135,6 @@ def _register_node(node, *, strict=True):
     return node
 
 
-def _register_closure(root):
-    root = root if isinstance(root, Node) else _as_node(root)
-    for node in root.closure():
-        _register_node(node, strict=False)
-    return root
-
-
 def _dedupe_nodes(nodes):
     seen = set()
     ordered = []
@@ -539,7 +532,6 @@ class NoisyValue:
                 depends_on=(root,),
                 definition=expr,
             )
-        _register_closure(root)
         return cls(obs, root)
 
     @classmethod
