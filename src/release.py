@@ -2,7 +2,6 @@ import numpy as np
 
 from .core import NoisyFloat
 from .core import Node
-from .util import fresh_name
 from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
@@ -23,10 +22,9 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
     root = Node.derived(
         depends_on=(theta_node, noise_node),
         constraints=(obs_expr - obs,),
-        definition=theta,
-    )
+        definition=theta)
 
-    return NoisyFloat.from_node(obs, root, expr=theta)
+    return NoisyFloat.from_node(obs, root)
 
 
 def noisy_float_array(true_tbl, noise_factory, **sample_kwargs):
