@@ -569,7 +569,7 @@ class NoisyValue:
             obs = obs_op(lhs._obs, rhs._obs)
 
         expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
-        root = Node.derived(depends_on=(self._root, x._root), definition=expr)
+        root = Node.derived(definition=expr)
         return out_cls.from_node(obs, root, expr)
 
     def unary_op(self, out_cls, obs_op, expr_op):
