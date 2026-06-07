@@ -18,25 +18,42 @@ matplotlib.use("Agg")
 
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
-    theta_nodes = tuple(
-        core_module._SYMBOL_NODES.get(sp.sympify(theta))
-        or Node.latent(symbol=sp.sympify(theta), depends_on=(), constraints=())
-        for theta in sorted(set(thetas), key=str)
-    )
+    def _lookup_registered_node(symbol):
+        node = core_module._SYMBOL_NODES.get(symbol)
+        if node is not None:
+            return node
+        associated = core_module._SYMBOL_ASSOCIATED_NODES.get(symbol)
+        if associated:
+            return next(iter(sorted(associated, key=lambda item: str(item.symbol))))
+        return None
+
+    theta_nodes = []
+    theta_substitutions = {}
+    for theta in sorted(set(thetas), key=str):
+        theta = sp.sympify(theta)
+        node = _lookup_registered_node(theta) or Node.latent()
+        core_module._SYMBOL_ASSOCIATED_NODES[theta].add(node)
+        theta_nodes.append(node)
+        theta_substitutions[theta] = node.symbol
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
-    noise_nodes = tuple(
-        core_module._SYMBOL_NODES.get(rv)
-        or Node.noise(symbol=rv, law=rv, depends_on=(), constraints=())
-        for rv in sorted(random_rvs, key=str)
-    )
-    root_symbol = sp.Symbol(f"root_{fresh_name()}")
+    noise_nodes = []
+    noise_substitutions = {}
+    for rv in sorted(random_rvs, key=str):
+        node = _lookup_registered_node(rv) or Node.noise(law=rv)
+        core_module._SYMBOL_ASSOCIATED_NODES[rv].add(node)
+        noise_nodes.append(node)
+        noise_substitutions[rv] = node.symbol
+
+    substitutions = {**theta_substitutions, **noise_substitutions}
+    expr = sp.sympify(expr).subs(substitutions)
+    eqns = tuple(eqn.subs(substitutions) for eqn in eqns)
+
     root = Node.derived(
-        symbol=root_symbol,
-        depends_on=theta_nodes + noise_nodes,
+        depends_on=tuple(theta_nodes) + tuple(noise_nodes),
         constraints=eqns,
-        definition=root_symbol,
+        definition=expr,
     )
     return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 

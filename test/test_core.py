@@ -20,25 +20,42 @@ from src.util import fresh_name
 
 def _rooted_float(obs, expr, thetas=(), eqns=()):
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
-    theta_nodes = tuple(
-        core_module._SYMBOL_NODES.get(sp.sympify(theta))
-        or Node.latent(symbol=sp.sympify(theta), depends_on=(), constraints=())
-        for theta in sorted(set(thetas), key=str)
-    )
+    def _lookup_registered_node(symbol):
+        node = core_module._SYMBOL_NODES.get(symbol)
+        if node is not None:
+            return node
+        associated = core_module._SYMBOL_ASSOCIATED_NODES.get(symbol)
+        if associated:
+            return next(iter(sorted(associated, key=lambda item: str(item.symbol))))
+        return None
+
+    theta_nodes = []
+    theta_substitutions = {}
+    for theta in sorted(set(thetas), key=str):
+        theta = sp.sympify(theta)
+        node = _lookup_registered_node(theta) or Node.latent()
+        core_module._SYMBOL_ASSOCIATED_NODES[theta].add(node)
+        theta_nodes.append(node)
+        theta_substitutions[theta] = node.symbol
     random_rvs = set(random_symbols(expr)) | {
         rv for eqn in eqns for rv in random_symbols(eqn)
     }
-    noise_nodes = tuple(
-        core_module._SYMBOL_NODES.get(rv)
-        or Node.noise(symbol=rv, law=rv, depends_on=(), constraints=())
-        for rv in sorted(random_rvs, key=str)
-    )
-    root_symbol = sp.Symbol(f"root_{fresh_name()}")
+    noise_nodes = []
+    noise_substitutions = {}
+    for rv in sorted(random_rvs, key=str):
+        node = _lookup_registered_node(rv) or Node.noise(law=rv)
+        core_module._SYMBOL_ASSOCIATED_NODES[rv].add(node)
+        noise_nodes.append(node)
+        noise_substitutions[rv] = node.symbol
+
+    substitutions = {**theta_substitutions, **noise_substitutions}
+    expr = sp.sympify(expr).subs(substitutions)
+    eqns = tuple(eqn.subs(substitutions) for eqn in eqns)
+
     root = Node.derived(
-        symbol=root_symbol,
-        depends_on=theta_nodes + noise_nodes,
+        depends_on=tuple(theta_nodes) + tuple(noise_nodes),
         constraints=eqns,
-        definition=root_symbol,
+        definition=expr,
     )
     return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 
@@ -146,14 +163,16 @@ def test_node_factories_reject_direct_role_override():
     theta = sp.Symbol("theta_node")
 
     with pytest.raises(TypeError):
-        Node.latent(symbol=theta, role="not_a_role")
+        Node.latent(symbol=theta)
 
 
 def test_noisyvalue_from_node_uses_root_and_constraints():
-    theta = sp.Symbol("theta_from_node")
-    root = Node.latent(
-        symbol=theta,
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    root = Node.derived(
+        depends_on=(theta_node,),
         constraints=(theta - 2.0,),
+        definition=theta,
     )
 
     value = NoisyFloat.from_node(obs=2.0, root=root)
@@ -164,10 +183,12 @@ def test_noisyvalue_from_node_uses_root_and_constraints():
 
 
 def test_sampler_uses_root_constraints():
-    theta = sp.Symbol("theta_root_only")
-    root = Node.latent(
-        symbol=theta,
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    root = Node.derived(
+        depends_on=(theta_node,),
         constraints=(theta - 3.5,),
+        definition=theta,
     )
 
     value = NoisyFloat.from_node(obs=3.5, root=root, expr=theta)
@@ -188,10 +209,12 @@ def test_noisyfloat_round_nearest_for_deterministic_value():
 
 
 def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
-    theta = sp.Symbol("theta_round_tie")
-    root = Node.latent(
-        symbol=theta,
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    root = Node.derived(
+        depends_on=(theta_node,),
         constraints=(theta - 2.5,),
+        definition=theta,
     )
 
     value = NoisyFloat.from_node(obs=2.5, root=root, expr=theta)
@@ -204,7 +227,7 @@ def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
 
 def test_noisyfloat_divide_by_zero_returns_inf_observation():
     symbol = sp.Symbol("symbol")
-    node = Node.derived(symbol=symbol, definition=symbol)
+    node = Node.derived(definition=symbol)
     x = NoisyFloat(1.0, node)
     y = NoisyFloat(0.0, node)
 
@@ -216,7 +239,7 @@ def test_noisyfloat_divide_by_zero_returns_inf_observation():
 
 def test_noisyfloat_zero_divide_zero_returns_nan_observation():
     symbol = sp.Symbol("symbol")
-    node = Node.derived(symbol=symbol, definition=symbol)
+    node = Node.derived(definition=symbol)
     x = NoisyFloat(0.0, node)
     y = NoisyFloat(0.0, node)
 
@@ -306,10 +329,12 @@ def test_noisyint_resample_replaces_value_with_new_law():
 
 
 def test_noisyint_resample_preserves_upstream_dependency():
-    theta = sp.Symbol("theta_resample")
-    root = Node.latent(
-        symbol=theta,
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    root = Node.derived(
+        depends_on=(theta_node,),
         constraints=(theta - 3.0,),
+        definition=theta,
     )
     count = NoisyInt.from_node(obs=3, root=root, expr=theta)
 
@@ -319,10 +344,12 @@ def test_noisyint_resample_preserves_upstream_dependency():
 
 
 def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
-    theta = sp.Symbol("theta_bad_binomial")
-    root = Node.latent(
-        symbol=theta,
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    root = Node.derived(
+        depends_on=(theta_node,),
         constraints=(theta - 1.5,),
+        definition=theta,
     )
     count = NoisyInt.from_node(obs=3, root=root, expr=sp.Integer(10))
     resampled = count.resample(Binomial("k_bad_binomial", 10, theta))
@@ -335,30 +362,20 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
 
 
 def test_sampler_resolves_multilayer_law_dependencies():
-    z1_symbol = sp.Symbol("z1_layered")
-    z2_symbol = sp.Symbol("z2_layered")
-
     z1 = Node.noise(
-        symbol=z1_symbol,
         law=Normal("law_z1_layered", 0, 1),
-        depends_on=(),
-        constraints=(),
     )
+    z1_symbol = z1.symbol
     z2 = Node.noise(
-        symbol=z2_symbol,
         depends_on=(z1,),
         law=Normal("law_z2_layered", z1_symbol, 1),
-        constraints=(),
     )
-    root_symbol = sp.Symbol(f"root_{fresh_name()}")
     root = Node.derived(
-        symbol=root_symbol,
         depends_on=(z2,),
-        constraints=(),
-        definition=root_symbol,
+        definition=z2.symbol,
     )
 
-    value = NoisyFloat.from_node(obs=0.0, root=root, expr=z2_symbol)
+    value = NoisyFloat.from_node(obs=0.0, root=root, expr=z2.symbol)
     draws = value.sample(n=4000, rng=123).draws
 
     assert draws.shape == (4000,)
@@ -367,10 +384,12 @@ def test_sampler_resolves_multilayer_law_dependencies():
 
 
 def test_sampler_uses_root_output_definition():
-    theta = sp.Symbol("theta_stale_expr")
-    root = Node.latent(
-        symbol=theta,
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    root = Node.derived(
+        depends_on=(theta_node,),
         constraints=(theta - 4.0,),
+        definition=theta,
     )
 
     value = NoisyFloat.from_node(obs=4.0, root=root, expr=theta + 9.0)
@@ -383,43 +402,39 @@ def test_sampler_uses_root_output_definition():
 
 
 def test_registry_infers_derived_dependencies_from_definition():
-    theta = Node.latent("theta_gb", constraints=(sp.Symbol("theta_gb") - 1.0,))
+    theta = Node.latent()
 
     eps_rv = Normal("eps_gb", 0, 1)
-    eps = Node.noise(eps_rv, law=eps_rv)
+    eps = Node.noise(law=eps_rv)
 
-    value = Node.derived("value_gb", definition=theta.symbol + eps.symbol)
+    value = Node.derived(definition=theta.symbol + eps.symbol)
 
     assert {dep.symbol for dep in value.depends_on} == {theta.symbol, eps.symbol}
 
 
 def test_registry_infers_noise_dependencies_from_law_parameters():
-    theta = Node.latent("theta_law_gb", constraints=(sp.Symbol("theta_law_gb") - 2.0,))
+    theta = Node.latent()
 
     law = Normal("z_law_gb", theta.symbol, 1)
-    z = Node.noise("z_gb", law=law)
+    z = Node.noise(law=law)
 
     assert {dep.symbol for dep in z.depends_on} == {theta.symbol}
 
 
-def test_registry_rejects_duplicate_symbol_registration():
-    existing = Node.latent("dup_gb")
+def test_registry_uses_fresh_symbols_for_each_node():
+    first = Node.latent()
+    second = Node.latent()
 
-    with pytest.raises(ValueError, match="already registered"):
-        Node.derived("dup_gb", definition=sp.Integer(1))
-
-    assert existing.symbol == sp.Symbol("dup_gb")
+    assert first.symbol != second.symbol
 
 
 def test_registry_auto_includes_wrapper_roots_from_expression_symbols():
-    theta = sp.Symbol("theta_gb_input")
-    base_root = Node.latent(
-        symbol=theta,
-        constraints=(theta - 2.0,),
-    )
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    base_root = Node.latent(depends_on=(theta_node,), constraints=(theta - 2.0,), definition=theta)
     wrapped = NoisyFloat.from_node(obs=3.0, root=base_root, expr=theta + 1.0)
 
-    out = Node.derived("out_gb_input", definition=theta + 2.0)
+    out = Node.derived(definition=theta + 2.0)
 
     dep_symbols = {dep.symbol for dep in out.depends_on}
     assert wrapped._root.symbol in dep_symbols

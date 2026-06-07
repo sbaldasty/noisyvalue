@@ -3,7 +3,6 @@ import numpy as np
 from .core import NoisyFloat
 from .core import Node
 from .util import fresh_name
-from sympy import Symbol
 from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
@@ -20,9 +19,8 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
     obs_expr = theta + noise_rv
     obs = float(sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs))
 
-    noise_node = Node.noise(noise_rv, law=noise_rv)
+    noise_node = Node.noise(law=noise_rv)
     root = Node.derived(
-        symbol=Symbol(fresh_name()),
         depends_on=(theta_node, noise_node),
         constraints=(obs_expr - obs,),
         definition=theta,

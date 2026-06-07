@@ -24,9 +24,9 @@ _SYMBOL_ASSOCIATED_NODES = defaultdict(WeakSet)
 
 
 class Node:
-    def __init__(self, symbol, depends_on=(), constraints=(), law=None, definition=None, role="derived"):
+    def __init__(self, depends_on=(), constraints=(), law=None, definition=None, role="derived"):
         assert role in {"latent", "noise", "derived"}
-        self.symbol = sympify(symbol)
+        self.symbol = Symbol(fresh_name())
         assert isinstance(self.symbol, sp.Basic)
         self.depends_on = tuple(depends_on)
         assert all(isinstance(x, Node) for x in self.depends_on)
@@ -60,15 +60,12 @@ class Node:
         return tuple(all_constraints)
 
     @classmethod
-    def latent(cls, symbol=None, *, constraints=(), depends_on=None, definition=None):
-        symbol = _normalize_symbol(symbol)
+    def latent(cls, *, constraints=(), depends_on=None, definition=None):
         inferred = _resolve_depends_on(
             depends_on,
             expressions=(definition, *constraints),
-            exclude_symbols={symbol},
         )
         node = cls(
-            symbol=symbol,
             depends_on=inferred,
             constraints=constraints,
             definition=definition,
@@ -77,15 +74,12 @@ class Node:
         return _register_node(node)
 
     @classmethod
-    def noise(cls, symbol=None, *, law, constraints=(), depends_on=None, definition=None):
-        symbol = _normalize_symbol(symbol)
+    def noise(cls, *, law, constraints=(), depends_on=None, definition=None):
         inferred = _resolve_depends_on(
             depends_on,
             expressions=(law, definition, *constraints),
-            exclude_symbols={symbol},
         )
         node = cls(
-            symbol=symbol,
             depends_on=inferred,
             constraints=constraints,
             law=law,
@@ -95,15 +89,12 @@ class Node:
         return _register_node(node)
 
     @classmethod
-    def derived(cls, symbol=None, *, definition, constraints=(), depends_on=None):
-        symbol = _normalize_symbol(symbol)
+    def derived(cls, *, definition, constraints=(), depends_on=None):
         inferred = _resolve_depends_on(
             depends_on,
             expressions=(definition, *constraints),
-            exclude_symbols={symbol},
         )
         node = cls(
-            symbol=symbol,
             depends_on=inferred,
             constraints=constraints,
             definition=definition,
@@ -151,14 +142,6 @@ def _register_closure(root):
     return root
 
 
-def _normalize_symbol(symbol):
-    if symbol is None:
-        return Symbol(fresh_name())
-    if isinstance(symbol, str):
-        return Symbol(symbol)
-    return sympify(symbol)
-
-
 def _dedupe_nodes(nodes):
     seen = set()
     ordered = []
@@ -200,12 +183,11 @@ def _extract_symbols(*expressions):
     return symbols
 
 
-def _resolve_depends_on(explicit_depends_on, expressions, exclude_symbols):
+def _resolve_depends_on(explicit_depends_on, expressions):
     if explicit_depends_on is not None:
         return _dedupe_nodes(tuple(explicit_depends_on))
 
     symbols = _extract_symbols(*expressions)
-    symbols -= set(exclude_symbols)
 
     deps = []
     for symbol in sorted(symbols, key=str):
@@ -218,6 +200,18 @@ def _resolve_depends_on(explicit_depends_on, expressions, exclude_symbols):
             deps.extend(sorted(associated, key=lambda node: str(node.symbol)))
 
     return _dedupe_nodes(tuple(deps))
+
+
+def _is_independent_noise_symbol(symbol):
+    node = _SYMBOL_NODES.get(symbol)
+    return node is not None and node.role == "noise" and not node.depends_on
+
+
+def _sampling_source(rv):
+    node = _SYMBOL_NODES.get(rv)
+    if node is not None and node.law is not None:
+        return node.law
+    return rv
 
 
 def _as_node(value):
@@ -273,6 +267,8 @@ def _try_fast_numpy_sample(rv, rng, *, size=None):
     Returns `None` when the RV is not recognized or parameters are not
     numerically instantiated, so callers can fall back to SymPy sampling.
     """
+    rv = _sampling_source(rv)
+
     pspace = getattr(rv, "pspace", None)
     distribution = getattr(pspace, "distribution", None)
     if distribution is None:
@@ -320,6 +316,7 @@ def _sample_rv(rv, rng, *, lib, kwargs, next_seed, size=None):
             return arr.item()
         return arr
 
+    rv = _sampling_source(rv)
     sampled = sample(
         rv,
         size=size,
@@ -376,6 +373,10 @@ def _filter_theta_equations(eqns, thetas):
             if rv_symbol is not None:
                 random_related_symbols.add(rv_symbol)
 
+        for symbol in eqn.free_symbols:
+            if _is_independent_noise_symbol(symbol):
+                random_related_symbols.add(symbol)
+
         if non_latent_symbols.issubset(random_related_symbols):
             theta_eqns.append(eqn)
 
@@ -412,15 +413,11 @@ def _sampler_inputs_from_roots(values):
         for node in root.closure():
             if node.law is None:
                 continue
-            if node.symbol == node.law:
-                # Exogenous RV: sample once per draw index and reuse directly.
-                root_noise_vars |= set(random_symbols(node.law))
-                continue
-
             # Law node: sample node.symbol once all dependencies are resolved.
             law_nodes[node.symbol] = node
 
-            # Include random symbols from distribution parameters as upstream noise vars.
+            # Include upstream random symbols from law expressions or
+            # distribution parameters.
             pspace = getattr(node.law, "pspace", None)
             distribution = getattr(pspace, "distribution", None)
             if distribution is not None:
@@ -450,9 +447,13 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
 
     theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
 
-    rhs_noise_vars = {
-        rv for rhs in theta_substitutions.values() for rv in random_symbols(rhs)
-    }
+    rhs_noise_vars = set()
+    for rhs in theta_substitutions.values():
+        rhs_expr = sympify(rhs)
+        rhs_noise_vars |= {
+            symbol for symbol in rhs_expr.free_symbols if _is_independent_noise_symbol(symbol)
+        }
+        rhs_noise_vars |= set(random_symbols(rhs_expr))
     value_exprs = tuple(_preferred_value_expr(value) for value in noisy_values)
     predictive_noise_vars = {
         rv for expr in value_exprs for rv in random_symbols(expr)
@@ -534,9 +535,7 @@ class NoisyValue:
 
         expr = root.symbol if expr is None else sympify(expr)
         if expr != root.symbol:
-            output_symbol = Symbol(fresh_name())
             root = Node.derived(
-                symbol=output_symbol,
                 depends_on=(root,),
                 definition=expr,
             )

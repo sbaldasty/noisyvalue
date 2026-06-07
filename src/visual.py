@@ -6,6 +6,8 @@ from sympy.stats import quantile
 from sympy.stats.rv import random_symbols
 
 from src.core import _filter_theta_equations
+from src.core import _is_independent_noise_symbol
+from src.core import _sampling_source
 from src.core import _solve_theta_substitutions
 from src.core import _preferred_value_expr
 
@@ -36,6 +38,7 @@ def _weighted_quantile(values, weights, q):
 
 
 def _quantile_nodes_for_rv(rv, quadrature_points, eps=1e-8):
+    rv = _sampling_source(rv)
     qfun = quantile(rv)
     nodes, weights = np.polynomial.legendre.leggauss(quadrature_points)
 
@@ -67,14 +70,27 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
 
     if thetas:
         sol = _solve_theta_substitutions(thetas, theta_constraints)
-        rhs_noise_vars = list({rv for rhs in sol.values() for rv in random_symbols(rhs)})
+        rhs_noise_vars = set()
+        for rhs in sol.values():
+            rhs_expr = sp.sympify(rhs)
+            rhs_noise_vars |= {
+                symbol
+                for symbol in rhs_expr.free_symbols
+                if _is_independent_noise_symbol(symbol)
+            }
+            rhs_noise_vars |= set(random_symbols(rhs_expr))
     else:
         sol = {}
-        rhs_noise_vars = []
+        rhs_noise_vars = set()
 
     value_expr = _preferred_value_expr(noisy_value)
-    predictive_noise_vars = list(random_symbols(value_expr))
-    integration_rvs = sorted(set(rhs_noise_vars) | set(predictive_noise_vars), key=str)
+    predictive_noise_vars = {
+        symbol
+        for symbol in value_expr.free_symbols
+        if _is_independent_noise_symbol(symbol)
+    }
+    predictive_noise_vars |= set(random_symbols(value_expr))
+    integration_rvs = sorted(rhs_noise_vars | predictive_noise_vars, key=str)
 
     if not integration_rvs:
         value = float(value_expr)
