@@ -186,7 +186,6 @@ def test_sampler_uses_root_constraints():
     theta_node = Node.latent()
     theta = theta_node.symbol
     root = Node.derived(
-        depends_on=(theta_node,),
         constraints=(theta - 3.5,),
         definition=theta,
     )
