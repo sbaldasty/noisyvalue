@@ -60,9 +60,8 @@ class Node:
         return tuple(all_constraints)
 
     @classmethod
-    def latent(cls, *, constraints=(), depends_on=None, definition=None):
+    def latent(cls, *, constraints=(), definition=None):
         inferred = _resolve_depends_on(
-            depends_on,
             expressions=(definition, *constraints),
         )
         node = cls(
@@ -74,9 +73,8 @@ class Node:
         return _register_node(node)
 
     @classmethod
-    def noise(cls, *, law, constraints=(), depends_on=None, definition=None):
+    def noise(cls, *, law, constraints=(), definition=None):
         inferred = _resolve_depends_on(
-            depends_on,
             expressions=(law, definition, *constraints),
         )
         node = cls(
@@ -89,9 +87,8 @@ class Node:
         return _register_node(node)
 
     @classmethod
-    def derived(cls, *, definition, constraints=(), depends_on=None):
+    def derived(cls, *, definition, constraints=()):
         inferred = _resolve_depends_on(
-            depends_on,
             expressions=(definition, *constraints),
         )
         node = cls(
@@ -176,10 +173,7 @@ def _extract_symbols(*expressions):
     return symbols
 
 
-def _resolve_depends_on(explicit_depends_on, expressions):
-    if explicit_depends_on is not None:
-        return _dedupe_nodes(tuple(explicit_depends_on))
-
+def _resolve_depends_on(expressions):
     symbols = _extract_symbols(*expressions)
 
     deps = []
@@ -527,9 +521,8 @@ class NoisyValue:
             raise TypeError(f"Expected Node root, got {type(root).__name__}")
 
         expr = root.symbol if expr is None else sympify(expr)
-        if expr != root.symbol:
+        if expr != root.symbol and expr != root.definition:
             root = Node.derived(
-                depends_on=(root,),
                 definition=expr,
             )
         return cls(obs, root)

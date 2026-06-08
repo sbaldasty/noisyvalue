@@ -4,55 +4,11 @@ import sympy as sp
 from scipy.stats import chi2_contingency
 
 import src.analysis as analysis
-import src.core as core_module
 
+from conftest import rooted_float
 from src.core import NoisyFloat
 from src.core import Node
 from sympy.stats import Normal
-from sympy.stats.rv import random_symbols
-from src.util import fresh_name
-
-
-def _rooted_float(obs, expr, thetas=(), eqns=()):
-    eqns = tuple(sp.sympify(eqn) for eqn in eqns)
-    def _lookup_registered_node(symbol):
-        node = core_module._SYMBOL_NODES.get(symbol)
-        if node is not None:
-            return node
-        associated = core_module._SYMBOL_ASSOCIATED_NODES.get(symbol)
-        if associated:
-            return next(iter(sorted(associated, key=lambda item: str(item.symbol))))
-        return None
-
-    theta_nodes = []
-    theta_substitutions = {}
-    for theta in sorted(set(thetas), key=str):
-        theta = sp.sympify(theta)
-        node = _lookup_registered_node(theta) or Node.latent()
-        core_module._SYMBOL_ASSOCIATED_NODES[theta].add(node)
-        theta_nodes.append(node)
-        theta_substitutions[theta] = node.symbol
-    random_rvs = set(random_symbols(expr)) | {
-        rv for eqn in eqns for rv in random_symbols(eqn)
-    }
-    noise_nodes = []
-    noise_substitutions = {}
-    for rv in sorted(random_rvs, key=str):
-        node = _lookup_registered_node(rv) or Node.noise(law=rv)
-        core_module._SYMBOL_ASSOCIATED_NODES[rv].add(node)
-        noise_nodes.append(node)
-        noise_substitutions[rv] = node.symbol
-
-    substitutions = {**theta_substitutions, **noise_substitutions}
-    expr = sp.sympify(expr).subs(substitutions)
-    eqns = tuple(eqn.subs(substitutions) for eqn in eqns)
-
-    root = Node.derived(
-        depends_on=tuple(theta_nodes) + tuple(noise_nodes),
-        constraints=eqns,
-        definition=expr,
-    )
-    return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 
 
 def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():
@@ -73,8 +29,8 @@ def test_noisy_min_raises_for_empty_input():
 def test_noisy_max_combines_noisy_value_metadata():
     theta = sp.Symbol("theta_fold")
     constraints = [theta - 1.0]
-    a = _rooted_float(obs=1.0, expr=theta, thetas={theta}, eqns=constraints)
-    b = _rooted_float(obs=2.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
+    a = rooted_float(obs=1.0, expr=theta, thetas={theta}, eqns=constraints)
+    b = rooted_float(obs=2.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
 
     out = analysis.noisy_max(a, b)
 
@@ -137,7 +93,7 @@ def test_chi_squared_returns_nan_when_a_row_has_no_mass():
 
 def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
     theta = sp.Symbol("theta_chi_squared")
-    noisy_a = _rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta - 5.0])
+    noisy_a = rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta - 5.0])
 
     result = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).chi_squared()
 
@@ -181,7 +137,7 @@ def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
     theta = sp.Symbol("theta_odds_ratio")
     eps = Normal("eps_odds_ratio", 0, 1)
 
-    noisy_a = _rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta + eps - 5.0])
+    noisy_a = rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta + eps - 5.0])
 
     ratio = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).odds_ratio()
 
