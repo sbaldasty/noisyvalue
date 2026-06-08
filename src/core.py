@@ -1,5 +1,5 @@
 from collections import defaultdict
-import operator
+import operator as op
 import sympy as sp
 import sympy.stats as spstats
 import numpy as np
@@ -502,28 +502,28 @@ class NoisyFloat(NoisyValue):
         return self.unary_op(NoisyFloat, abs, Abs)
 
     def __add__(self, other):
-        return self.bin_op(other, NoisyFloat, operator.add)
+        return self.bin_op(other, NoisyFloat, op.add)
 
     def __radd__(self, other):
-        return self.bin_op(other, NoisyFloat, operator.add, rev=True)
+        return self.bin_op(other, NoisyFloat, op.add, rev=True)
 
     def __sub__(self, other):
-        return self.bin_op(other, NoisyFloat, operator.sub)
+        return self.bin_op(other, NoisyFloat, op.sub)
 
     def __rsub__(self, other):
-        return self.bin_op(other, NoisyFloat, operator.sub, rev=True)
+        return self.bin_op(other, NoisyFloat, op.sub, rev=True)
 
     def __mul__(self, other):
-        return self.bin_op(other, NoisyFloat, operator.mul)
+        return self.bin_op(other, NoisyFloat, op.mul)
 
     def __rmul__(self, other):
-        return self.bin_op(other, NoisyFloat, operator.mul, rev=True)
+        return self.bin_op(other, NoisyFloat, op.mul, rev=True)
 
     def __truediv__(self, other):
-        return self.bin_op(other, NoisyFloat, np.divide, operator.truediv)
+        return self.bin_op(other, NoisyFloat, np.divide, op.truediv)
 
     def __rtruediv__(self, other):
-        return self.bin_op(other, NoisyFloat, np.divide, operator.truediv, rev=True)
+        return self.bin_op(other, NoisyFloat, np.divide, op.truediv, rev=True)
 
     def __pow__(self, other):
         return self.bin_op(other, NoisyFloat, np.power, Pow)
@@ -532,22 +532,22 @@ class NoisyFloat(NoisyValue):
         return self.bin_op(other, NoisyFloat, np.power, Pow, rev=True)
 
     def __lt__(self, other):
-        return self.bin_op(other, NoisyBool, operator.lt)
+        return self.bin_op(other, NoisyBool, op.lt)
 
     def __le__(self, other):
-        return self.bin_op(other, NoisyBool, operator.le)
+        return self.bin_op(other, NoisyBool, op.le)
 
     def __gt__(self, other):
-        return self.bin_op(other, NoisyBool, operator.gt)
+        return self.bin_op(other, NoisyBool, op.gt)
 
     def __ge__(self, other):
-        return self.bin_op(other, NoisyBool, operator.ge)
+        return self.bin_op(other, NoisyBool, op.ge)
 
     def __eq__(self, other):
-        return self.bin_op(other, NoisyBool, operator.eq)
+        return self.bin_op(other, NoisyBool, op.eq)
 
     def __ne__(self, other):
-        return self.bin_op(other, NoisyBool, operator.ne)
+        return self.bin_op(other, NoisyBool, op.ne)
 
     def exp(self):
         return self.unary_op(NoisyFloat, np.exp, sp.exp)
@@ -588,19 +588,19 @@ class NoisyBool(NoisyValue):
         super().__init__(bool(obs), root)
 
     def __and__(self, other):
-        return self.bin_op(other, NoisyBool, operator.and_, And)
+        return self.bin_op(other, NoisyBool, op.and_, And)
 
     def __rand__(self, other):
-        return self.bin_op(other, NoisyBool, operator.and_, And, rev=True)
+        return self.bin_op(other, NoisyBool, op.and_, And, rev=True)
 
     def __or__(self, other):
-        return self.bin_op(other, NoisyBool, operator.or_, Or)
+        return self.bin_op(other, NoisyBool, op.or_, Or)
 
     def __ror__(self, other):
-        return self.bin_op(other, NoisyBool, operator.or_, Or, rev=True)
+        return self.bin_op(other, NoisyBool, op.or_, Or, rev=True)
 
     def __invert__(self):
-        return self.unary_op(NoisyBool, operator.not_, Not)
+        return self.unary_op(NoisyBool, op.not_, Not)
 
 
 class NoisyValueSampler:
