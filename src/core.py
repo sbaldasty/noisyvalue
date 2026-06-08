@@ -29,16 +29,16 @@ class Node:
         # Link us to our dependencies
         symbols = _extract_symbols(self.definition, self.law, *self.constraints)
         symbols.discard(self.symbol)
-        deps = []
-        for symbol in sorted(symbols, key=str):
+        deps = set()
+        for symbol in symbols:
             direct = _SYMBOL_NODES.get(symbol)
             if direct is not None:
-                deps.append(direct)
+                deps.add(direct)
             associated = _SYMBOL_ASSOCIATED_NODES.get(symbol)
             if associated is not None:
-                deps.extend(sorted(associated, key=lambda node: str(node.symbol)))
+                deps.update(associated)
 
-        self.depends_on = tuple(_dedupe_nodes(tuple(deps)))
+        self.depends_on = tuple(deps)
 
         # Connect our symbols to ourself for global lookup
         _SYMBOL_NODES[self.symbol] = self
@@ -81,19 +81,6 @@ class Node:
     @classmethod
     def derived(cls, definition, *, constraints=()):
         return cls("derived", definition=definition, constraints=constraints)
-
-
-def _dedupe_nodes(nodes):
-    seen = set()
-    ordered = []
-    for node in nodes:
-        if not isinstance(node, Node):
-            raise TypeError(f"Node dependencies must contain Node instances, got {type(node).__name__}")
-        if node.symbol in seen:
-            continue
-        seen.add(node.symbol)
-        ordered.append(node)
-    return tuple(ordered)
 
 
 def _extract_symbols(*expressions):
@@ -589,7 +576,7 @@ class NoisyInt(NoisyFloat):
             law = law()
         law = sympify(law)
 
-        noise_node = Node.noise(law=law)
+        noise_node = Node.noise(law)
 
         if obs is None:
             obs = self._obs

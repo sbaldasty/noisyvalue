@@ -15,7 +15,7 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
 
     theta_node = Node.latent()
     # FIXME This might be a huge issue. If nothing keeps this node alive or it might disappear from the weakref sets
-    Node.noise(law=noise_rv)
+    noise_node = Node.noise(noise_rv)
     theta = theta_node.symbol
     obs_expr = theta + noise_rv
     obs = float(sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs))
