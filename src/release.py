@@ -22,7 +22,9 @@ def noisy_float(true_value, noise_factory, **sample_kwargs):
 
     root = Node.derived(
         constraints=(obs_expr - obs,),
-        definition=theta)
+        definition=theta,
+        depends_on=(theta_node, noise_node),
+    )
 
     return NoisyFloat.from_node(obs, root)
 

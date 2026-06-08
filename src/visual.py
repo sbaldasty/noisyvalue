@@ -6,8 +6,6 @@ from sympy.stats import quantile
 from sympy.stats.rv import random_symbols
 
 from src.core import _filter_theta_equations
-from src.core import _is_independent_noise_symbol
-from src.core import _sampling_source
 from src.core import _solve_theta_substitutions
 from src.core import _preferred_value_expr
 
@@ -37,8 +35,8 @@ def _weighted_quantile(values, weights, q):
     return float(values[idx])
 
 
-def _quantile_nodes_for_rv(rv, quadrature_points, eps=1e-8):
-    rv = _sampling_source(rv)
+def _quantile_nodes_for_rv(rv, quadrature_points, sampling_laws, eps=1e-8):
+    rv = sampling_laws.get(rv, rv)
     qfun = quantile(rv)
     nodes, weights = np.polynomial.legendre.leggauss(quadrature_points)
 
@@ -64,9 +62,21 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     if quadrature_points < 2:
         raise ValueError("quadrature_points must be at least 2")
 
+    closure_nodes = {node.symbol: node for node in noisy_value._root.closure()}
+    independent_noise_symbols = {
+        symbol
+        for symbol, node in closure_nodes.items()
+        if node.role == "noise" and node.law is not None and not node.depends_on
+    }
+    sampling_laws = {
+        symbol: node.law
+        for symbol, node in closure_nodes.items()
+        if node.role == "noise" and node.law is not None and not node.depends_on
+    }
+
     thetas = noisy_value._root.latent_symbols()
     constraints = noisy_value._root.all_constraints()
-    theta_constraints = _filter_theta_equations(constraints, thetas)
+    theta_constraints = _filter_theta_equations(constraints, thetas, independent_noise_symbols)
 
     if thetas:
         sol = _solve_theta_substitutions(thetas, theta_constraints)
@@ -76,7 +86,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
             rhs_noise_vars |= {
                 symbol
                 for symbol in rhs_expr.free_symbols
-                if _is_independent_noise_symbol(symbol)
+                if symbol in independent_noise_symbols
             }
             rhs_noise_vars |= set(random_symbols(rhs_expr))
     else:
@@ -87,7 +97,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     predictive_noise_vars = {
         symbol
         for symbol in value_expr.free_symbols
-        if _is_independent_noise_symbol(symbol)
+        if symbol in independent_noise_symbols
     }
     predictive_noise_vars |= set(random_symbols(value_expr))
     integration_rvs = sorted(rhs_noise_vars | predictive_noise_vars, key=str)
@@ -106,7 +116,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     rv_to_nodes = {}
     rv_to_weights = {}
     for rv in integration_rvs:
-        nodes, weights = _quantile_nodes_for_rv(rv, quadrature_points)
+        nodes, weights = _quantile_nodes_for_rv(rv, quadrature_points, sampling_laws)
         rv_to_nodes[rv] = nodes
         rv_to_weights[rv] = weights
 

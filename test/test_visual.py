@@ -31,6 +31,7 @@ def test_plot_posteriors_for_composed_expression_returns_density_curve():
         obs=0.0,
         expr=theta_0 * theta_1 + eps_pred,
         eqns=[theta_0 + eps_0 - observed_0, theta_1 + eps_1 - observed_1],
+        depends_on=(theta_0_node, theta_1_node, eps_0_node, eps_1_node, eps_pred_node),
     )
 
     result = plot_posterior(noisy, quadrature_points=7, grid_size=220)
@@ -62,8 +63,18 @@ def test_plot_posteriors_supports_multiple_values():
     eps_pred_node = Node.noise(law=Normal("eps_pred", 0, 1))
     eps_pred = eps_pred_node.symbol
 
-    noisy_a = rooted_float(obs=0.0, expr=theta + eps_pred, eqns=[theta + eps_obs - 1.0])
-    noisy_b = rooted_float(obs=0.0, expr=2 * theta + eps_pred, eqns=[theta + eps_obs - 1.0])
+    noisy_a = rooted_float(
+        obs=0.0,
+        expr=theta + eps_pred,
+        eqns=[theta + eps_obs - 1.0],
+        depends_on=(theta_node, eps_obs_node, eps_pred_node),
+    )
+    noisy_b = rooted_float(
+        obs=0.0,
+        expr=2 * theta + eps_pred,
+        eqns=[theta + eps_obs - 1.0],
+        depends_on=(theta_node, eps_obs_node, eps_pred_node),
+    )
 
     result = plot_posterior(noisy_a, noisy_b, quadrature_points=7, grid_size=180)
 
