@@ -59,34 +59,6 @@ class Node:
         return cls("derived", definition=definition, constraints=constraints, depends_on=depends_on)
 
 
-def _extract_symbols(*expressions):
-    symbols = set()
-    for expr in expressions:
-        if expr is None:
-            continue
-        expr = sympify(expr)
-        symbols |= set(expr.free_symbols)
-
-        pspace = getattr(expr, "pspace", None)
-        distribution = getattr(pspace, "distribution", None)
-        if distribution is not None:
-            for arg in distribution.args:
-                arg_expr = sympify(arg)
-                symbols |= set(arg_expr.free_symbols)
-                for rv in random_symbols(arg_expr):
-                    symbols.add(rv)
-                    rv_symbol = getattr(rv, "symbol", None)
-                    if rv_symbol is not None:
-                        symbols.add(sympify(rv_symbol))
-
-        for rv in random_symbols(expr):
-            symbols.add(rv)
-            rv_symbol = getattr(rv, "symbol", None)
-            if rv_symbol is not None:
-                symbols.add(sympify(rv_symbol))
-    return symbols
-
-
 def _as_node(value):
     root = getattr(value, "_root", None)
     if not isinstance(root, Node):
