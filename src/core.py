@@ -4,36 +4,47 @@ import sympy as sp
 import sympy.stats as spstats
 import numpy as np
 
-from sympy import Abs
-from sympy import And
-from sympy import Eq
-from sympy import Not
-from sympy import Or
-from sympy import Pow
-from sympy import Symbol
+from sympy import Abs, And, Eq, Not, Or, Pow, Symbol
 from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
-from weakref import WeakValueDictionary
-from weakref import WeakSet
+from weakref import WeakSet, WeakValueDictionary
 
 from .util import fresh_name
+
 
 _SYMBOL_NODES = WeakValueDictionary()
 _SYMBOL_ASSOCIATED_NODES = defaultdict(WeakSet)
 
 
 class Node:
-    def __init__(self, depends_on=(), constraints=(), law=None, definition=None, role="derived"):
+    def __init__(self, role, definition=None, law=None, constraints=()):
         assert role in {"latent", "noise", "derived"}
+        self.role = role
         self.symbol = Symbol(fresh_name())
-        assert isinstance(self.symbol, sp.Basic)
-        self.depends_on = tuple(depends_on)
-        assert all(isinstance(x, Node) for x in self.depends_on)
-        self.constraints = tuple(sympify(x) for x in constraints)
         self.law = None if law is None else sympify(law)
         self.definition = self.symbol if definition is None else sympify(definition)
-        self.role = role
+        self.constraints = tuple(sympify(x) for x in constraints)
+
+        # Link us to our dependencies
+        symbols = _extract_symbols(self.definition, self.law, *self.constraints)
+        symbols.discard(self.symbol)
+        deps = []
+        for symbol in sorted(symbols, key=str):
+            direct = _SYMBOL_NODES.get(symbol)
+            if direct is not None:
+                deps.append(direct)
+            associated = _SYMBOL_ASSOCIATED_NODES.get(symbol)
+            if associated is not None:
+                deps.extend(sorted(associated, key=lambda node: str(node.symbol)))
+
+        self.depends_on = tuple(_dedupe_nodes(tuple(deps)))
+
+        # Connect our symbols to ourself for global lookup
+        _SYMBOL_NODES[self.symbol] = self
+        symbols.add(self.symbol)
+        for symbol in symbols:
+            _SYMBOL_ASSOCIATED_NODES[symbol].add(self)
 
     def closure(self):
         seen = set()
@@ -61,75 +72,15 @@ class Node:
 
     @classmethod
     def latent(cls, *, constraints=(), definition=None):
-        inferred = _resolve_depends_on(
-            expressions=(definition, *constraints),
-        )
-        node = cls(
-            depends_on=inferred,
-            constraints=constraints,
-            definition=definition,
-            role="latent",
-        )
-        return _register_node(node)
+        return Node("latent", definition=definition, constraints=constraints)
 
     @classmethod
-    def noise(cls, *, law, constraints=(), definition=None):
-        inferred = _resolve_depends_on(
-            expressions=(law, definition, *constraints),
-        )
-        node = cls(
-            depends_on=inferred,
-            constraints=constraints,
-            law=law,
-            definition=definition,
-            role="noise",
-        )
-        return _register_node(node)
+    def noise(cls, law, *, constraints=(), definition=None):
+        return Node("noise", definition=definition, law=law, constraints=constraints)
 
     @classmethod
-    def derived(cls, *, definition, constraints=()):
-        inferred = _resolve_depends_on(
-            expressions=(definition, *constraints),
-        )
-        node = cls(
-            depends_on=inferred,
-            constraints=constraints,
-            definition=definition,
-            role="derived",
-        )
-        return _register_node(node)
-
-
-def _is_registerable_symbol(symbol):
-    if isinstance(symbol, Symbol):
-        return True
-    try:
-        return bool(random_symbols(sympify(symbol)))
-    except Exception:
-        return False
-
-
-def _register_node(node, *, strict=True):
-    if not isinstance(node, Node):
-        raise TypeError(f"Expected Node, got {type(node).__name__}")
-
-    if not _is_registerable_symbol(node.symbol):
-        return node
-
-    existing = _SYMBOL_NODES.get(node.symbol)
-    if existing is not None and existing is not node and strict:
-        raise ValueError(f"A different node is already registered for symbol: {node.symbol}")
-
-    if existing is None:
-        _SYMBOL_NODES[node.symbol] = node
-
-    associated_symbols = {node.symbol}
-    associated_symbols |= _extract_symbols(node.definition, node.law, *node.constraints)
-    for symbol in associated_symbols:
-        if _is_registerable_symbol(symbol):
-            _SYMBOL_ASSOCIATED_NODES[symbol].add(node)
-
-    return node
+    def derived(cls, definition, *, constraints=()):
+        return cls("derived", definition=definition, constraints=constraints)
 
 
 def _dedupe_nodes(nodes):
@@ -171,22 +122,6 @@ def _extract_symbols(*expressions):
             if rv_symbol is not None:
                 symbols.add(sympify(rv_symbol))
     return symbols
-
-
-def _resolve_depends_on(expressions):
-    symbols = _extract_symbols(*expressions)
-
-    deps = []
-    for symbol in sorted(symbols, key=str):
-        direct = _SYMBOL_NODES.get(symbol)
-        if direct is not None:
-            deps.append(direct)
-
-        associated = _SYMBOL_ASSOCIATED_NODES.get(symbol)
-        if associated is not None:
-            deps.extend(sorted(associated, key=lambda node: str(node.symbol)))
-
-    return _dedupe_nodes(tuple(deps))
 
 
 def _is_independent_noise_symbol(symbol):
