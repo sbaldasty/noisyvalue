@@ -27,10 +27,11 @@ def test_noisy_min_raises_for_empty_input():
 
 
 def test_noisy_max_combines_noisy_value_metadata():
-    theta = sp.Symbol("theta_fold")
+    theta_node = Node.latent()
+    theta = theta_node.symbol
     constraints = [theta - 1.0]
-    a = rooted_float(obs=1.0, expr=theta, thetas={theta}, eqns=constraints)
-    b = rooted_float(obs=2.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
+    a = rooted_float(obs=1.0, expr=theta, eqns=constraints)
+    b = rooted_float(obs=2.0, expr=2.0 * theta, eqns=constraints)
 
     out = analysis.noisy_max(a, b)
 
@@ -92,8 +93,9 @@ def test_chi_squared_returns_nan_when_a_row_has_no_mass():
 
 
 def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
-    theta = sp.Symbol("theta_chi_squared")
-    noisy_a = rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta - 5.0])
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    noisy_a = rooted_float(obs=5.0, expr=theta, eqns=[theta - 5.0])
 
     result = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).chi_squared()
 
@@ -134,10 +136,12 @@ def test_odds_ratio_sample_with_zero_n_returns_empty_array():
     assert draws.shape == (0,)
 
 def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
-    theta = sp.Symbol("theta_odds_ratio")
-    eps = Normal("eps_odds_ratio", 0, 1)
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    eps_node = Node.noise(law=Normal("eps_odds_ratio", 0, 1))
+    eps = eps_node.symbol
 
-    noisy_a = rooted_float(obs=5.0, expr=theta, thetas={theta}, eqns=[theta + eps - 5.0])
+    noisy_a = rooted_float(obs=5.0, expr=theta, eqns=[theta + eps - 5.0])
 
     ratio = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).odds_ratio()
 

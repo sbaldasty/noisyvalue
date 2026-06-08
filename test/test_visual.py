@@ -1,22 +1,27 @@
 import matplotlib
 import numpy as np
 import pytest
-import sympy as sp
 
 from conftest import rooted_float
 from sympy.stats import Normal
 
+from src.core import Node
 from src.visual import plot_posterior
 
 
 matplotlib.use("Agg")
 
 def test_plot_posteriors_for_composed_expression_returns_density_curve():
-    theta_0 = sp.Symbol("theta_0")
-    theta_1 = sp.Symbol("theta_1")
-    eps_0 = Normal("eps_0", 0, 1)
-    eps_1 = Normal("eps_1", 0, 2)
-    eps_pred = Normal("eps_pred", 0, 0.5)
+    theta_0_node = Node.latent()
+    theta_0 = theta_0_node.symbol
+    theta_1_node = Node.latent()
+    theta_1 = theta_1_node.symbol
+    eps_0_node = Node.noise(law=Normal("eps_0", 0, 1))
+    eps_0 = eps_0_node.symbol
+    eps_1_node = Node.noise(law=Normal("eps_1", 0, 2))
+    eps_1 = eps_1_node.symbol
+    eps_pred_node = Node.noise(law=Normal("eps_pred", 0, 0.5))
+    eps_pred = eps_pred_node.symbol
 
     observed_0 = 3.0
     observed_1 = -1.0
@@ -25,7 +30,6 @@ def test_plot_posteriors_for_composed_expression_returns_density_curve():
     noisy = rooted_float(
         obs=0.0,
         expr=theta_0 * theta_1 + eps_pred,
-        thetas={theta_0, theta_1},
         eqns=[theta_0 + eps_0 - observed_0, theta_1 + eps_1 - observed_1],
     )
 
@@ -51,12 +55,15 @@ def test_plot_posteriors_for_composed_expression_returns_density_curve():
 
 
 def test_plot_posteriors_supports_multiple_values():
-    theta = sp.Symbol("theta")
-    eps_obs = Normal("eps_obs", 0, 1)
-    eps_pred = Normal("eps_pred", 0, 1)
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    eps_obs_node = Node.noise(law=Normal("eps_obs", 0, 1))
+    eps_obs = eps_obs_node.symbol
+    eps_pred_node = Node.noise(law=Normal("eps_pred", 0, 1))
+    eps_pred = eps_pred_node.symbol
 
-    noisy_a = rooted_float(obs=0.0, expr=theta + eps_pred, thetas={theta}, eqns=[theta + eps_obs - 1.0])
-    noisy_b = rooted_float(obs=0.0, expr=2 * theta + eps_pred, thetas={theta}, eqns=[theta + eps_obs - 1.0])
+    noisy_a = rooted_float(obs=0.0, expr=theta + eps_pred, eqns=[theta + eps_obs - 1.0])
+    noisy_b = rooted_float(obs=0.0, expr=2 * theta + eps_pred, eqns=[theta + eps_obs - 1.0])
 
     result = plot_posterior(noisy_a, noisy_b, quadrature_points=7, grid_size=180)
 

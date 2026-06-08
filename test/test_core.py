@@ -17,12 +17,14 @@ from src.core import sample_float_array
 
 
 def test_joint_sampling_preserves_shared_latent_dependency():
-    theta = sp.Symbol("theta")
-    eps_obs = Normal("eps_obs", 0, 1)
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    eps_obs_node = Node.noise(law=Normal("eps_obs", 0, 1))
+    eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, thetas={theta}, eqns=constraints)
-    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
+    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints)
+    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints)
 
     batch_a, batch_b = sample_noisy_values(noisy_a, noisy_b, n=2000, rng=123)
     draws_a = batch_a.draws
@@ -51,12 +53,14 @@ def test_integer_noisy_values_sample_as_integers():
 
 
 def test_prepared_sampler_preserves_shared_latent_dependency():
-    theta = sp.Symbol("theta")
-    eps_obs = Normal("eps_obs_prepared", 0, 1)
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    eps_obs_node = Node.noise(law=Normal("eps_obs_prepared", 0, 1))
+    eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, thetas={theta}, eqns=constraints)
-    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
+    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints)
+    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints)
 
     prepared = noisy_value_sampler(noisy_a, noisy_b)
     batch_a, batch_b = prepared.sample(n=2000, rng=123)
@@ -69,12 +73,14 @@ def test_prepared_sampler_preserves_shared_latent_dependency():
 
 
 def test_prepared_sampler_matches_direct_sampling_for_same_seed():
-    theta = sp.Symbol("theta_match")
-    eps_obs = Normal("eps_obs_match", 0, 1)
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    eps_obs_node = Node.noise(law=Normal("eps_obs_match", 0, 1))
+    eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, thetas={theta}, eqns=constraints)
-    noisy_b = rooted_float(obs=0.0, expr=theta + 3.0, thetas={theta}, eqns=constraints)
+    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints)
+    noisy_b = rooted_float(obs=0.0, expr=theta + 3.0, eqns=constraints)
 
     direct_a, direct_b = sample_noisy_values(noisy_a, noisy_b, n=250, rng=777)
     prepared = noisy_value_sampler(noisy_a, noisy_b)
@@ -94,12 +100,14 @@ def test_sample_shaped_returns_table_shape_plus_sample_axis():
 
 
 def test_sample_shaped_preserves_shared_dependency_across_cells():
-    theta = sp.Symbol("theta_table")
-    eps_obs = Normal("eps_obs_table", 0, 1)
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    eps_obs_node = Node.noise(law=Normal("eps_obs_table", 0, 1))
+    eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
-    a = rooted_float(obs=0.0, expr=theta, thetas={theta}, eqns=constraints)
-    b = rooted_float(obs=0.0, expr=2.0 * theta, thetas={theta}, eqns=constraints)
+    a = rooted_float(obs=0.0, expr=theta, eqns=constraints)
+    b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints)
     table = np.array([[a, b]], dtype=object)
 
     draws = sample_float_array(table, n=300, rng=123)
@@ -225,11 +233,13 @@ def test_noisyfloat_guarded_returns_nan_when_guard_false():
 
 
 def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
-    theta = sp.Symbol("theta_guarded")
-    eps = Normal("eps_guarded", 0, 1)
+    theta_node = Node.latent()
+    theta = theta_node.symbol
+    eps_node = Node.noise(law=Normal("eps_guarded", 0, 1))
+    eps = eps_node.symbol
     constraints = [theta + eps - 4.0]
 
-    value = rooted_float(obs=4.0, expr=theta, thetas={theta}, eqns=constraints)
+    value = rooted_float(obs=4.0, expr=theta, eqns=constraints)
     guarded = value.guarded(value > 0)
 
     assert isinstance(guarded, NoisyFloat)
