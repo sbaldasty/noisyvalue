@@ -384,8 +384,7 @@ def sample_float_array(vals, n=1000, lib="scipy", rng=None, axis=-1, **kwargs):
 
 class NoisyValue:
     def __init__(self, obs, root):
-        if not isinstance(root, Node):
-            raise TypeError(f"Expected Node root, got {type(root).__name__}")
+        assert isinstance(root, Node)
         self._obs = obs
         self._root = root
 
@@ -430,11 +429,7 @@ class NoisyValue:
 
     @classmethod
     def lift(cls, value):
-        if isinstance(value, cls):
-            return value
-        expr = sympify(value)
-        root = Node.derived(definition=expr)
-        return cls.from_node(expr, root)
+        return value if isinstance(value, cls) else cls(value, Node.derived(value))
 
     def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
         return noisy_value_sampler(self, lib=lib, **kwargs).sample(n, rng)[0]
@@ -454,8 +449,8 @@ class NoisyValue:
             obs = obs_op(lhs._obs, rhs._obs)
 
         expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
-        root = Node.derived(definition=expr, depends_on=(lhs._root, rhs._root))
-        return out_cls.from_node(obs, root, expr)
+        root = Node.derived(expr, depends_on=(lhs._root, rhs._root))
+        return out_cls(obs, root)
 
     def unary_op(self, out_cls, obs_op, expr_op):
         return out_cls.from_node(obs_op(self._obs), self._root, expr=expr_op(_preferred_value_expr(self)))
