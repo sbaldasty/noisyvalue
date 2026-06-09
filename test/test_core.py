@@ -36,7 +36,7 @@ def test_joint_sampling_preserves_shared_latent_dependency():
 
 
 def test_literal_conversions_use_native_root_model():
-    converted = NoisyFloat.from_value(7.0)
+    converted = NoisyFloat.lift(7.0)
 
     assert isinstance(converted._root, Node)
     assert converted._root.constraints == ()
@@ -44,7 +44,7 @@ def test_literal_conversions_use_native_root_model():
 
 
 def test_integer_noisy_values_sample_as_integers():
-    count = NoisyInt.from_value(3)
+    count = NoisyInt.lift(3)
     draws = sample_noisy_values(count, n=5, rng=123)[0].draws
 
     assert isinstance(draws, np.ndarray)
@@ -163,7 +163,7 @@ def test_sampler_uses_root_constraints():
 
 
 def test_noisyfloat_round_nearest_for_deterministic_value():
-    value = NoisyFloat.from_value(2.6)
+    value = NoisyFloat.lift(2.6)
     rounded = value.round_nearest()
 
     assert isinstance(rounded, NoisyInt)
@@ -214,7 +214,7 @@ def test_noisyfloat_zero_divide_zero_returns_nan_observation():
 
 
 def test_noisyfloat_guarded_returns_value_when_guard_true():
-    x = NoisyFloat.from_value(3.5)
+    x = NoisyFloat.lift(3.5)
 
     guarded = x.guarded(True)
 
@@ -225,7 +225,7 @@ def test_noisyfloat_guarded_returns_value_when_guard_true():
 
 
 def test_noisyfloat_guarded_returns_nan_when_guard_false():
-    x = NoisyFloat.from_value(3.5)
+    x = NoisyFloat.lift(3.5)
 
     guarded = x.guarded(False)
 
@@ -253,7 +253,7 @@ def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
 
 
 def test_noisyfloat_power_supports_plain_exponent():
-    x = NoisyFloat.from_value(3.0)
+    x = NoisyFloat.lift(3.0)
 
     z = x ** 2
 
@@ -262,7 +262,7 @@ def test_noisyfloat_power_supports_plain_exponent():
 
 
 def test_noisyfloat_reverse_power_supports_plain_base():
-    x = NoisyFloat.from_value(3.0)
+    x = NoisyFloat.lift(3.0)
 
     z = 2.0 ** x
 
@@ -271,8 +271,8 @@ def test_noisyfloat_reverse_power_supports_plain_base():
 
 
 def test_noisyfloat_invalid_real_power_returns_nan_observation():
-    x = NoisyFloat.from_value(-1.0)
-    y = NoisyFloat.from_value(0.5)
+    x = NoisyFloat.lift(-1.0)
+    y = NoisyFloat.lift(0.5)
 
     z = x ** y
 
@@ -281,7 +281,7 @@ def test_noisyfloat_invalid_real_power_returns_nan_observation():
 
 
 def test_noisyint_resample_replaces_value_with_new_law():
-    count = NoisyInt.from_value(5)
+    count = NoisyInt.lift(5)
     resampled = count.resample(Binomial("k_resample", 2, 0.5))
 
     assert isinstance(resampled, NoisyInt)

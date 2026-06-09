@@ -12,7 +12,7 @@ def _fold_float(values, op):
     if not values:
         raise ValueError("Requires at least one value")
 
-    result = NoisyFloat.from_value(values[0])
+    result = NoisyFloat.lift(values[0])
     for value in values[1:]:
         result = result.bin_op(value, NoisyFloat, op)
     return result
@@ -41,7 +41,7 @@ class NoisyContingencyTable:
                 expected = (row_totals[i] * col_totals[j]) / total
                 stat += (tbl[i, j] - expected) ** 2 / expected
 
-        valid = NoisyBool.from_value(True)
+        valid = NoisyBool.lift(True)
         for row_total in row_totals:
             valid &= row_total > 0
         for col_total in col_totals:

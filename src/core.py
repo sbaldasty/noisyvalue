@@ -237,7 +237,7 @@ def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
 def as_noisy_float_array(array):
     values = np.asarray(array, dtype=object)
     flat = values.reshape(-1)
-    converted = np.array([NoisyFloat.from_value(value) for value in flat], dtype=object)
+    converted = np.array([NoisyFloat.lift(value) for value in flat], dtype=object)
     return converted.reshape(values.shape)
 
 
@@ -245,10 +245,10 @@ def as_noisy_value(value):
     if isinstance(value, NoisyValue):
         return value
     if isinstance(value, (bool, np.bool_)):
-        return NoisyBool.from_value(value)
+        return NoisyBool.lift(value)
     if isinstance(value, (int, np.integer)):
-        return NoisyInt.from_value(value)
-    return NoisyFloat.from_value(value)
+        return NoisyInt.lift(value)
+    return NoisyFloat.lift(value)
 
 
 def _sampler_inputs_from_roots(values):
@@ -408,18 +408,32 @@ class NoisyValue:
 
         expr = root.symbol if expr is None else sympify(expr)
         if expr != root.symbol and expr != root.definition:
-            root = Node.derived(
-                definition=expr,
-                depends_on=(root,),
-            )
+            root = Node.derived(definition=expr, depends_on=(root,))
+
         return cls(obs, root)
 
     @classmethod
-    def from_value(cls, value):
+    def draw(cls, true_value, noise_rv, **sample_kwargs):
+        assert set(random_symbols(noise_rv)) == {noise_rv}
+        theta_node = Node.latent()
+        noise_node = Node.noise(noise_rv)
+        theta = theta_node.symbol
+        obs_expr = theta + noise_rv
+        obs = sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs)
+
+        root = Node.derived(
+            constraints=(obs_expr - obs,),
+            definition=theta,
+            depends_on=(theta_node, noise_node))
+
+        return cls(obs, root)
+
+    @classmethod
+    def lift(cls, value):
         if isinstance(value, cls):
             return value
         expr = sympify(value)
-        root = Node.derived(definition=expr, depends_on=())
+        root = Node.derived(definition=expr)
         return cls.from_node(expr, root)
 
     def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
@@ -429,7 +443,7 @@ class NoisyValue:
         return self.sample(n=n, lib=lib, rng=rng, **kwargs).credible_interval(p)
 
     def bin_op(self, x, out_cls, obs_op, expr_op=None, rev=False):
-        x = type(self).from_value(x)
+        x = type(self).lift(x)
         lhs = x if rev else self
         rhs = self if rev else x
 
@@ -447,21 +461,9 @@ class NoisyValue:
         return out_cls.from_node(obs_op(self._obs), self._root, expr=expr_op(_preferred_value_expr(self)))
 
 
-class NoisyFloat(NoisyValue):
+class NoisyNumber(NoisyValue):
     def __init__(self, obs, root):
-        super().__init__(float(obs), root)
-
-    def guarded(self, guard, fallback=sp.nan):
-        guard = NoisyBool.from_value(guard)
-        fallback = sympify(fallback)
-
-        obs = self._obs if bool(guard) else float(fallback)
-        expr = sp.Piecewise(
-            (_preferred_value_expr(self), _preferred_value_expr(guard)),
-            (fallback, True),
-        )
-        root = Node.derived(definition=expr, depends_on=(self._root, guard._root))
-        return NoisyFloat.from_node(obs, root)
+        super().__init__(obs, root)
 
     def __abs__(self):
         return self.unary_op(NoisyFloat, abs, Abs)
@@ -514,6 +516,23 @@ class NoisyFloat(NoisyValue):
     def __ne__(self, other):
         return self.bin_op(other, NoisyBool, op.ne)
 
+    def guarded(self, guard, fallback=sp.nan):
+        guard = NoisyBool.lift(guard)
+        fallback = sympify(fallback)
+
+        obs = self._obs if bool(guard) else float(fallback)
+        expr = sp.Piecewise(
+            (_preferred_value_expr(self), _preferred_value_expr(guard)),
+            (fallback, True))
+
+        root = Node.derived(definition=expr, depends_on=(self._root, guard._root))
+        return type(self).from_node(obs, root)
+
+
+class NoisyFloat(NoisyNumber):
+    def __init__(self, obs, root):
+        super().__init__(float(obs), root)
+
     def exp(self):
         return self.unary_op(NoisyFloat, np.exp, sp.exp)
 
@@ -522,16 +541,16 @@ class NoisyFloat(NoisyValue):
 
     def round_nearest(self):
         expr = sp.floor(_preferred_value_expr(self) + sp.Rational(1, 2))
-        obs = int(np.floor(float(self._obs) + 0.5))
+        obs = np.floor(self._obs + 0.5)
         return NoisyInt.from_node(obs, self._root, expr=expr)
 
     def sqrt(self):
         return self.unary_op(NoisyFloat, np.sqrt, sp.sqrt)
 
 
-class NoisyInt(NoisyFloat):
+class NoisyInt(NoisyNumber):
     def __init__(self, obs, root):
-        NoisyValue.__init__(self, int(obs), root)
+        super().__init__(int(obs), root)
 
     def __index__(self):
         return self._obs
@@ -773,5 +792,8 @@ class SampleBatch:
         self.draws = draws
 
     def credible_interval(self, p=0.95):
-        alpha = (1 - p) / 2
-        return np.quantile(self.draws, [alpha, 1 - alpha], method="linear")
+        alpha = (1.0 - p) / 2.0
+        return np.quantile(self.draws, [alpha, 1.0 - alpha], method="linear")
+
+    def mean(self):
+        return np.mean(self.draws)

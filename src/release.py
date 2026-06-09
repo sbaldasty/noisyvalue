@@ -6,7 +6,7 @@ from sympy import sympify
 from sympy.stats import sample
 from sympy.stats.rv import random_symbols
 
-
+# TODO Replace with Node.from_draw but then what becomes of noisy_float_array?
 def noisy_float(true_value, noise_factory, **sample_kwargs):
     noise_rv = noise_factory()
 
