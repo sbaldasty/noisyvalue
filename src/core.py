@@ -521,7 +521,7 @@ class NoisyNumber(NoisyValue):
             (fallback, True))
 
         root = Node.derived(definition=expr, depends_on=(self._root, guard._root))
-        return type(self).from_node(obs, root)
+        return type(self)(obs, root)
 
 
 class NoisyFloat(NoisyNumber):

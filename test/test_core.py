@@ -1,19 +1,24 @@
 import numpy as np
 import pytest
+import src.noise as noise
 import sympy as sp
 
-from sympy.stats import Binomial
-from sympy.stats import Normal
-
+from numpy.random import default_rng
 from conftest import rooted_float
 from src.core import NoisyFloat
-from src.core import NoisyBool
 from src.core import NoisyInt
 from src.core import Node
 from src.core import noisy_value_sampler
 from src.core import float_array_sampler
 from src.core import sample_noisy_values
 from src.core import sample_float_array
+from src.core import NoisyFloat
+from src.core import Node
+from sympy.stats import Binomial
+from sympy.stats import Normal
+
+
+_rng_factory = lambda: default_rng(42)
 
 
 def test_joint_sampling_preserves_shared_latent_dependency():
@@ -405,3 +410,22 @@ def test_node_derived_wires_wrapper_and_symbol_nodes_explicitly():
     dep_symbols = {dep.symbol for dep in out.depends_on}
     assert wrapped._root.symbol in dep_symbols
     assert theta in dep_symbols
+
+
+def test_draw_obs():
+    '''
+    The observed value of a NoisyFloat is its true value plus noise.
+    '''
+    noise_factory = noise.gaussian(loc=0, scale=1)()
+    noisy_float = NoisyFloat.draw(5.0, noise_factory, seed=_rng_factory())
+    expected_noise = _rng_factory().normal(loc=0, scale=1)
+    assert float(noisy_float) == expected_noise + 5.0
+
+
+def test_draw_uses_root_node():
+    noise_factory = noise.gaussian(loc=0, scale=1)()
+    noisy_float = NoisyFloat.draw(5.0, noise_factory, seed=_rng_factory())
+
+    assert isinstance(noisy_float._root, Node)
+    assert noisy_float._root.role == "derived"
+    assert noisy_float._root.latent_symbols()
