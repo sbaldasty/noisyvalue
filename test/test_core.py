@@ -96,7 +96,9 @@ def test_prepared_sampler_matches_direct_sampling_for_same_seed():
 
 
 def test_sample_shaped_returns_table_shape_plus_sample_axis():
-    table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
+    table = np.array([
+        [NoisyFloat.lift(1.0), NoisyFloat.lift(2.0)],
+        [NoisyFloat.lift(3.0), NoisyFloat.lift(4.0)]], dtype=object)
     draws = sample_float_array(table, n=11, rng=123)
 
     assert isinstance(draws, np.ndarray)
@@ -121,7 +123,9 @@ def test_sample_shaped_preserves_shared_dependency_across_cells():
 
 
 def test_prepared_shaped_sampler_moves_sample_axis():
-    table = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=object)
+    table = np.array([
+        [NoisyFloat.lift(1.0), NoisyFloat.lift(2.0)],
+        [NoisyFloat.lift(3.0), NoisyFloat.lift(4.0)]], dtype=object)
     prepared = float_array_sampler(table)
     draws = prepared.sample(n=7, rng=123, axis=0)
 

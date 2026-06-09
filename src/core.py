@@ -234,17 +234,6 @@ def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
     return tuple(theta_eqns)
 
 
-# TODO Noisy values should be asserted in the sampler and this should be removed
-def as_noisy_value(value):
-    if isinstance(value, NoisyValue):
-        return value
-    if isinstance(value, (bool, np.bool_)):
-        return NoisyBool.lift(value)
-    if isinstance(value, (int, np.integer)):
-        return NoisyInt.lift(value)
-    return NoisyFloat.lift(value)
-
-
 def _sampler_inputs_from_roots(values):
     all_thetas = set()
     all_eqns = []
@@ -297,10 +286,7 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
     The returned object caches symbolic setup work and can be reused for
     repeated `sample_n` calls with different sample sizes or RNG seeds.
     """
-    if not vals:
-        raise ValueError("At least one value is required")
-
-    noisy_values = tuple(as_noisy_value(value) for value in vals)
+    assert vals and all(isinstance(x, NoisyValue) for x in vals)
 
     (
         all_thetas,
@@ -309,7 +295,7 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
         law_nodes,
         independent_noise_symbols,
         sampling_laws,
-    ) = _sampler_inputs_from_roots(noisy_values)
+    ) = _sampler_inputs_from_roots(vals)
 
     theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
 
@@ -320,14 +306,14 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
             symbol for symbol in rhs_expr.free_symbols if symbol in independent_noise_symbols
         }
         rhs_noise_vars |= set(random_symbols(rhs_expr))
-    value_exprs = tuple(_preferred_value_expr(value) for value in noisy_values)
+    value_exprs = tuple(_preferred_value_expr(value) for value in vals)
     predictive_noise_vars = {
         rv for expr in value_exprs for rv in random_symbols(expr)
     }
     all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars | root_noise_vars, key=str)
 
     return NoisyValueSampler(
-        noisy_values,
+        vals,
         exprs=value_exprs,
         subs=theta_substitutions,
         vars=all_noise_vars,
