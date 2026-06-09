@@ -234,13 +234,7 @@ def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
     return tuple(theta_eqns)
 
 
-def as_noisy_float_array(array):
-    values = np.asarray(array, dtype=object)
-    flat = values.reshape(-1)
-    converted = np.array([NoisyFloat.lift(value) for value in flat], dtype=object)
-    return converted.reshape(values.shape)
-
-
+# TODO Noisy values should be asserted in the sampler and this should be removed
 def as_noisy_value(value):
     if isinstance(value, NoisyValue):
         return value
@@ -428,8 +422,10 @@ class NoisyValue:
         return cls(obs, root)
 
     @classmethod
-    def lift(cls, value):
-        return value if isinstance(value, cls) else cls(value, Node.derived(value))
+    def lift(cls, value, accept=None):
+        accept = cls if accept is None else accept
+        assert issubclass(accept, NoisyValue)
+        return value if isinstance(value, accept) else cls(value, Node.derived(value))
 
     def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
         return noisy_value_sampler(self, lib=lib, **kwargs).sample(n, rng)[0]
@@ -520,7 +516,7 @@ class NoisyNumber(NoisyValue):
             (_preferred_value_expr(self), _preferred_value_expr(guard)),
             (fallback, True))
 
-        root = Node.derived(definition=expr, depends_on=(self._root, guard._root))
+        root = Node.derived(expr, depends_on=(self._root, guard._root))
         return type(self)(obs, root)
 
 

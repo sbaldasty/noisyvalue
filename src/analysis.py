@@ -1,7 +1,8 @@
+import numpy as np
+
 from . import noise
-from .core import NoisyBool
+from .core import NoisyBool, NoisyNumber
 from .core import NoisyFloat
-from .core import as_noisy_float_array
 from numpy import asarray
 from numpy import isfinite
 from sympy import Max
@@ -20,8 +21,8 @@ def _fold_float(values, op):
 
 class NoisyContingencyTable:
     def __init__(self, tbl):
-        # Elements should be noisy floats if they aren't already
-        tbl = as_noisy_float_array(tbl)
+        # Elements should be noisy floats if they aren't noisy numbers already
+        tbl = np.vectorize(lambda x: NoisyFloat.lift(x, accept=NoisyNumber))(tbl)
         # Must be 2D with positive dimensions
         assert tbl.ndim == 2 and tbl.shape[0] > 0 and tbl.shape[1] > 0
         # All observations must be finite
