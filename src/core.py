@@ -10,54 +10,6 @@ from sympy.stats.rv import random_symbols
 
 from .util import fresh_name
 
-class Node:
-    def __init__(self, role, definition=None, law=None, constraints=(), depends_on=()):
-        assert role in {"latent", "noise", "derived"}
-        self.role = role
-        self.symbol = Symbol(fresh_name())
-        self.law = None if law is None else sympify(law)
-        self.definition = self.symbol if definition is None else sympify(definition)
-        self.constraints = tuple(sympify(x) for x in constraints)
-        self.depends_on = tuple(depends_on)
-        if not all(isinstance(node, Node) for node in self.depends_on):
-            raise TypeError("depends_on must contain Node instances")
-
-    def closure(self):
-        seen = set()
-        ordered = []
-
-        def walk(node):
-            if node.symbol in seen:
-                return
-            seen.add(node.symbol)
-            ordered.append(node)
-            for dep in node.depends_on:
-                walk(dep)
-
-        walk(self)
-        return tuple(ordered)
-
-    def latent_symbols(self):
-        return {node.symbol for node in self.closure() if node.role == "latent"}
-
-    def all_constraints(self):
-        all_constraints = []
-        for node in self.closure():
-            all_constraints.extend(node.constraints)
-        return tuple(all_constraints)
-
-    @classmethod
-    def latent(cls, *, constraints=(), definition=None, depends_on=()):
-        return Node("latent", definition=definition, constraints=constraints, depends_on=depends_on)
-
-    @classmethod
-    def noise(cls, law, *, constraints=(), definition=None, depends_on=()):
-        return Node("noise", definition=definition, law=law, constraints=constraints, depends_on=depends_on)
-
-    @classmethod
-    def derived(cls, definition, *, constraints=(), depends_on=()):
-        return cls("derived", definition=definition, constraints=constraints, depends_on=depends_on)
-
 
 def _as_node(value):
     root = getattr(value, "_root", None)
@@ -334,32 +286,53 @@ def sample_noisy_values(*vals, n=1000, lib="scipy", rng=None, **kwargs):
     return sampler.sample(n=n, rng=rng)
 
 
-def float_array_sampler(vals, lib="scipy", **kwargs):
-    """Prepare a reusable sampler for tensor-like value collections.
+class Node:
+    def __init__(self, role, definition=None, law=None, constraints=(), depends_on=()):
+        assert role in {"latent", "noise", "derived"}
+        self.role = role
+        self.symbol = Symbol(fresh_name())
+        self.law = None if law is None else sympify(law)
+        self.definition = self.symbol if definition is None else sympify(definition)
+        self.constraints = tuple(sympify(x) for x in constraints)
+        self.depends_on = tuple(depends_on)
+        if not all(isinstance(node, Node) for node in self.depends_on):
+            raise TypeError("depends_on must contain Node instances")
 
-    The prepared sampler returns arrays with the same base shape as `values`
-    plus one sample axis.
-    """
-    values_array = np.asarray(vals, dtype=object)
-    if values_array.size == 0:
-        raise ValueError("At least one value is required")
+    def closure(self):
+        seen = set()
+        ordered = []
 
-    prepared = noisy_value_sampler(
-        *values_array.reshape(-1).tolist(),
-        lib=lib,
-        **kwargs,
-    )
-    return FloatArraySampler(prepared, values_array.shape)
+        def walk(node):
+            if node.symbol in seen:
+                return
+            seen.add(node.symbol)
+            ordered.append(node)
+            for dep in node.depends_on:
+                walk(dep)
 
+        walk(self)
+        return tuple(ordered)
 
-def sample_float_array(vals, n=1000, lib="scipy", rng=None, axis=-1, **kwargs):
-    """Jointly sample a tensor-like collection of values.
+    def latent_symbols(self):
+        return {node.symbol for node in self.closure() if node.role == "latent"}
 
-    Returns a float numpy array with shape `values.shape + (n,)` by default.
-    Use `axis` to move the sample dimension.
-    """
-    sampler = float_array_sampler(vals, lib=lib, **kwargs)
-    return sampler.sample(n, rng, axis)
+    def all_constraints(self):
+        all_constraints = []
+        for node in self.closure():
+            all_constraints.extend(node.constraints)
+        return tuple(all_constraints)
+
+    @classmethod
+    def latent(cls, *, constraints=(), definition=None, depends_on=()):
+        return Node("latent", definition=definition, constraints=constraints, depends_on=depends_on)
+
+    @classmethod
+    def noise(cls, law, *, constraints=(), definition=None, depends_on=()):
+        return Node("noise", definition=definition, law=law, constraints=constraints, depends_on=depends_on)
+
+    @classmethod
+    def derived(cls, definition, *, constraints=(), depends_on=()):
+        return cls("derived", definition=definition, constraints=constraints, depends_on=depends_on)
 
 
 class NoisyValue:
@@ -737,29 +710,6 @@ class NoisyValueSampler:
                     outputs[out_idx][idx] = dtypes[out_idx](sampled_expr)
 
         return tuple(SampleBatch(x) for x in outputs)
-
-
-class FloatArraySampler:
-    def __init__(self, delegate, shape):
-        self._delegate = delegate
-        self._shape = shape
-
-    def sample(self, n=1000, rng=None, axis=-1):
-        raw = self._delegate.sample(n=n, rng=rng)
-        if isinstance(raw, tuple):
-            flat = np.stack([batch.draws for batch in raw], axis=0)
-        else:
-            flat = raw.draws[np.newaxis, :]
-
-        shaped = np.asarray(flat.reshape(self._shape + (n,)), dtype=float)
-        if axis == -1:
-            return shaped
-
-        ndim = len(self._shape) + 1
-        axis = axis if axis >= 0 else axis + ndim
-        if axis < 0 or axis >= ndim:
-            raise np.AxisError(axis, ndim=ndim)
-        return np.moveaxis(shaped, -1, axis)
 
 
 class SampleBatch:
