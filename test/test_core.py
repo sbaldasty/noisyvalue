@@ -10,10 +10,6 @@ from src.core import NoisyInt
 from src.core import Node
 from src.core import noisy_value_sampler
 from src.core import sample_noisy_values
-from src.core import NoisyFloat
-from src.core import Node
-from sympy.stats import Binomial
-from sympy.stats import Normal
 
 
 _rng_factory = lambda: default_rng(42)
@@ -22,7 +18,7 @@ _rng_factory = lambda: default_rng(42)
 def test_joint_sampling_preserves_shared_latent_dependency():
     theta_node = Node.latent()
     theta = theta_node.symbol
-    eps_obs_node = Node.noise(law=Normal("eps_obs", 0, 1))
+    eps_obs_node = Node.noise(source=noise.gaussian(0, 1))
     eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
@@ -58,7 +54,7 @@ def test_integer_noisy_values_sample_as_integers():
 def test_prepared_sampler_preserves_shared_latent_dependency():
     theta_node = Node.latent()
     theta = theta_node.symbol
-    eps_obs_node = Node.noise(law=Normal("eps_obs_prepared", 0, 1))
+    eps_obs_node = Node.noise(source=noise.gaussian(0, 1))
     eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
@@ -78,7 +74,7 @@ def test_prepared_sampler_preserves_shared_latent_dependency():
 def test_prepared_sampler_matches_direct_sampling_for_same_seed():
     theta_node = Node.latent()
     theta = theta_node.symbol
-    eps_obs_node = Node.noise(law=Normal("eps_obs_match", 0, 1))
+    eps_obs_node = Node.noise(source=noise.gaussian(0, 1))
     eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
@@ -208,7 +204,7 @@ def test_noisyfloat_guarded_returns_nan_when_guard_false():
 def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
     theta_node = Node.latent()
     theta = theta_node.symbol
-    eps_node = Node.noise(law=Normal("eps_guarded", 0, 1))
+    eps_node = Node.noise(source=noise.gaussian(0, 1))
     eps = eps_node.symbol
     constraints = [theta + eps - 4.0]
 
@@ -252,11 +248,11 @@ def test_noisyfloat_invalid_real_power_returns_nan_observation():
 
 def test_noisyint_resample_replaces_value_with_new_law():
     count = NoisyInt.lift(5)
-    resampled = count.resample(Binomial("k_resample", 2, 0.5))
+    resampled = count.resample(noise.binomial(2, 0.5))
 
     assert isinstance(resampled, NoisyInt)
     assert int(resampled) == 5
-    assert any(node.role == "noise" and node.law is not None for node in resampled._root.closure())
+    assert any(node.role == "noise" and node.source is not None for node in resampled._root.closure())
 
     draws = resampled.sample(n=128, rng=123).draws
     assert draws.dtype == int
@@ -274,7 +270,7 @@ def test_noisyint_resample_preserves_upstream_dependency():
     )
     count = NoisyInt.from_node(obs=3, root=root, expr=theta)
 
-    resampled = count.resample(Binomial("k_resample_theta", theta, 0.5))
+    resampled = count.resample(noise.binomial(theta, 0.5))
 
     assert theta in resampled._root.latent_symbols()
 
@@ -288,7 +284,7 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
         depends_on=(theta_node,),
     )
     count = NoisyInt.from_node(obs=3, root=root, expr=sp.Integer(10))
-    resampled = count.resample(Binomial("k_bad_binomial", 10, theta))
+    resampled = count.resample(noise.binomial(10, theta))
 
     noisy_float = NoisyFloat.from_node(obs=float(int(resampled)), root=resampled._root, expr=resampled._root.symbol)
     draws = noisy_float.sample(n=16, rng=123).draws
@@ -298,12 +294,10 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
 
 
 def test_sampler_resolves_multilayer_law_dependencies():
-    z1 = Node.noise(
-        law=Normal("law_z1_layered", 0, 1),
-    )
+    z1 = Node.noise(source=noise.gaussian(0, 1))
     z1_symbol = z1.symbol
     z2 = Node.noise(
-        law=Normal("law_z2_layered", z1_symbol, 1),
+        source=noise.gaussian(z1_symbol, 1),
         depends_on=(z1,),
     )
     root = Node.derived(
@@ -339,9 +333,7 @@ def test_sampler_uses_root_output_definition():
 
 def test_node_derived_uses_explicit_dependencies():
     theta = Node.latent()
-
-    eps_rv = Normal("eps_gb", 0, 1)
-    eps = Node.noise(law=eps_rv)
+    eps = Node.noise(source=noise.gaussian(0, 1))
 
     value = Node.derived(definition=theta.symbol + eps.symbol, depends_on=(theta, eps))
 
@@ -351,8 +343,7 @@ def test_node_derived_uses_explicit_dependencies():
 def test_node_noise_uses_explicit_dependencies():
     theta = Node.latent()
 
-    law = Normal("z_law_gb", theta.symbol, 1)
-    z = Node.noise(law=law, depends_on=(theta,))
+    z = Node.noise(source=noise.gaussian(theta.symbol, 1), depends_on=(theta,))
 
     assert {dep.symbol for dep in z.depends_on} == {theta.symbol}
 
@@ -381,15 +372,15 @@ def test_draw_obs():
     '''
     The observed value of a NoisyFloat is its true value plus noise.
     '''
-    noise_factory = noise.gaussian(loc=0, scale=1)()
-    noisy_float = NoisyFloat.draw(5.0, noise_factory, seed=_rng_factory())
+    noise_source = noise.gaussian(loc=0, scale=1)
+    noisy_float = NoisyFloat.draw(5.0, noise_source, rng=_rng_factory())
     expected_noise = _rng_factory().normal(loc=0, scale=1)
     assert float(noisy_float) == expected_noise + 5.0
 
 
 def test_draw_uses_root_node():
-    noise_factory = noise.gaussian(loc=0, scale=1)()
-    noisy_float = NoisyFloat.draw(5.0, noise_factory, seed=_rng_factory())
+    noise_source = noise.gaussian(loc=0, scale=1)
+    noisy_float = NoisyFloat.draw(5.0, noise_source, rng=_rng_factory())
 
     assert isinstance(noisy_float._root, Node)
     assert noisy_float._root.role == "derived"

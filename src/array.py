@@ -3,7 +3,7 @@ import numpy as np
 from .core import noisy_value_sampler
 
 
-def float_array_sampler(vals, lib="scipy", **kwargs):
+def float_array_sampler(vals):
     """Prepare a reusable sampler for tensor-like value collections.
 
     The prepared sampler returns arrays with the same base shape as `values`
@@ -13,21 +13,17 @@ def float_array_sampler(vals, lib="scipy", **kwargs):
     if values_array.size == 0:
         raise ValueError("At least one value is required")
 
-    prepared = noisy_value_sampler(
-        *values_array.reshape(-1).tolist(),
-        lib=lib,
-        **kwargs,
-    )
+    prepared = noisy_value_sampler(*values_array.reshape(-1).tolist())
     return FloatArraySampler(prepared, values_array.shape)
 
 
-def sample_float_array(vals, n=1000, lib="scipy", rng=None, axis=-1, **kwargs):
+def sample_float_array(vals, n=1000, rng=None, axis=-1):
     """Jointly sample a tensor-like collection of values.
 
     Returns a float numpy array with shape `values.shape + (n,)` by default.
     Use `axis` to move the sample dimension.
     """
-    sampler = float_array_sampler(vals, lib=lib, **kwargs)
+    sampler = float_array_sampler(vals)
     return sampler.sample(n, rng, axis)
 
 

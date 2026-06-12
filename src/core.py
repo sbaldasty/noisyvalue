@@ -1,12 +1,9 @@
 import operator as op
 import sympy as sp
-import sympy.stats as spstats
 import numpy as np
 
 from sympy import Abs, And, Eq, Not, Or, Pow, Symbol
 from sympy import sympify
-from sympy.stats import sample
-from sympy.stats.rv import random_symbols
 
 from .util import fresh_name
 
@@ -42,104 +39,6 @@ def _solve_theta_substitutions(thetas, eqns):
     return chosen
 
 
-def _instantiate_law(law, substitutions):
-    law = sympify(law)
-    pspace = getattr(law, "pspace", None)
-    distribution = getattr(pspace, "distribution", None)
-    if distribution is None:
-        return law.subs(substitutions)
-
-    ctor_name = distribution.__class__.__name__.replace("Distribution", "")
-    ctor = getattr(spstats, ctor_name, None)
-    if ctor is None:
-        return law.subs(substitutions)
-
-    args = tuple(sympify(arg).subs(substitutions) for arg in distribution.args)
-    return ctor(fresh_name(), *args)
-
-
-def _try_fast_numpy_sample(rv, rng, *, size=None, sampling_laws=None):
-    """Try to sample common RVs through NumPy for speed.
-
-    Returns `None` when the RV is not recognized or parameters are not
-    numerically instantiated, so callers can fall back to SymPy sampling.
-    """
-    if sampling_laws is None:
-        sampling_laws = {}
-
-    rv = sampling_laws.get(rv, rv)
-
-    pspace = getattr(rv, "pspace", None)
-    distribution = getattr(pspace, "distribution", None)
-    if distribution is None:
-        return None
-
-    dist_name = distribution.__class__.__name__
-
-    if dist_name == "BinomialDistribution":
-        if len(distribution.args) < 2:
-            return None
-        n_arg = distribution.args[0]
-        p_arg = distribution.args[1]
-        try:
-            n = int(sympify(n_arg))
-            p = float(sympify(p_arg))
-        except (TypeError, ValueError):
-            return None
-
-        if n < 0 or not np.isfinite(p) or p < 0.0 or p > 1.0:
-            return None
-
-        return rng.binomial(n, p, size=size)
-
-    if dist_name == "NormalDistribution":
-        mu_arg, sigma_arg = distribution.args
-        try:
-            mu = float(sympify(mu_arg))
-            sigma = float(sympify(sigma_arg))
-        except (TypeError, ValueError):
-            return None
-
-        if not np.isfinite(mu) or not np.isfinite(sigma) or sigma < 0.0:
-            return None
-
-        return rng.normal(mu, sigma, size=size)
-
-    return None
-
-
-def _sample_rv(rv, rng, *, lib, kwargs, next_seed, size=None, sampling_laws=None):
-    fast = _try_fast_numpy_sample(rv, rng, size=size, sampling_laws=sampling_laws)
-    if fast is not None:
-        arr = np.asarray(fast)
-        if size is None:
-            return arr.item()
-        return arr
-
-    if sampling_laws is None:
-        sampling_laws = {}
-
-    rv = sampling_laws.get(rv, rv)
-    sampled = sample(
-        rv,
-        size=size,
-        library=lib,
-        seed=next_seed(),
-        **kwargs,
-    )
-    if size is None:
-        return sampled
-    return np.asarray(sampled)
-
-
-def _is_binomial_rv(rv):
-    pspace = getattr(rv, "pspace", None)
-    distribution = getattr(pspace, "distribution", None)
-    if distribution is None:
-        return False
-    return distribution.__class__.__name__ == "BinomialDistribution"
-
-
 def _expanded_definitions(root):
     expanded = {}
     for node in reversed(root.closure()):
@@ -156,41 +55,26 @@ def _preferred_value_expr(noisy_value):
 def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
     """Keep only equations suitable for solving latent symbols.
 
-    We keep equations that involve only latent symbols, or latent symbols plus
-    random symbols. Equations with other deterministic non-latent symbols are
-    excluded from latent substitution solving.
+    We keep equations whose non-latent free symbols are all independent noise
+    symbols (plain symbols of noise nodes with no dependencies).
     """
     thetas = set(thetas)
     theta_eqns = []
     for eqn in eqns:
         eqn = sympify(eqn)
-        non_latent_symbols = set(eqn.free_symbols) - thetas
+        non_latent_symbols = eqn.free_symbols - thetas
         if not non_latent_symbols:
             theta_eqns.append(eqn)
             continue
-
-        random_related_symbols = set()
-        for rv in random_symbols(eqn):
-            random_related_symbols.add(rv)
-            rv_symbol = getattr(rv, "symbol", None)
-            if rv_symbol is not None:
-                random_related_symbols.add(rv_symbol)
-
-        for symbol in eqn.free_symbols:
-            if symbol in independent_noise_symbols:
-                random_related_symbols.add(symbol)
-
-        if non_latent_symbols.issubset(random_related_symbols):
+        if non_latent_symbols.issubset(independent_noise_symbols):
             theta_eqns.append(eqn)
-
     return tuple(theta_eqns)
 
 
 def _sampler_inputs_from_roots(values):
     all_thetas = set()
     all_eqns = []
-    root_noise_vars = set()
-    law_nodes = {}
+    dependent_law_nodes = {}
     all_nodes = {}
 
     for value in values:
@@ -200,39 +84,25 @@ def _sampler_inputs_from_roots(values):
         all_thetas |= root.latent_symbols()
         all_eqns.extend(root.all_constraints())
         for node in root.closure():
-            if node.law is None:
+            if node.source is None or not node.depends_on:
                 continue
-            # Law node: sample node.symbol once all dependencies are resolved.
-            law_nodes[node.symbol] = node
+            dependent_law_nodes[node.symbol] = node
 
-            # Include upstream random symbols from law expressions or
-            # distribution parameters.
-            pspace = getattr(node.law, "pspace", None)
-            distribution = getattr(pspace, "distribution", None)
-            if distribution is not None:
-                for arg in distribution.args:
-                    root_noise_vars |= set(random_symbols(arg))
-            else:
-                root_noise_vars |= set(random_symbols(node.law))
-
-    independent_noise_symbols = {
-        node.symbol
+    independent_noise = {
+        node.symbol: node.source
         for node in all_nodes.values()
-        if node.role == "noise" and node.law is not None and not node.depends_on
+        if node.role == "noise" and node.source is not None and not node.depends_on
     }
-    sampling_laws = {
-        node.symbol: node.law
-        for node in all_nodes.values()
-        if node.role == "noise" and node.law is not None and not node.depends_on
-    }
-
+    independent_noise_symbols = set(independent_noise.keys())
     theta_eqns = _filter_theta_equations(all_eqns, all_thetas, independent_noise_symbols)
 
-    ordered_law_nodes = tuple(law_nodes[symbol] for symbol in sorted(law_nodes, key=str))
-    return all_thetas, theta_eqns, root_noise_vars, ordered_law_nodes, independent_noise_symbols, sampling_laws
+    ordered_law_nodes = tuple(
+        dependent_law_nodes[sym] for sym in sorted(dependent_law_nodes, key=str)
+    )
+    return all_thetas, theta_eqns, ordered_law_nodes, independent_noise_symbols, independent_noise
 
 
-def noisy_value_sampler(*vals, lib="scipy", **kwargs):
+def noisy_value_sampler(*vals):
     """Prepare a reusable joint sampler for one or more noisy values.
 
     The returned object caches symbolic setup work and can be reused for
@@ -243,55 +113,39 @@ def noisy_value_sampler(*vals, lib="scipy", **kwargs):
     (
         all_thetas,
         all_eqns,
-        root_noise_vars,
         law_nodes,
         independent_noise_symbols,
-        sampling_laws,
+        independent_noise,
     ) = _sampler_inputs_from_roots(vals)
 
     theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
-
-    rhs_noise_vars = set()
-    for rhs in theta_substitutions.values():
-        rhs_expr = sympify(rhs)
-        rhs_noise_vars |= {
-            symbol for symbol in rhs_expr.free_symbols if symbol in independent_noise_symbols
-        }
-        rhs_noise_vars |= set(random_symbols(rhs_expr))
     value_exprs = tuple(_preferred_value_expr(value) for value in vals)
-    predictive_noise_vars = {
-        rv for expr in value_exprs for rv in random_symbols(expr)
-    }
-    all_noise_vars = sorted(rhs_noise_vars | predictive_noise_vars | root_noise_vars, key=str)
 
     return NoisyValueSampler(
         vals,
         exprs=value_exprs,
         subs=theta_substitutions,
-        vars=all_noise_vars,
+        independent_noise=independent_noise,
         law_nodes=law_nodes,
-        sampling_laws=sampling_laws,
-        lib=lib,
-        **kwargs,
     )
 
 
-def sample_noisy_values(*vals, n=1000, lib="scipy", rng=None, **kwargs):
+def sample_noisy_values(*vals, n=1000, rng=None):
     """Jointly sample one or more noisy values.
 
-    Shared latent variables and shared random symbols are sampled once per draw,
+    Shared latent variables and shared noise symbols are sampled once per draw,
     then reused across all requested values to preserve dependencies.
     """
-    sampler = noisy_value_sampler(*vals, lib=lib, **kwargs)
+    sampler = noisy_value_sampler(*vals)
     return sampler.sample(n=n, rng=rng)
 
 
 class Node:
-    def __init__(self, role, definition=None, law=None, constraints=(), depends_on=()):
+    def __init__(self, role, definition=None, source=None, constraints=(), depends_on=()):
         assert role in {"latent", "noise", "derived"}
         self.role = role
         self.symbol = Symbol(fresh_name())
-        self.law = None if law is None else sympify(law)
+        self.source = source
         self.definition = self.symbol if definition is None else sympify(definition)
         self.constraints = tuple(sympify(x) for x in constraints)
         self.depends_on = tuple(depends_on)
@@ -327,8 +181,8 @@ class Node:
         return Node("latent", definition=definition, constraints=constraints, depends_on=depends_on)
 
     @classmethod
-    def noise(cls, law, *, constraints=(), definition=None, depends_on=()):
-        return Node("noise", definition=definition, law=law, constraints=constraints, depends_on=depends_on)
+    def noise(cls, source, *, constraints=(), definition=None, depends_on=()):
+        return Node("noise", definition=definition, source=source, constraints=constraints, depends_on=depends_on)
 
     @classmethod
     def derived(cls, definition, *, constraints=(), depends_on=()):
@@ -365,19 +219,19 @@ class NoisyValue:
         return cls(obs, root)
 
     @classmethod
-    def draw(cls, true_value, noise_rv, **sample_kwargs):
-        assert set(random_symbols(noise_rv)) == {noise_rv}
+    def draw(cls, true_value, noise_source, rng=None):
+        if not isinstance(rng, np.random.Generator):
+            rng = np.random.default_rng(rng)
         theta_node = Node.latent()
-        noise_node = Node.noise(noise_rv)
+        noise_node = Node.noise(noise_source)
         theta = theta_node.symbol
-        obs_expr = theta + noise_rv
-        obs = sample(obs_expr.subs({theta: sympify(true_value)}), **sample_kwargs)
-
+        noise_sym = noise_node.symbol
+        obs_noise = float(noise_source.sample(rng))
+        obs = float(sympify(true_value)) + obs_noise
         root = Node.derived(
-            constraints=(obs_expr - obs,),
+            constraints=(theta + noise_sym - obs,),
             definition=theta,
             depends_on=(theta_node, noise_node))
-
         return cls(obs, root)
 
     @classmethod
@@ -386,11 +240,11 @@ class NoisyValue:
         assert issubclass(accept, NoisyValue)
         return value if isinstance(value, accept) else cls(value, Node.derived(value))
 
-    def sample(self, n=1000, lib="scipy", rng=None, **kwargs):
-        return noisy_value_sampler(self, lib=lib, **kwargs).sample(n, rng)[0]
+    def sample(self, n=1000, rng=None):
+        return noisy_value_sampler(self).sample(n, rng)[0]
 
-    def credible_interval(self, p=0.95, n=1000, lib="scipy", rng=None, **kwargs):
-        return self.sample(n=n, lib=lib, rng=rng, **kwargs).credible_interval(p)
+    def credible_interval(self, p=0.95, n=1000, rng=None):
+        return self.sample(n=n, rng=rng).credible_interval(p)
 
     def bin_op(self, x, out_cls, obs_op, expr_op=None, rev=False):
         x = type(self).lift(x)
@@ -505,13 +359,8 @@ class NoisyInt(NoisyNumber):
     def __index__(self):
         return self._obs
 
-    def resample(self, law, *, obs=None):
-        if callable(law):
-            law = law()
-        law = sympify(law)
-
-        noise_node = Node.noise(law, depends_on=(self._root,))
-
+    def resample(self, source, *, obs=None):
+        noise_node = Node.noise(source, depends_on=(self._root,))
         if obs is None:
             obs = self._obs
         return NoisyInt.from_node(int(obs), noise_node, expr=noise_node.symbol)
@@ -538,28 +387,14 @@ class NoisyBool(NoisyValue):
 
 
 class NoisyValueSampler:
-    def __init__(
-        self,
-        vals,
-        exprs,
-        subs,
-        vars,
-        law_nodes=(),
-        sampling_laws=None,
-        lib="scipy",
-        **kwargs,
-    ):
+    def __init__(self, vals, exprs, subs, independent_noise, law_nodes=()):
         self._vals = tuple(vals)
         self._exprs = tuple(exprs)
         self._subs = dict(subs)
-        self._vars = tuple(vars)
+        self._independent_noise = dict(independent_noise)
         self._law_nodes = tuple(law_nodes)
-        self._sampling_laws = dict(sampling_laws or {})
-        self._lib = lib
-        self._kwargs = dict(kwargs)
 
-        # Pre-substitute latent solutions into outputs once to avoid repeated
-        # per-draw theta substitution.
+        # Pre-substitute latent solutions into outputs once.
         self._resolved_exprs = tuple(sympify(expr).subs(self._subs) for expr in self._exprs)
 
         law_symbols = {node.symbol for node in self._law_nodes}
@@ -571,11 +406,10 @@ class NoisyValueSampler:
                 self._theta_dynamic.append((theta, rhs_expr))
             else:
                 self._theta_static.append((theta, rhs_expr))
-
         self._theta_static = tuple(self._theta_static)
         self._theta_dynamic = tuple(self._theta_dynamic)
 
-        eval_symbols = set(self._vars)
+        eval_symbols = set(self._independent_noise.keys())
         eval_symbols |= {node.symbol for node in self._law_nodes}
         self._eval_symbols = tuple(sorted(eval_symbols, key=str))
         self._resolved_expr_eval_fns = ()
@@ -585,7 +419,6 @@ class NoisyValueSampler:
                 for expr in self._resolved_exprs
             )
         except Exception:
-            # Keep robust symbolic fallback for unsupported expressions.
             self._resolved_expr_eval_fns = ()
 
     def sample(self, n=1000, rng=None):
@@ -594,32 +427,18 @@ class NoisyValueSampler:
         if not isinstance(rng, np.random.Generator):
             rng = np.random.default_rng(rng)
 
-        def next_seed():
-            return int(rng.integers(0, np.iinfo(np.int64).max))
-
         if n <= 0:
             return tuple(SampleBatch(np.array([], dtype=dtype)) for dtype in dtypes)
 
-        if self._vars:
-            noise_draws = {
-                rv: _sample_rv(
-                    rv,
-                    rng,
-                    lib=self._lib,
-                    kwargs=self._kwargs,
-                    next_seed=next_seed,
-                    size=n,
-                    sampling_laws=self._sampling_laws,
-                )
-                for rv in self._vars
-            }
-        else:
-            noise_draws = {}
+        noise_draws = {
+            sym: source.sample(rng, size=n)
+            for sym, source in self._independent_noise.items()
+        }
 
         outputs = [np.empty(n, dtype=dtype) for dtype in dtypes]
 
         for idx in range(n):
-            draws = {rv: noise_draws[rv][idx] for rv in self._vars}
+            draws = {sym: noise_draws[sym][idx] for sym in self._independent_noise}
             theta_values = {
                 theta: rhs.subs(draws)
                 for theta, rhs in self._theta_static
@@ -630,10 +449,10 @@ class NoisyValueSampler:
                     for theta, rhs in self._theta_dynamic
                 })
 
-            unresolved = list(self._law_nodes)
             resolved_values = dict(draws)
             resolved_values.update(theta_values)
 
+            unresolved = list(self._law_nodes)
             while unresolved:
                 next_unresolved = []
                 progress = False
@@ -644,9 +463,7 @@ class NoisyValueSampler:
 
                     unmet = []
                     for dep in node.depends_on:
-                        # Derived structural parents (law=None, non-latent) do not
-                        # represent a sampled numeric variable by themselves.
-                        if dep.law is None and dep.role != "latent":
+                        if dep.source is None and dep.role != "latent":
                             continue
                         if dep.symbol not in resolved_values:
                             unmet.append(dep)
@@ -655,21 +472,7 @@ class NoisyValueSampler:
                         next_unresolved.append(node)
                         continue
 
-                    try:
-                        sampled_law = _instantiate_law(node.law, resolved_values)
-                        sampled_value = _sample_rv(
-                            sampled_law,
-                            rng,
-                            lib=self._lib,
-                            kwargs=self._kwargs,
-                            next_seed=next_seed,
-                            sampling_laws=self._sampling_laws,
-                        )
-                    except (TypeError, ValueError):
-                        if _is_binomial_rv(node.law):
-                            sampled_value = np.nan
-                        else:
-                            raise
+                    sampled_value = node.source.instantiate(resolved_values).sample(rng)
                     draws[node.symbol] = sampled_value
                     resolved_values[node.symbol] = sampled_value
 
@@ -686,9 +489,7 @@ class NoisyValueSampler:
                         node.symbol: sorted(
                             str(dep.symbol)
                             for dep in node.depends_on
-                            if not (
-                                dep.law is None and dep.role != "latent"
-                            )
+                            if not (dep.source is None and dep.role != "latent")
                             and dep.symbol not in resolved_values
                         )
                         for node in next_unresolved
@@ -701,7 +502,7 @@ class NoisyValueSampler:
                 unresolved = next_unresolved
 
             if self._resolved_expr_eval_fns:
-                eval_args = tuple(draws[symbol] for symbol in self._eval_symbols)
+                eval_args = tuple(draws.get(sym, 0) for sym in self._eval_symbols)
                 for out_idx, eval_fn in enumerate(self._resolved_expr_eval_fns):
                     outputs[out_idx][idx] = dtypes[out_idx](eval_fn(*eval_args))
             else:

@@ -3,7 +3,6 @@ import numpy as np
 import sympy as sp
 
 from sympy.stats import quantile
-from sympy.stats.rv import random_symbols
 
 from src.core import _filter_theta_equations
 from src.core import _solve_theta_substitutions
@@ -35,9 +34,8 @@ def _weighted_quantile(values, weights, q):
     return float(values[idx])
 
 
-def _quantile_nodes_for_rv(rv, quadrature_points, sampling_laws, eps=1e-8):
-    rv = sampling_laws.get(rv, rv)
-    qfun = quantile(rv)
+def _quantile_nodes_for_rv(source, quadrature_points, eps=1e-8):
+    qfun = quantile(source.sympy_rv())
     nodes, weights = np.polynomial.legendre.leggauss(quadrature_points)
 
     # Map Gauss-Legendre nodes from [-1, 1] to [0, 1].
@@ -51,7 +49,7 @@ def _quantile_nodes_for_rv(rv, quadrature_points, sampling_laws, eps=1e-8):
             rv_values.append(float(sp.N(qfun(float(ui)))))
         except Exception as exc:
             raise ValueError(
-                f"Could not evaluate quantile for random symbol {rv}. "
+                f"Could not evaluate quantile for noise source {source}. "
                 "This method requires continuous distributions with numeric quantiles."
             ) from exc
 
@@ -63,16 +61,12 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
         raise ValueError("quadrature_points must be at least 2")
 
     closure_nodes = {node.symbol: node for node in noisy_value._root.closure()}
-    independent_noise_symbols = {
-        symbol
+    independent_noise = {
+        symbol: node.source
         for symbol, node in closure_nodes.items()
-        if node.role == "noise" and node.law is not None and not node.depends_on
+        if node.role == "noise" and node.source is not None and not node.depends_on
     }
-    sampling_laws = {
-        symbol: node.law
-        for symbol, node in closure_nodes.items()
-        if node.role == "noise" and node.law is not None and not node.depends_on
-    }
+    independent_noise_symbols = set(independent_noise.keys())
 
     thetas = noisy_value._root.latent_symbols()
     constraints = noisy_value._root.all_constraints()
@@ -80,56 +74,46 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
 
     if thetas:
         sol = _solve_theta_substitutions(thetas, theta_constraints)
-        rhs_noise_vars = set()
+        rhs_noise_symbols = set()
         for rhs in sol.values():
             rhs_expr = sp.sympify(rhs)
-            rhs_noise_vars |= {
-                symbol
-                for symbol in rhs_expr.free_symbols
-                if symbol in independent_noise_symbols
-            }
-            rhs_noise_vars |= set(random_symbols(rhs_expr))
+            rhs_noise_symbols |= rhs_expr.free_symbols & independent_noise_symbols
     else:
         sol = {}
-        rhs_noise_vars = set()
+        rhs_noise_symbols = set()
 
     value_expr = _preferred_value_expr(noisy_value)
-    predictive_noise_vars = {
-        symbol
-        for symbol in value_expr.free_symbols
-        if symbol in independent_noise_symbols
-    }
-    predictive_noise_vars |= set(random_symbols(value_expr))
-    integration_rvs = sorted(rhs_noise_vars | predictive_noise_vars, key=str)
+    predictive_noise_symbols = value_expr.free_symbols & independent_noise_symbols
+    integration_syms = sorted(rhs_noise_symbols | predictive_noise_symbols, key=str)
 
-    if not integration_rvs:
+    if not integration_syms:
         value = float(value_expr)
         return np.asarray([value], dtype=float), np.asarray([1.0], dtype=float)
 
-    total_points = quadrature_points ** len(integration_rvs)
+    total_points = quadrature_points ** len(integration_syms)
     if total_points > max_grid_points:
         raise ValueError(
             "Deterministic quadrature grid is too large for this expression. "
             f"Requested {total_points} points; lower quadrature_points or simplify expression."
         )
 
-    rv_to_nodes = {}
-    rv_to_weights = {}
-    for rv in integration_rvs:
-        nodes, weights = _quantile_nodes_for_rv(rv, quadrature_points, sampling_laws)
-        rv_to_nodes[rv] = nodes
-        rv_to_weights[rv] = weights
+    sym_to_nodes = {}
+    sym_to_weights = {}
+    for sym in integration_syms:
+        nodes, weights = _quantile_nodes_for_rv(independent_noise[sym], quadrature_points)
+        sym_to_nodes[sym] = nodes
+        sym_to_weights[sym] = weights
 
     z_values = np.empty(total_points, dtype=float)
     point_weights = np.empty(total_points, dtype=float)
 
     point_index = 0
-    for combo in itertools.product(range(quadrature_points), repeat=len(integration_rvs)):
+    for combo in itertools.product(range(quadrature_points), repeat=len(integration_syms)):
         draws = {}
         weight = 1.0
-        for rv, idx in zip(integration_rvs, combo):
-            draws[rv] = rv_to_nodes[rv][idx]
-            weight *= rv_to_weights[rv][idx]
+        for sym, idx in zip(integration_syms, combo):
+            draws[sym] = sym_to_nodes[sym][idx]
+            weight *= sym_to_weights[sym][idx]
 
         theta_values = {theta: float(rhs.subs(draws)) for theta, rhs in sol.items()}
         value = float(value_expr.subs(theta_values).subs(draws))
@@ -198,7 +182,7 @@ def plot_posterior(
     Plot posterior densities of each NoisyFloat's composed expression.
 
     This is deterministic (no Monte Carlo): it approximates integration over all
-    random symbols using tensor-product Gauss-Legendre quadrature in quantile
+    noise symbols using tensor-product Gauss-Legendre quadrature in quantile
     space, then uses weighted KDE to render a smooth density curve.
     """
     if not noisy_values:
