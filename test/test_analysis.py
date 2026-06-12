@@ -7,8 +7,10 @@ import src.analysis as analysis
 import src.noise as noise
 
 from conftest import rooted_float
-from src.core import NoisyFloat
+from src.core import LatentNode
 from src.core import Node
+from src.core import NoiseNode
+from src.core import NoisyFloat
 
 
 def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():
@@ -27,7 +29,7 @@ def test_noisy_min_raises_for_empty_input():
 
 
 def test_noisy_max_combines_noisy_value_metadata():
-    theta_node = Node.latent()
+    theta_node = LatentNode()
     theta = theta_node.symbol
     constraints = [theta - 1.0]
     a = rooted_float(obs=1.0, expr=theta, eqns=constraints, depends_on=(theta_node,))
@@ -93,7 +95,7 @@ def test_chi_squared_returns_nan_when_a_row_has_no_mass():
 
 
 def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
-    theta_node = Node.latent()
+    theta_node = LatentNode()
     theta = theta_node.symbol
     noisy_a = rooted_float(obs=5.0, expr=theta, eqns=[theta - 5.0], depends_on=(theta_node,))
 
@@ -136,9 +138,9 @@ def test_odds_ratio_sample_with_zero_n_returns_empty_array():
     assert draws.shape == (0,)
 
 def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
-    theta_node = Node.latent()
+    theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_node = Node.noise(source=noise.gaussian(0, 1))
+    eps_node = NoiseNode(noise.gaussian(0, 1))
     eps = eps_node.symbol
 
     noisy_a = rooted_float(obs=5.0, expr=theta, eqns=[theta + eps - 5.0], depends_on=(theta_node, eps_node))
@@ -147,7 +149,7 @@ def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
 
     assert isinstance(ratio, NoisyFloat)
     assert ratio._root.latent_symbols() == noisy_a._root.latent_symbols()
-    assert any(node.role == "noise" and node.source is not None for node in ratio._root.closure())
+    assert any(isinstance(node, NoiseNode) for node in ratio._root.closure())
 
     draws = ratio.sample(n=128, rng=123).draws
     assert draws.shape == (128,)

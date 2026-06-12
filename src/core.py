@@ -42,7 +42,10 @@ def _solve_theta_substitutions(thetas, eqns):
 def _expanded_definitions(root):
     expanded = {}
     for node in reversed(root.closure()):
-        expanded[node.symbol] = sympify(node.definition).subs(expanded)
+        if isinstance(node, DerivedNode):
+            expanded[node.symbol] = sympify(node.definition).subs(expanded)
+        else:
+            expanded[node.symbol] = node.symbol
     return expanded
 
 
@@ -84,14 +87,14 @@ def _sampler_inputs_from_roots(values):
         all_thetas |= root.latent_symbols()
         all_eqns.extend(root.all_constraints())
         for node in root.closure():
-            if node.source is None or not node.depends_on:
+            if not isinstance(node, NoiseNode) or not node.depends_on:
                 continue
             dependent_law_nodes[node.symbol] = node
 
     independent_noise = {
         node.symbol: node.source
         for node in all_nodes.values()
-        if node.role == "noise" and node.source is not None and not node.depends_on
+        if isinstance(node, NoiseNode) and not node.depends_on
     }
     independent_noise_symbols = set(independent_noise.keys())
     theta_eqns = _filter_theta_equations(all_eqns, all_thetas, independent_noise_symbols)
@@ -141,13 +144,8 @@ def sample_noisy_values(*vals, n=1000, rng=None):
 
 
 class Node:
-    def __init__(self, role, definition=None, source=None, constraints=(), depends_on=()):
-        assert role in {"latent", "noise", "derived"}
-        self.role = role
+    def __init__(self, depends_on=()):
         self.symbol = Symbol(fresh_name())
-        self.source = source
-        self.definition = self.symbol if definition is None else sympify(definition)
-        self.constraints = tuple(sympify(x) for x in constraints)
         self.depends_on = tuple(depends_on)
         if not all(isinstance(node, Node) for node in self.depends_on):
             raise TypeError("depends_on must contain Node instances")
@@ -168,25 +166,32 @@ class Node:
         return tuple(ordered)
 
     def latent_symbols(self):
-        return {node.symbol for node in self.closure() if node.role == "latent"}
+        return {node.symbol for node in self.closure() if isinstance(node, LatentNode)}
 
     def all_constraints(self):
-        all_constraints = []
-        for node in self.closure():
-            all_constraints.extend(node.constraints)
-        return tuple(all_constraints)
+        return tuple(
+            c
+            for node in self.closure()
+            if isinstance(node, DerivedNode)
+            for c in node.constraints
+        )
 
-    @classmethod
-    def latent(cls, *, constraints=(), definition=None, depends_on=()):
-        return Node("latent", definition=definition, constraints=constraints, depends_on=depends_on)
 
-    @classmethod
-    def noise(cls, source, *, constraints=(), definition=None, depends_on=()):
-        return Node("noise", definition=definition, source=source, constraints=constraints, depends_on=depends_on)
+class LatentNode(Node):
+    pass
 
-    @classmethod
-    def derived(cls, definition, *, constraints=(), depends_on=()):
-        return cls("derived", definition=definition, constraints=constraints, depends_on=depends_on)
+
+class NoiseNode(Node):
+    def __init__(self, source, depends_on=()):
+        super().__init__(depends_on=depends_on)
+        self.source = source
+
+
+class DerivedNode(Node):
+    def __init__(self, definition, constraints=(), depends_on=()):
+        super().__init__(depends_on=depends_on)
+        self.definition = sympify(definition)
+        self.constraints = tuple(sympify(x) for x in constraints)
 
 
 class NoisyValue:
@@ -213,8 +218,9 @@ class NoisyValue:
             raise TypeError(f"Expected Node root, got {type(root).__name__}")
 
         expr = root.symbol if expr is None else sympify(expr)
-        if expr != root.symbol and expr != root.definition:
-            root = Node.derived(definition=expr, depends_on=(root,))
+        root_def = root.definition if isinstance(root, DerivedNode) else root.symbol
+        if expr != root.symbol and expr != root_def:
+            root = DerivedNode(definition=expr, depends_on=(root,))
 
         return cls(obs, root)
 
@@ -222,15 +228,15 @@ class NoisyValue:
     def draw(cls, true_value, noise_source, rng=None):
         if not isinstance(rng, np.random.Generator):
             rng = np.random.default_rng(rng)
-        theta_node = Node.latent()
-        noise_node = Node.noise(noise_source)
+        theta_node = LatentNode()
+        noise_node = NoiseNode(noise_source)
         theta = theta_node.symbol
         noise_sym = noise_node.symbol
         obs_noise = float(noise_source.sample(rng))
         obs = float(sympify(true_value)) + obs_noise
-        root = Node.derived(
-            constraints=(theta + noise_sym - obs,),
+        root = DerivedNode(
             definition=theta,
+            constraints=(theta + noise_sym - obs,),
             depends_on=(theta_node, noise_node))
         return cls(obs, root)
 
@@ -238,7 +244,7 @@ class NoisyValue:
     def lift(cls, value, accept=None):
         accept = cls if accept is None else accept
         assert issubclass(accept, NoisyValue)
-        return value if isinstance(value, accept) else cls(value, Node.derived(value))
+        return value if isinstance(value, accept) else cls(value, DerivedNode(value))
 
     def sample(self, n=1000, rng=None):
         return noisy_value_sampler(self).sample(n, rng)[0]
@@ -258,7 +264,7 @@ class NoisyValue:
             obs = obs_op(lhs._obs, rhs._obs)
 
         expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
-        root = Node.derived(expr, depends_on=(lhs._root, rhs._root))
+        root = DerivedNode(expr, depends_on=(lhs._root, rhs._root))
         return out_cls(obs, root)
 
     def unary_op(self, out_cls, obs_op, expr_op):
@@ -329,7 +335,7 @@ class NoisyNumber(NoisyValue):
             (_preferred_value_expr(self), _preferred_value_expr(guard)),
             (fallback, True))
 
-        root = Node.derived(expr, depends_on=(self._root, guard._root))
+        root = DerivedNode(expr, depends_on=(self._root, guard._root))
         return type(self)(obs, root)
 
 
@@ -360,7 +366,7 @@ class NoisyInt(NoisyNumber):
         return self._obs
 
     def resample(self, source, *, obs=None):
-        noise_node = Node.noise(source, depends_on=(self._root,))
+        noise_node = NoiseNode(source, depends_on=(self._root,))
         if obs is None:
             obs = self._obs
         return NoisyInt.from_node(int(obs), noise_node, expr=noise_node.symbol)
@@ -463,7 +469,7 @@ class NoisyValueSampler:
 
                     unmet = []
                     for dep in node.depends_on:
-                        if dep.source is None and dep.role != "latent":
+                        if isinstance(dep, DerivedNode):
                             continue
                         if dep.symbol not in resolved_values:
                             unmet.append(dep)

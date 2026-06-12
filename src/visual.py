@@ -7,6 +7,7 @@ from sympy.stats import quantile
 from src.core import _filter_theta_equations
 from src.core import _solve_theta_substitutions
 from src.core import _preferred_value_expr
+from src.core import NoiseNode
 
 
 def _weighted_quantile(values, weights, q):
@@ -64,7 +65,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     independent_noise = {
         symbol: node.source
         for symbol, node in closure_nodes.items()
-        if node.role == "noise" and node.source is not None and not node.depends_on
+        if isinstance(node, NoiseNode) and not node.depends_on
     }
     independent_noise_symbols = set(independent_noise.keys())
 
