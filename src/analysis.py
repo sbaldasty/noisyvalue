@@ -61,7 +61,7 @@ class NoisyContingencyTable:
         valid = (grp0_yes > 0) & (grp0_no > 0) & (grp1_yes > 0) & (grp1_no > 0)
         return stat.guarded(valid)
 
-    def with_sampling_uncertainty(self):
+    def with_stratified_sampling_uncertainty(self):
         tbl = self.tbl
         n_rows, n_cols = tbl.shape
         predictive = []
