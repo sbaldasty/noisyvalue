@@ -4,6 +4,7 @@ import json
 import numpy as np
 import sympy as sp
 
+from .consolidate import consolidate
 from .core import (
     LatentNode, NoiseNode, DerivedNode,
     NoisyValue, NoisyFloat, NoisyInt, NoisyBool,
@@ -25,6 +26,37 @@ _SP_NAMESPACE = vars(sp)
 
 
 # ── serialization ──────────────────────────────────────────────────────────────
+
+def _flatten_container(container):
+    flat = []
+
+    def _walk(item):
+        if isinstance(item, NoisyValue):
+            flat.append(item)
+        elif isinstance(item, np.ndarray):
+            for v in item.flat:
+                flat.append(v)
+        elif isinstance(item, (list, tuple)):
+            for sub in item:
+                _walk(sub)
+
+    _walk(container)
+    return flat
+
+
+def _rebuild_container(container, it):
+    if isinstance(container, NoisyValue):
+        return next(it)
+    if isinstance(container, np.ndarray):
+        arr = np.empty(container.shape, dtype=object)
+        for i in range(arr.size):
+            arr.flat[i] = next(it)
+        return arr
+    if isinstance(container, (list, tuple)):
+        rebuilt = [_rebuild_container(sub, it) for sub in container]
+        return tuple(rebuilt) if isinstance(container, tuple) else rebuilt
+    raise TypeError(f"Unsupported container type: {type(container)}")
+
 
 def _collect_nodes(container):
     nodes = {}
@@ -119,6 +151,9 @@ def _container_to_dict(container):
 
 def save(path, container):
     """Save a NoisyValue, ndarray of NoisyValues, or list/tuple of either to a JSON file."""
+    flat = _flatten_container(container)
+    consolidated = consolidate(*flat)
+    container = _rebuild_container(container, iter(consolidated))
     nodes = _collect_nodes(container)
     doc = {
         "version": _VERSION,
