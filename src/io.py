@@ -1,0 +1,240 @@
+"""File I/O for NoisyValue containers."""
+
+import json
+import numpy as np
+import sympy as sp
+
+from .core import (
+    LatentNode, NoiseNode, DerivedNode,
+    NoisyValue, NoisyFloat, NoisyInt, NoisyBool,
+)
+from .noise import NormalNoiseSource, BinomialNoiseSource
+from .util import fresh_name
+
+_VERSION = 1
+
+_TYPE_CLASSES = {
+    "NoisyFloat": NoisyFloat,
+    "NoisyInt": NoisyInt,
+    "NoisyBool": NoisyBool,
+}
+
+_TYPE_NAMES = {v: k for k, v in _TYPE_CLASSES.items()}
+
+_SP_NAMESPACE = vars(sp)
+
+
+# ── serialization ──────────────────────────────────────────────────────────────
+
+def _collect_nodes(container):
+    nodes = {}
+
+    def visit_value(v):
+        for node in v._root.closure():
+            name = str(node.symbol)
+            if name not in nodes:
+                nodes[name] = node
+
+    def visit(item):
+        if isinstance(item, NoisyValue):
+            visit_value(item)
+        elif isinstance(item, np.ndarray):
+            for v in item.flat:
+                visit_value(v)
+        elif isinstance(item, (list, tuple)):
+            for sub in item:
+                visit(sub)
+
+    visit(container)
+    return nodes
+
+
+def _source_to_dict(source):
+    if isinstance(source, NormalNoiseSource):
+        return {"type": "normal", "loc": sp.srepr(source._loc), "scale": sp.srepr(source._scale)}
+    if isinstance(source, BinomialNoiseSource):
+        return {"type": "binomial", "n": sp.srepr(source._n), "p": sp.srepr(source._p)}
+    raise TypeError(f"Unknown NoiseSource type: {type(source)}")
+
+
+def _node_to_dict(node):
+    if isinstance(node, LatentNode):
+        return {"kind": "latent"}
+    if isinstance(node, NoiseNode):
+        return {
+            "kind": "noise",
+            "source": _source_to_dict(node.source),
+            "depends_on": [str(dep.symbol) for dep in node.depends_on],
+        }
+    if isinstance(node, DerivedNode):
+        return {
+            "kind": "derived",
+            "definition": sp.srepr(node.definition),
+            "constraints": [sp.srepr(c) for c in node.constraints],
+            "depends_on": [str(dep.symbol) for dep in node.depends_on],
+        }
+    raise TypeError(f"Unknown Node type: {type(node)}")
+
+
+def _value_to_dict(v):
+    return {
+        "kind": "value",
+        "type": _TYPE_NAMES[type(v)],
+        "obs": v._obs,
+        "root": str(v._root.symbol),
+    }
+
+
+def _array_to_dict(arr):
+    return {
+        "kind": "array",
+        "shape": list(arr.shape),
+        "elements": [
+            {"type": _TYPE_NAMES[type(v)], "obs": v._obs, "root": str(v._root.symbol)}
+            for v in arr.flat
+        ],
+    }
+
+
+def _container_to_dict(container):
+    if isinstance(container, NoisyValue):
+        return _value_to_dict(container)
+    if isinstance(container, np.ndarray):
+        return _array_to_dict(container)
+    if isinstance(container, (list, tuple)):
+        kind = "tuple" if isinstance(container, tuple) else "list"
+        items = []
+        for item in container:
+            if isinstance(item, NoisyValue):
+                items.append(_value_to_dict(item))
+            elif isinstance(item, np.ndarray):
+                items.append(_array_to_dict(item))
+            else:
+                raise TypeError(
+                    f"List/tuple items must be NoisyValue or ndarray, got {type(item)}"
+                )
+        return {"kind": kind, "items": items}
+    raise TypeError(f"Unsupported container type: {type(container)}")
+
+
+def save(path, container):
+    """Save a NoisyValue, ndarray of NoisyValues, or list/tuple of either to a JSON file."""
+    nodes = _collect_nodes(container)
+    doc = {
+        "version": _VERSION,
+        "nodes": {name: _node_to_dict(node) for name, node in nodes.items()},
+        "container": _container_to_dict(container),
+    }
+    with open(path, "w") as f:
+        json.dump(doc, f, indent=2)
+
+
+# ── deserialization ────────────────────────────────────────────────────────────
+
+def _topo_sort(nodes_dict):
+    visited = set()
+    order = []
+
+    def visit(name):
+        if name in visited:
+            return
+        visited.add(name)
+        for dep in nodes_dict[name].get("depends_on", []):
+            visit(dep)
+        order.append(name)
+
+    for name in nodes_dict:
+        visit(name)
+    return order
+
+
+def _parse_expr(s, name_map):
+    expr = eval(s, _SP_NAMESPACE)  # noqa: S307 — we wrote the file
+    for old, new_sym in name_map.items():
+        expr = expr.subs(sp.Symbol(old), new_sym)
+    return expr
+
+
+def _load_source(source_dict, name_map):
+    t = source_dict["type"]
+    if t == "normal":
+        return NormalNoiseSource(
+            _parse_expr(source_dict["loc"], name_map),
+            _parse_expr(source_dict["scale"], name_map),
+        )
+    if t == "binomial":
+        return BinomialNoiseSource(
+            _parse_expr(source_dict["n"], name_map),
+            _parse_expr(source_dict["p"], name_map),
+        )
+    raise ValueError(f"Unknown source type: {t!r}")
+
+
+def _load_nodes(nodes_dict):
+    order = _topo_sort(nodes_dict)
+    name_map = {}  # old symbol name str -> new Symbol
+    built = {}     # old symbol name str -> Node
+
+    for old_name in order:
+        nd = nodes_dict[old_name]
+        kind = nd["kind"]
+        deps = [built[dep_name] for dep_name in nd.get("depends_on", [])]
+
+        def remap(s, _map=name_map):
+            return _parse_expr(s, _map)
+
+        if kind == "latent":
+            node = LatentNode()
+        elif kind == "noise":
+            node = NoiseNode(_load_source(nd["source"], name_map), depends_on=deps)
+        elif kind == "derived":
+            node = DerivedNode(
+                definition=remap(nd["definition"]),
+                constraints=[remap(c) for c in nd["constraints"]],
+                depends_on=deps,
+            )
+        else:
+            raise ValueError(f"Unknown node kind: {kind!r}")
+
+        name_map[old_name] = node.symbol
+        built[old_name] = node
+
+    return built
+
+
+def _load_element(edict, built):
+    cls = _TYPE_CLASSES[edict["type"]]
+    return cls(edict["obs"], built[edict["root"]])
+
+
+def _load_array(adict, built):
+    shape = tuple(adict["shape"])
+    arr = np.empty(shape, dtype=object)
+    for i, edict in enumerate(adict["elements"]):
+        arr.flat[i] = _load_element(edict, built)
+    return arr
+
+
+def _load_container(cdict, built):
+    kind = cdict["kind"]
+    if kind == "value":
+        return _load_element(cdict, built)
+    if kind == "array":
+        return _load_array(cdict, built)
+    if kind in ("list", "tuple"):
+        items = [
+            _load_element(item, built) if item["kind"] == "value" else _load_array(item, built)
+            for item in cdict["items"]
+        ]
+        return tuple(items) if kind == "tuple" else items
+    raise ValueError(f"Unknown container kind: {kind!r}")
+
+
+def load(path):
+    """Load a container saved by save()."""
+    with open(path) as f:
+        doc = json.load(f)
+    if doc.get("version") != _VERSION:
+        raise ValueError(f"Unsupported file version: {doc.get('version')!r}")
+    built = _load_nodes(doc["nodes"])
+    return _load_container(doc["container"], built)

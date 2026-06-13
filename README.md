@@ -8,9 +8,9 @@ This library supports
 - Noise sources that _depend on_ other noise sources; for instance `NoisyContingencyTable` can model **sampling uncertainty** over **differentially private** counts
 - Sampling of the symbolic posteriors to estimate credible intervals, etc.
 - Visualization of posteriors
+- A custom file format so that tuples of noisy values and shaped arrays of noisy values can be written to persistent storage and shared
 
 The roadmap for future development includes
 
-- A custom file format so that tuples of shaped arrays of noisy values can be written to persistent storage and shared
 - Better tooling for creating differentially private data releases
 - Jupyter notebook tutorials
