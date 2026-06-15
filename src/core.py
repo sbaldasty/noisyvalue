@@ -2,7 +2,7 @@ import operator as op
 import sympy as sp
 import numpy as np
 
-from sympy import Abs, And, Eq, Not, Or, Pow, Symbol
+from sympy import Abs, And, Eq, Equality, Not, Or, Pow, Rational, Symbol
 from sympy import sympify
 
 from .util import fresh_name
@@ -22,7 +22,7 @@ def _solve_theta_substitutions(thetas, eqns):
     equations = []
     for eq in eqns:
         eq = sympify(eq)
-        if isinstance(eq, sp.Equality):
+        if isinstance(eq, Equality):
             equations.append(eq)
         else:
             equations.append(Eq(eq, 0))
@@ -232,6 +232,7 @@ class NoisyValue:
         noise_node = NoiseNode(noise_source)
         theta = theta_node.symbol
         noise_sym = noise_node.symbol
+        # TODO Safe to take away these two float casts?
         obs_noise = float(noise_source.sample(rng))
         obs = float(sympify(true_value)) + obs_noise
         root = DerivedNode(
@@ -350,7 +351,7 @@ class NoisyFloat(NoisyNumber):
         return self.unary_op(NoisyFloat, np.log, sp.log)
 
     def round_nearest(self):
-        expr = sp.floor(_preferred_value_expr(self) + sp.Rational(1, 2))
+        expr = sp.floor(_preferred_value_expr(self) + Rational(1, 2))
         obs = np.floor(self._obs + 0.5)
         return NoisyInt.from_node(obs, self._root, expr=expr)
 
@@ -365,6 +366,7 @@ class NoisyInt(NoisyNumber):
     def __index__(self):
         return self._obs
 
+    # TODO Safe to lift this to NoisyNumber?
     def resample(self, source, *, obs=None):
         noise_node = NoiseNode(source, depends_on=(self._root,))
         if obs is None:
