@@ -232,9 +232,8 @@ class NoisyValue:
         noise_node = NoiseNode(noise_source)
         theta = theta_node.symbol
         noise_sym = noise_node.symbol
-        # TODO Safe to take away these two float casts?
-        obs_noise = float(noise_source.sample(rng))
-        obs = float(sympify(true_value)) + obs_noise
+        obs_noise = noise_source.sample(rng)
+        obs = sympify(true_value) + obs_noise
         root = DerivedNode(
             definition=theta,
             constraints=(theta + noise_sym - obs,),
