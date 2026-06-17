@@ -396,13 +396,38 @@ class NoisyBool(NoisyValue):
         return self.unary_op(NoisyBool, op.not_, Not)
 
 
+def _topo_sort_law_nodes(law_nodes):
+    law_symbols = {node.symbol for node in law_nodes}
+    by_symbol = {node.symbol: node for node in law_nodes}
+    predecessors = {
+        node.symbol: {
+            dep.symbol
+            for dep in node.depends_on
+            if not isinstance(dep, DerivedNode) and dep.symbol in law_symbols
+        }
+        for node in law_nodes
+    }
+    ordered = []
+    resolved = set()
+    remaining = set(law_symbols)
+    while remaining:
+        ready = {sym for sym in remaining if predecessors[sym] <= resolved}
+        if not ready:
+            raise ValueError(f"Cycle in law node dependencies: {remaining}")
+        for sym in sorted(ready, key=str):
+            ordered.append(by_symbol[sym])
+            resolved.add(sym)
+            remaining.discard(sym)
+    return tuple(ordered)
+
+
 class NoisyValueSampler:
     def __init__(self, vals, exprs, subs, independent_noise, law_nodes=()):
         self._vals = tuple(vals)
         self._exprs = tuple(exprs)
         self._subs = dict(subs)
         self._independent_noise = dict(independent_noise)
-        self._law_nodes = tuple(law_nodes)
+        self._law_nodes = _topo_sort_law_nodes(law_nodes)
 
         # Pre-substitute latent solutions into outputs once.
         self._resolved_exprs = tuple(sympify(expr).subs(self._subs) for expr in self._exprs)
@@ -445,6 +470,13 @@ class NoisyValueSampler:
             for sym, source in self._independent_noise.items()
         }
 
+        if not self._law_nodes and self._resolved_expr_eval_fns:
+            eval_args = tuple(noise_draws[sym] for sym in self._eval_symbols)
+            return tuple(
+                SampleBatch(np.broadcast_to(fn(*eval_args), (n,)).astype(dtype))
+                for fn, dtype in zip(self._resolved_expr_eval_fns, dtypes)
+            )
+
         outputs = [np.empty(n, dtype=dtype) for dtype in dtypes]
 
         for idx in range(n):
@@ -462,54 +494,16 @@ class NoisyValueSampler:
             resolved_values = dict(draws)
             resolved_values.update(theta_values)
 
-            unresolved = list(self._law_nodes)
-            while unresolved:
-                next_unresolved = []
-                progress = False
-                for node in unresolved:
-                    if node.symbol in resolved_values:
-                        progress = True
-                        continue
-
-                    unmet = []
-                    for dep in node.depends_on:
-                        if isinstance(dep, DerivedNode):
-                            continue
-                        if dep.symbol not in resolved_values:
-                            unmet.append(dep)
-
-                    if unmet:
-                        next_unresolved.append(node)
-                        continue
-
-                    sampled_value = node.source.instantiate(resolved_values).sample(rng)
-                    draws[node.symbol] = sampled_value
-                    resolved_values[node.symbol] = sampled_value
-
-                    if self._theta_dynamic:
-                        theta_values.update({
-                            theta: rhs.subs(draws)
-                            for theta, rhs in self._theta_dynamic
-                        })
-                        resolved_values.update(theta_values)
-                    progress = True
-
-                if not progress:
-                    missing = {
-                        node.symbol: sorted(
-                            str(dep.symbol)
-                            for dep in node.depends_on
-                            if not (dep.source is None and dep.role != "latent")
-                            and dep.symbol not in resolved_values
-                        )
-                        for node in next_unresolved
-                    }
-                    raise ValueError(
-                        "Could not resolve law dependencies during sampling: "
-                        f"{missing}"
-                    )
-
-                unresolved = next_unresolved
+            for node in self._law_nodes:
+                sampled_value = node.source.instantiate(resolved_values).sample(rng)
+                draws[node.symbol] = sampled_value
+                resolved_values[node.symbol] = sampled_value
+                if self._theta_dynamic:
+                    theta_values.update({
+                        theta: rhs.subs(draws)
+                        for theta, rhs in self._theta_dynamic
+                    })
+                    resolved_values.update(theta_values)
 
             if self._resolved_expr_eval_fns:
                 eval_args = tuple(draws.get(sym, 0) for sym in self._eval_symbols)
