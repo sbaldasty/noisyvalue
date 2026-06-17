@@ -111,7 +111,10 @@ def noisy_value_sampler(*vals):
     The returned object caches symbolic setup work and can be reused for
     repeated `sample_n` calls with different sample sizes or RNG seeds.
     """
+    from .consolidate import consolidate
+
     assert vals and all(isinstance(x, NoisyValue) for x in vals)
+    vals = consolidate(*vals)
 
     (
         all_thetas,
