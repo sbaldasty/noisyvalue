@@ -36,6 +36,14 @@ class NoiseSource:
         """Sample using NumPy. Parameters must be numeric (call instantiate first)."""
         raise NotImplementedError
 
+    def param_exprs(self):
+        """Return parameter expressions as a tuple, in the order expected by sample_arrays."""
+        raise NotImplementedError
+
+    def sample_arrays(self, rng, *param_arrays):
+        """Sample given already-evaluated numpy arrays for each param in param_exprs()."""
+        raise NotImplementedError
+
     def sympy_rv(self):
         """Return a SymPy RV for this distribution (used for visualization)."""
         raise NotImplementedError
@@ -55,6 +63,18 @@ class NormalNoiseSource(NoiseSource):
 
     def sample(self, rng, size=None):
         return rng.normal(float(self._loc), float(self._scale), size=size)
+
+    def param_exprs(self):
+        return (self._loc, self._scale)
+
+    def sample_arrays(self, rng, loc, scale):
+        loc = np.asarray(loc, dtype=float)
+        scale = np.asarray(scale, dtype=float)
+        valid = np.isfinite(loc) & (scale > 0)
+        if np.all(valid):
+            return rng.normal(loc, scale)
+        result = rng.normal(np.where(valid, loc, 0.0), np.where(valid, scale, 1.0))
+        return np.where(valid, result, np.nan)
 
     def sympy_rv(self):
         return Normal(fresh_name(), self._loc, self._scale)
@@ -81,6 +101,19 @@ class BinomialNoiseSource(NoiseSource):
         if n_val < 0 or not np.isfinite(p_val) or p_val < 0.0 or p_val > 1.0:
             return np.nan if size is None else np.full(size, np.nan, dtype=float)
         return rng.binomial(n_val, p_val, size=size)
+
+    def param_exprs(self):
+        return (self._n, self._p)
+
+    def sample_arrays(self, rng, n, p):
+        n = np.asarray(n, dtype=float)
+        p = np.asarray(p, dtype=float)
+        valid = (n >= 0) & np.isfinite(p) & (p >= 0) & (p <= 1)
+        result = np.asarray(rng.binomial(
+            np.where(valid, n, 0).astype(int),
+            np.where(valid, p, 0.5),
+        ), dtype=float)
+        return np.where(valid, result, np.nan)
 
     def sympy_rv(self):
         return rv(fresh_name(), BinomialDistribution, self._n, self._p, check=False)

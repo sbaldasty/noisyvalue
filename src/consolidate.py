@@ -107,6 +107,14 @@ def consolidate(*values, rules=None):
         for node in _as_node(v).closure():
             symbol_to_node[node.symbol] = node
 
+    # Symbols referenced by dependent (law) node source parameters must stay
+    # untouched: consolidating them away breaks the law node's sampling.
+    law_param_symbols = set()
+    for v in values:
+        for node in _as_node(v).closure():
+            if isinstance(node, NoiseNode) and node.depends_on:
+                law_param_symbols |= node.source.free_symbols
+
     # A noise symbol is eligible for combination only if it appears exactly once
     # across the joint expression, ensuring no cross-value correlation is broken.
     joint = sp.Tuple(*resolved_exprs)
@@ -116,6 +124,7 @@ def consolidate(*values, rules=None):
         if isinstance(node, NoiseNode)
         and not node.depends_on
         and joint.count(sym) == 1
+        and sym not in law_param_symbols
     }
 
     def _query(expr):
@@ -130,9 +139,23 @@ def consolidate(*values, rules=None):
     new_joint = joint.replace(_query, _value)
     new_exprs = new_joint.args
 
+    # DerivedNodes that carry theta constraints for law node source params must
+    # stay in each consolidated root's depends_on.  dep_nodes is built from
+    # new_expr.free_symbols (leaf nodes only), so those intermediate nodes would
+    # otherwise be silently dropped, making the thetas unsolvable at sample time.
+    constraint_keepers = {
+        node
+        for v in values
+        for node in _as_node(v).closure()
+        if isinstance(node, DerivedNode)
+        and node.constraints
+        and any(c.free_symbols & law_param_symbols for c in node.constraints)
+    }
+
     result = []
     for v, new_expr in zip(values, new_exprs):
-        dep_nodes = [node for sym, node in symbol_to_node.items() if sym in new_expr.free_symbols]
-        root = DerivedNode(definition=new_expr, depends_on=dep_nodes)
+        dep_nodes = {node for sym, node in symbol_to_node.items() if sym in new_expr.free_symbols}
+        dep_nodes |= constraint_keepers
+        root = DerivedNode(definition=new_expr, depends_on=list(dep_nodes))
         result.append(type(v)(v._obs, root))
     return tuple(result)

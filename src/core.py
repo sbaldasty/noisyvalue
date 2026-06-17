@@ -456,6 +456,23 @@ class NoisyValueSampler:
         except Exception:
             self._resolved_expr_eval_fns = ()
 
+        # Precompile per-law-node parameter lambdify functions for the vectorized path.
+        # _law_batch_entries is None if compilation fails (signals scalar fallback).
+        available = list(sorted(self._independent_noise.keys(), key=str))
+        law_batch_entries = []
+        try:
+            for node in self._law_nodes:
+                syms = tuple(available)
+                param_fns = tuple(
+                    sp.lambdify(syms, sympify(expr).subs(self._subs), modules="numpy")
+                    for expr in node.source.param_exprs()
+                )
+                law_batch_entries.append((node, syms, param_fns))
+                available.append(node.symbol)
+            self._law_batch_entries = tuple(law_batch_entries)
+        except Exception:
+            self._law_batch_entries = None
+
     def sample(self, n=1000, rng=None):
         dtypes = tuple(type(value._obs) for value in self._vals)
 
@@ -470,8 +487,13 @@ class NoisyValueSampler:
             for sym, source in self._independent_noise.items()
         }
 
-        if not self._law_nodes and self._resolved_expr_eval_fns:
-            eval_args = tuple(noise_draws[sym] for sym in self._eval_symbols)
+        if self._resolved_expr_eval_fns and self._law_batch_entries is not None:
+            all_draws = dict(noise_draws)
+            for node, syms, param_fns in self._law_batch_entries:
+                args = tuple(all_draws[sym] for sym in syms)
+                param_arrays = tuple(np.broadcast_to(fn(*args), (n,)) for fn in param_fns)
+                all_draws[node.symbol] = node.source.sample_arrays(rng, *param_arrays)
+            eval_args = tuple(all_draws[sym] for sym in self._eval_symbols)
             return tuple(
                 SampleBatch(np.broadcast_to(fn(*eval_args), (n,)).astype(dtype))
                 for fn, dtype in zip(self._resolved_expr_eval_fns, dtypes)
@@ -525,7 +547,7 @@ class SampleBatch:
 
     def credible_interval(self, p=0.95):
         alpha = (1.0 - p) / 2.0
-        return np.quantile(self.draws, [alpha, 1.0 - alpha], method="linear")
+        return np.nanquantile(self.draws, [alpha, 1.0 - alpha], method="linear")
 
     def mean(self):
         return np.mean(self.draws)
