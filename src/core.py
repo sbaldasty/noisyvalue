@@ -2,7 +2,7 @@ import operator as op
 import sympy as sp
 import numpy as np
 
-from sympy import Abs, And, Eq, Equality, Not, Or, Pow, Rational
+from sympy import Abs, And, Eq, Equality, Not, Or, Piecewise, Pow, Rational
 from sympy import sympify
 
 from .graph import DerivedNode
@@ -286,8 +286,8 @@ class NoisyNumber(NoisyValue):
         guard = NoisyBool.lift(guard)
         fallback = sympify(fallback)
 
-        obs = self._obs if bool(guard) else float(fallback)
-        expr = sp.Piecewise(
+        obs = self._obs if bool(guard) else fallback
+        expr = Piecewise(
             (_preferred_value_expr(self), _preferred_value_expr(guard)),
             (fallback, True))
 
