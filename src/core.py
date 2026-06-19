@@ -2,10 +2,14 @@ import operator as op
 import sympy as sp
 import numpy as np
 
-from sympy import Abs, And, Eq, Equality, Not, Or, Pow, Rational, Symbol
+from sympy import Abs, And, Eq, Equality, Not, Or, Pow, Rational
 from sympy import sympify
 
-from .util import fresh_name
+from .graph import DerivedNode
+from .graph import LatentNode
+from .graph import Node
+from .graph import NoiseNode
+from .graph import topological_sort_law_nodes
 
 
 def _as_node(value):
@@ -144,57 +148,6 @@ def sample_noisy_values(*vals, n=1000, rng=None):
     """
     sampler = noisy_value_sampler(*vals)
     return sampler.sample(n=n, rng=rng)
-
-
-class Node:
-    def __init__(self, depends_on=()):
-        self.symbol = Symbol(fresh_name())
-        self.depends_on = tuple(depends_on)
-        if not all(isinstance(node, Node) for node in self.depends_on):
-            raise TypeError("depends_on must contain Node instances")
-
-    def closure(self):
-        seen = set()
-        ordered = []
-
-        def walk(node):
-            if node.symbol in seen:
-                return
-            seen.add(node.symbol)
-            ordered.append(node)
-            for dep in node.depends_on:
-                walk(dep)
-
-        walk(self)
-        return tuple(ordered)
-
-    def latent_symbols(self):
-        return {node.symbol for node in self.closure() if isinstance(node, LatentNode)}
-
-    def all_constraints(self):
-        return tuple(
-            c
-            for node in self.closure()
-            if isinstance(node, DerivedNode)
-            for c in node.constraints
-        )
-
-
-class LatentNode(Node):
-    pass
-
-
-class NoiseNode(Node):
-    def __init__(self, source, depends_on=()):
-        super().__init__(depends_on=depends_on)
-        self.source = source
-
-
-class DerivedNode(Node):
-    def __init__(self, definition, constraints=(), depends_on=()):
-        super().__init__(depends_on=depends_on)
-        self.definition = sympify(definition)
-        self.constraints = tuple(sympify(x) for x in constraints)
 
 
 class NoisyValue:
@@ -396,38 +349,13 @@ class NoisyBool(NoisyValue):
         return self.unary_op(NoisyBool, op.not_, Not)
 
 
-def _topo_sort_law_nodes(law_nodes):
-    law_symbols = {node.symbol for node in law_nodes}
-    by_symbol = {node.symbol: node for node in law_nodes}
-    predecessors = {
-        node.symbol: {
-            dep.symbol
-            for dep in node.depends_on
-            if not isinstance(dep, DerivedNode) and dep.symbol in law_symbols
-        }
-        for node in law_nodes
-    }
-    ordered = []
-    resolved = set()
-    remaining = set(law_symbols)
-    while remaining:
-        ready = {sym for sym in remaining if predecessors[sym] <= resolved}
-        if not ready:
-            raise ValueError(f"Cycle in law node dependencies: {remaining}")
-        for sym in sorted(ready, key=str):
-            ordered.append(by_symbol[sym])
-            resolved.add(sym)
-            remaining.discard(sym)
-    return tuple(ordered)
-
-
 class NoisyValueSampler:
     def __init__(self, vals, exprs, subs, independent_noise, law_nodes=()):
         self._vals = tuple(vals)
         self._exprs = tuple(exprs)
         self._subs = dict(subs)
         self._independent_noise = dict(independent_noise)
-        self._law_nodes = _topo_sort_law_nodes(law_nodes)
+        self._law_nodes = topological_sort_law_nodes(law_nodes)
 
         # Pre-substitute latent solutions into outputs once.
         self._resolved_exprs = tuple(sympify(expr).subs(self._subs) for expr in self._exprs)

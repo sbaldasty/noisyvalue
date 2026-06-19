@@ -6,10 +6,10 @@ from .core import (
     _preferred_value_expr,
     _sampler_inputs_from_roots,
     _solve_theta_substitutions,
-    DerivedNode,
-    NoiseNode,
     NoisyValue,
 )
+from .graph import DerivedNode
+from .graph import NoiseNode
 from .noise import NormalNoiseSource
 
 

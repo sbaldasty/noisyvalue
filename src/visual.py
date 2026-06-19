@@ -7,7 +7,7 @@ from sympy.stats import quantile
 from src.core import _filter_theta_equations
 from src.core import _solve_theta_substitutions
 from src.core import _preferred_value_expr
-from src.core import NoiseNode
+from src.graph import NoiseNode
 
 
 def _weighted_quantile(values, weights, q):

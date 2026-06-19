@@ -6,9 +6,11 @@ import sympy as sp
 
 from .consolidate import consolidate
 from .core import (
-    LatentNode, NoiseNode, DerivedNode,
     NoisyValue, NoisyFloat, NoisyInt, NoisyBool,
 )
+from .graph import DerivedNode
+from .graph import LatentNode
+from .graph import NoiseNode
 from .noise import NormalNoiseSource, BinomialNoiseSource
 from .util import fresh_name
 

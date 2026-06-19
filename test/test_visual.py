@@ -5,8 +5,8 @@ import pytest
 from conftest import rooted_float
 
 import src.noise as noise
-from src.core import LatentNode
-from src.core import NoiseNode
+from src.graph import LatentNode
+from src.graph import NoiseNode
 from src.visual import plot_posterior
 
 

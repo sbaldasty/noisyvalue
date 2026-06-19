@@ -7,10 +7,10 @@ import src.analysis as analysis
 import src.noise as noise
 
 from conftest import rooted_float
-from src.core import LatentNode
-from src.core import Node
-from src.core import NoiseNode
 from src.core import NoisyFloat
+from src.graph import LatentNode
+from src.graph import Node
+from src.graph import NoiseNode
 
 
 def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():

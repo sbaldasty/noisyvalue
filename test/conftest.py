@@ -1,7 +1,7 @@
 import sympy as sp
 
-from src.core import DerivedNode
 from src.core import NoisyFloat
+from src.graph import DerivedNode
 
 
 def rooted_float(obs, expr, eqns=(), depends_on=()):

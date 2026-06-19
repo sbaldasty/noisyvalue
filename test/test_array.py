@@ -3,9 +3,9 @@ import numpy as np
 from conftest import rooted_float
 from src.array import float_array_sampler
 from src.array import sample_float_array
-from src.core import LatentNode
-from src.core import NoiseNode
 from src.core import NoisyFloat
+from src.graph import LatentNode
+from src.graph import NoiseNode
 import src.noise as noise
 
 def test_prepared_shaped_sampler_moves_sample_axis():

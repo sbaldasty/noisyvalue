@@ -5,14 +5,14 @@ import sympy as sp
 
 from numpy.random import default_rng
 from conftest import rooted_float
-from src.core import DerivedNode
-from src.core import LatentNode
-from src.core import Node
-from src.core import NoiseNode
 from src.core import NoisyFloat
 from src.core import NoisyInt
 from src.core import noisy_value_sampler
 from src.core import sample_noisy_values
+from src.graph import DerivedNode
+from src.graph import LatentNode
+from src.graph import Node
+from src.graph import NoiseNode
 
 
 _rng_factory = lambda: default_rng(42)

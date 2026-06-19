@@ -2,7 +2,8 @@ import numpy as np
 import src.noise as noise
 
 from src.consolidate import consolidate
-from src.core import NoiseNode, NoisyFloat, NoisyInt
+from src.core import NoisyFloat, NoisyInt
+from src.graph import NoiseNode
 
 
 def _draw(true_val, scale=1):
