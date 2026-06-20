@@ -6,6 +6,8 @@ import util
 from sympy import Abs, And, Eq, Equality, Not, Or, Piecewise, Pow, Rational
 from sympy import sympify
 
+from .graph import NormalNoiseNode
+from .graph import BinomialNoiseNode
 from .graph import DerivedNode
 from .graph import LatentNode
 from .graph import Node
@@ -170,10 +172,11 @@ class NoisyValue:
         return bool(self._obs)
 
     @classmethod
-    def _noise(cls, obs, root, rng=None):
+    def noise(cls, obs, node, rng=None):
         if obs is None:
             rng = util.generator(rng)
-            obs = root.sample(rng)
+            obs = node.sample(rng)
+        root = DerivedNode(node.symbol, depends_on=[node])
         return cls(obs, root)
 
     @classmethod
@@ -313,12 +316,17 @@ class NoisyFloat(NoisyNumber):
 
     @classmethod
     def normal(cls, loc, scale, obs=None, rng=None):
-        from .graph import gaussian
-        node = gaussian(loc, scale)
+        loc_v = NoisyFloat.lift(loc)
+        scale_v = NoisyFloat.lift(scale)
+        loc_expr = _preferred_value_expr(loc_v)
+        scale_expr = _preferred_value_expr(scale_v)
+        deps = [v._root for v, e in [(loc_v, loc_expr), (scale_v, scale_expr)] if e.free_symbols]
+        node = NormalNoiseNode(loc_expr, scale_expr, depends_on=deps)
         if obs is None:
             rng = util.generator(rng)
-            obs = node.sample(rng)
-        return cls(obs, node)
+            obs = rng.normal(float(loc_v), float(scale_v))
+        root = DerivedNode(node.symbol, depends_on=[node])
+        return cls(obs, root)
 
     def exp(self):
         return self.unary_op(NoisyFloat, np.exp, sp.exp)
@@ -344,12 +352,17 @@ class NoisyInt(NoisyNumber):
 
     @classmethod
     def binomial(cls, n, p, obs=None, rng=None):
-        from .graph import binomial
-        node = binomial(n, p)
+        n_v = NoisyInt.lift(n)
+        p_v = NoisyFloat.lift(p)
+        n_expr = _preferred_value_expr(n_v)
+        p_expr = _preferred_value_expr(p_v)
+        deps = [v._root for v, e in [(n_v, n_expr), (p_v, p_expr)] if e.free_symbols]
+        node = BinomialNoiseNode(n_expr, p_expr, depends_on=deps)
         if obs is None:
             rng = util.generator(rng)
-            obs = node.sample(rng)
-        return cls(obs, node)
+            obs = rng.binomial(int(n_v), float(p_v))
+        root = DerivedNode(node.symbol, depends_on=[node])
+        return cls(obs, root)
 
 
 class NoisyBool(NoisyValue):

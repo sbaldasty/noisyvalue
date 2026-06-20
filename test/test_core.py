@@ -382,3 +382,126 @@ def test_draw_uses_root_node():
 
     assert isinstance(noisy_float._root, DerivedNode)
     assert noisy_float._root.latent_symbols()
+
+
+# ── NoisyFloat.normal ──────────────────────────────────────────────────────────
+
+def test_noisyfloat_normal_returns_noisyfloat_with_float_obs():
+    x = NoisyFloat.normal(0, 1, rng=42)
+
+    assert isinstance(x, NoisyFloat)
+    assert isinstance(x._obs, float)
+
+
+def test_noisyfloat_normal_root_is_derived_node_wrapping_noise_node():
+    x = NoisyFloat.normal(0, 1, rng=42)
+
+    assert isinstance(x._root, DerivedNode)
+    assert any(isinstance(n, NoiseNode) for n in x._root.closure())
+
+
+def test_noisyfloat_normal_explicit_obs_is_used():
+    x = NoisyFloat.normal(0, 1, obs=7.5)
+
+    assert x._obs == 7.5
+
+
+def test_noisyfloat_normal_same_rng_gives_same_obs():
+    assert NoisyFloat.normal(0, 1, rng=42)._obs == NoisyFloat.normal(0, 1, rng=42)._obs
+
+
+def test_noisyfloat_normal_plain_params_yield_independent_noise_node():
+    x = NoisyFloat.normal(3, 2, rng=42)
+
+    noise_nodes = [n for n in x._root.closure() if isinstance(n, NoiseNode)]
+    assert all(len(n.depends_on) == 0 for n in noise_nodes)
+
+
+def test_noisyfloat_normal_samples_from_correct_distribution():
+    x = NoisyFloat.normal(3.0, 2.0, rng=42)
+    draws = x.sample(n=4000, rng=99).draws
+
+    assert draws.mean() == pytest.approx(3.0, abs=0.15)
+    assert draws.std() == pytest.approx(2.0, abs=0.15)
+
+
+def test_noisyfloat_normal_noisy_loc_obs_uses_observed_value_of_loc():
+    mu = NoisyFloat.normal(5.0, 0.0001, rng=1)
+    x = NoisyFloat.normal(mu, 0.0001, rng=2)
+
+    assert x._obs == pytest.approx(5.0, abs=0.05)
+
+
+def test_noisyfloat_normal_noisy_loc_propagates_uncertainty_in_sampling():
+    mu = NoisyFloat.normal(5.0, 1.0, rng=1)
+    x = NoisyFloat.normal(mu, 0.1, rng=2)
+    draws = x.sample(n=4000, rng=99).draws
+
+    assert draws.mean() == pytest.approx(5.0, abs=0.2)
+    assert draws.std() == pytest.approx(1.0, abs=0.15)
+
+
+def test_noisyfloat_normal_shared_noisy_loc_induces_correlation():
+    mu = NoisyFloat.normal(0, 1, rng=1)
+    x = NoisyFloat.normal(mu, 0.01, rng=2)
+    y = NoisyFloat.normal(mu, 0.01, rng=3)
+
+    batch_x, batch_y = sample_noisy_values(x, y, n=2000, rng=42)
+    corr = np.corrcoef(batch_x.draws, batch_y.draws)[0, 1]
+    assert corr > 0.99
+
+
+# ── NoisyInt.binomial ──────────────────────────────────────────────────────────
+
+def test_noisyint_binomial_returns_noisyint_with_int_obs():
+    k = NoisyInt.binomial(10, 0.3, rng=42)
+
+    assert isinstance(k, NoisyInt)
+    assert isinstance(k._obs, int)
+
+
+def test_noisyint_binomial_root_is_derived_node_wrapping_noise_node():
+    k = NoisyInt.binomial(10, 0.3, rng=42)
+
+    assert isinstance(k._root, DerivedNode)
+    assert any(isinstance(n, NoiseNode) for n in k._root.closure())
+
+
+def test_noisyint_binomial_explicit_obs_is_used():
+    k = NoisyInt.binomial(10, 0.3, obs=4)
+
+    assert k._obs == 4
+
+
+def test_noisyint_binomial_same_rng_gives_same_obs():
+    assert NoisyInt.binomial(10, 0.3, rng=42)._obs == NoisyInt.binomial(10, 0.3, rng=42)._obs
+
+
+def test_noisyint_binomial_plain_params_yield_independent_noise_node():
+    k = NoisyInt.binomial(10, 0.3, rng=42)
+
+    noise_nodes = [n for n in k._root.closure() if isinstance(n, NoiseNode)]
+    assert all(len(n.depends_on) == 0 for n in noise_nodes)
+
+
+def test_noisyint_binomial_samples_from_correct_distribution():
+    k = NoisyInt.binomial(20, 0.4, rng=42)
+    draws = k.sample(n=4000, rng=99).draws
+
+    assert draws.mean() == pytest.approx(8.0, abs=0.3)
+
+
+def test_noisyint_binomial_noisy_p_obs_uses_observed_value_of_p():
+    p = NoisyFloat.normal(0.5, 0.0001, rng=1)
+    k = NoisyInt.binomial(10, p, rng=2)
+
+    assert k._obs == pytest.approx(5.0, abs=1.0)
+
+
+def test_noisyint_binomial_noisy_p_propagates_uncertainty_in_sampling():
+    p = NoisyFloat.normal(0.5, 0.05, rng=1)
+    k = NoisyInt.binomial(10, p, rng=2)
+    draws = k.sample(n=4000, rng=99).draws
+
+    assert draws.mean() == pytest.approx(5.0, abs=0.3)
+    assert draws.std() > np.sqrt(10 * 0.5 * 0.5)  # wider than pure binomial variance
