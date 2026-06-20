@@ -6,7 +6,6 @@ from conftest import rooted_float
 
 import src.noise as noise
 from src.graph import LatentNode
-from src.graph import NoiseNode
 from src.visual import plot_posterior
 
 
@@ -17,11 +16,11 @@ def test_plot_posteriors_for_composed_expression_returns_density_curve():
     theta_0 = theta_0_node.symbol
     theta_1_node = LatentNode()
     theta_1 = theta_1_node.symbol
-    eps_0_node = NoiseNode(noise.gaussian(0, 1))
+    eps_0_node = noise.gaussian(0, 1)
     eps_0 = eps_0_node.symbol
-    eps_1_node = NoiseNode(noise.gaussian(0, 2))
+    eps_1_node = noise.gaussian(0, 2)
     eps_1 = eps_1_node.symbol
-    eps_pred_node = NoiseNode(noise.gaussian(0, 0.5))
+    eps_pred_node = noise.gaussian(0, 0.5)
     eps_pred = eps_pred_node.symbol
 
     observed_0 = 3.0
@@ -59,9 +58,9 @@ def test_plot_posteriors_for_composed_expression_returns_density_curve():
 def test_plot_posteriors_supports_multiple_values():
     theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_obs_node = NoiseNode(noise.gaussian(0, 1))
+    eps_obs_node = noise.gaussian(0, 1)
     eps_obs = eps_obs_node.symbol
-    eps_pred_node = NoiseNode(noise.gaussian(0, 1))
+    eps_pred_node = noise.gaussian(0, 1)
     eps_pred = eps_pred_node.symbol
 
     noisy_a = rooted_float(

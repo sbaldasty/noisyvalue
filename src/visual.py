@@ -63,7 +63,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
 
     closure_nodes = {node.symbol: node for node in noisy_value._root.closure()}
     independent_noise = {
-        symbol: node.source
+        symbol: node
         for symbol, node in closure_nodes.items()
         if isinstance(node, NoiseNode) and not node.depends_on
     }

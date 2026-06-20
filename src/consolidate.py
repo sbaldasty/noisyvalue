@@ -10,7 +10,7 @@ from .core import (
 )
 from .graph import DerivedNode
 from .graph import NoiseNode
-from .noise import NormalNoiseSource
+from .noise import NormalNoiseNode
 
 
 def _extract_coeff_symbol(expr):
@@ -52,7 +52,7 @@ class NormalSumRule(ConsolidationRule):
                 and sym in eligible
                 and sym in symbol_to_node
                 and isinstance(symbol_to_node[sym], NoiseNode)
-                and isinstance(symbol_to_node[sym].source, NormalNoiseSource)
+                and isinstance(symbol_to_node[sym], NormalNoiseNode)
                 and not symbol_to_node[sym].depends_on
             ):
                 normal_terms.append((coeff, symbol_to_node[sym]))
@@ -68,9 +68,9 @@ class NormalSumRule(ConsolidationRule):
 
     def apply(self, expr, symbol_to_node, eligible):
         normal_terms, other_args = self._parse(expr, symbol_to_node, eligible)
-        combined_mu = sum(c * node.source._loc for c, node in normal_terms)
-        combined_sigma = sp.sqrt(sum((c * node.source._scale) ** 2 for c, node in normal_terms))
-        new_node = NoiseNode(NormalNoiseSource(combined_mu, combined_sigma))
+        combined_mu = sum(c * node._loc for c, node in normal_terms)
+        combined_sigma = sp.sqrt(sum((c * node._scale) ** 2 for c, node in normal_terms))
+        new_node = NormalNoiseNode(combined_mu, combined_sigma)
         symbol_to_node[new_node.symbol] = new_node
         for _, node in normal_terms:
             eligible.discard(node.symbol)
@@ -113,7 +113,7 @@ def consolidate(*values, rules=None):
     for v in values:
         for node in _as_node(v).closure():
             if isinstance(node, NoiseNode) and node.depends_on:
-                law_param_symbols |= node.source.free_symbols
+                law_param_symbols |= node.free_symbols
 
     # A noise symbol is eligible for combination only if it appears exactly once
     # across the joint expression, ensuring no cross-value correlation is broken.

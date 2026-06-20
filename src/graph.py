@@ -45,9 +45,7 @@ class LatentNode(Node):
 
 
 class NoiseNode(Node):
-    def __init__(self, source, depends_on=()):
-        super().__init__(depends_on=depends_on)
-        self.source = source
+    pass
 
 
 class DerivedNode(Node):

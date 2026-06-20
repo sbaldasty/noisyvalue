@@ -21,7 +21,7 @@ _rng_factory = lambda: default_rng(42)
 def test_joint_sampling_preserves_shared_latent_dependency():
     theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_obs_node = NoiseNode(noise.gaussian(0, 1))
+    eps_obs_node = noise.gaussian(0, 1)
     eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
@@ -57,7 +57,7 @@ def test_integer_noisy_values_sample_as_integers():
 def test_prepared_sampler_preserves_shared_latent_dependency():
     theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_obs_node = NoiseNode(noise.gaussian(0, 1))
+    eps_obs_node = noise.gaussian(0, 1)
     eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
@@ -77,7 +77,7 @@ def test_prepared_sampler_preserves_shared_latent_dependency():
 def test_prepared_sampler_matches_direct_sampling_for_same_seed():
     theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_obs_node = NoiseNode(noise.gaussian(0, 1))
+    eps_obs_node = noise.gaussian(0, 1)
     eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
@@ -205,7 +205,7 @@ def test_noisyfloat_guarded_returns_nan_when_guard_false():
 def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
     theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_node = NoiseNode(noise.gaussian(0, 1))
+    eps_node = noise.gaussian(0, 1)
     eps = eps_node.symbol
     constraints = [theta + eps - 4.0]
 
@@ -295,12 +295,9 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
 
 
 def test_sampler_resolves_multilayer_law_dependencies():
-    z1 = NoiseNode(noise.gaussian(0, 1))
+    z1 = noise.gaussian(0, 1)
     z1_symbol = z1.symbol
-    z2 = NoiseNode(
-        noise.gaussian(z1_symbol, 1),
-        depends_on=(z1,),
-    )
+    z2 = noise.gaussian(z1_symbol, 1).bind(z1)
     root = DerivedNode(
         definition=z2.symbol,
         depends_on=(z2,),
@@ -334,7 +331,7 @@ def test_sampler_uses_root_output_definition():
 
 def test_node_derived_uses_explicit_dependencies():
     theta = LatentNode()
-    eps = NoiseNode(noise.gaussian(0, 1))
+    eps = noise.gaussian(0, 1)
 
     value = DerivedNode(definition=theta.symbol + eps.symbol, depends_on=(theta, eps))
 
@@ -344,7 +341,7 @@ def test_node_derived_uses_explicit_dependencies():
 def test_node_noise_uses_explicit_dependencies():
     theta = LatentNode()
 
-    z = NoiseNode(noise.gaussian(theta.symbol, 1), depends_on=(theta,))
+    z = noise.gaussian(theta.symbol, 1).bind(theta)
 
     assert {dep.symbol for dep in z.depends_on} == {theta.symbol}
 

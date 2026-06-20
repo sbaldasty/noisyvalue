@@ -11,7 +11,7 @@ from .core import (
 from .graph import DerivedNode
 from .graph import LatentNode
 from .graph import NoiseNode
-from .noise import NormalNoiseSource, BinomialNoiseSource
+from .noise import NormalNoiseNode, BinomialNoiseNode
 from .util import fresh_name
 
 _VERSION = 1
@@ -83,12 +83,12 @@ def _collect_nodes(container):
     return nodes
 
 
-def _source_to_dict(source):
-    if isinstance(source, NormalNoiseSource):
-        return {"type": "normal", "loc": sp.srepr(source._loc), "scale": sp.srepr(source._scale)}
-    if isinstance(source, BinomialNoiseSource):
-        return {"type": "binomial", "n": sp.srepr(source._n), "p": sp.srepr(source._p)}
-    raise TypeError(f"Unknown NoiseSource type: {type(source)}")
+def _noise_node_params_to_dict(node):
+    if isinstance(node, NormalNoiseNode):
+        return {"type": "normal", "loc": sp.srepr(node._loc), "scale": sp.srepr(node._scale)}
+    if isinstance(node, BinomialNoiseNode):
+        return {"type": "binomial", "n": sp.srepr(node._n), "p": sp.srepr(node._p)}
+    raise TypeError(f"Unknown NoiseNode type: {type(node)}")
 
 
 def _node_to_dict(node):
@@ -97,7 +97,7 @@ def _node_to_dict(node):
     if isinstance(node, NoiseNode):
         return {
             "kind": "noise",
-            "source": _source_to_dict(node.source),
+            "source": _noise_node_params_to_dict(node),
             "depends_on": [str(dep.symbol) for dep in node.depends_on],
         }
     if isinstance(node, DerivedNode):
@@ -192,17 +192,19 @@ def _parse_expr(s, name_map):
     return expr
 
 
-def _load_source(source_dict, name_map):
+def _load_noise_node(source_dict, name_map, depends_on=()):
     t = source_dict["type"]
     if t == "normal":
-        return NormalNoiseSource(
+        return NormalNoiseNode(
             _parse_expr(source_dict["loc"], name_map),
             _parse_expr(source_dict["scale"], name_map),
+            depends_on=depends_on,
         )
     if t == "binomial":
-        return BinomialNoiseSource(
+        return BinomialNoiseNode(
             _parse_expr(source_dict["n"], name_map),
             _parse_expr(source_dict["p"], name_map),
+            depends_on=depends_on,
         )
     raise ValueError(f"Unknown source type: {t!r}")
 
@@ -223,7 +225,7 @@ def _load_nodes(nodes_dict):
         if kind == "latent":
             node = LatentNode()
         elif kind == "noise":
-            node = NoiseNode(_load_source(nd["source"], name_map), depends_on=deps)
+            node = _load_noise_node(nd["source"], name_map, depends_on=deps)
         elif kind == "derived":
             node = DerivedNode(
                 definition=remap(nd["definition"]),

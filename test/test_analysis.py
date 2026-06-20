@@ -140,7 +140,7 @@ def test_odds_ratio_sample_with_zero_n_returns_empty_array():
 def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
     theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_node = NoiseNode(noise.gaussian(0, 1))
+    eps_node = noise.gaussian(0, 1)
     eps = eps_node.symbol
 
     noisy_a = rooted_float(obs=5.0, expr=theta, eqns=[theta + eps - 5.0], depends_on=(theta_node, eps_node))

@@ -5,7 +5,6 @@ from src.array import float_array_sampler
 from src.array import sample_float_array
 from src.core import NoisyFloat
 from src.graph import LatentNode
-from src.graph import NoiseNode
 import src.noise as noise
 
 def test_prepared_shaped_sampler_moves_sample_axis():
@@ -32,7 +31,7 @@ def test_sample_shaped_returns_table_shape_plus_sample_axis():
 def test_sample_shaped_preserves_shared_dependency_across_cells():
     theta_node = LatentNode()
     theta = theta_node.symbol
-    eps_obs_node = NoiseNode(noise.gaussian(0, 1))
+    eps_obs_node = noise.gaussian(0, 1)
     eps_obs = eps_obs_node.symbol
 
     constraints = [theta + eps_obs - 1.0]
