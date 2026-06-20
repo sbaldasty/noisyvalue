@@ -178,16 +178,16 @@ def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():
 def test_contingency_table_predictive_supports_general_2d_shape():
     table = [[10.0, 20.0, 30.0], [9.0, 3.0, 8.0]]
 
-    predictive = analysis.NoisyContingencyTable(table).with_stratified_sampling_uncertainty().tbl
+    predictive = analysis.NoisyContingencyTable.stratified(table).tbl
 
     assert predictive.shape == (2, 3)
     assert np.isfinite(np.asarray([float(value) for value in predictive.ravel()], dtype=float)).all()
 
 
-def test_with_stratified_sampling_uncertainty_returns_noisy_contingency_table():
-    table = analysis.NoisyContingencyTable([[10.0, 20.0, 30.0], [9.0, 3.0, 8.0]])
+def test_stratified_returns_noisy_contingency_table():
+    table = [[10.0, 20.0, 30.0], [9.0, 3.0, 8.0]]
 
-    predictive = table.with_stratified_sampling_uncertainty()
+    predictive = analysis.NoisyContingencyTable.stratified(table)
 
     assert isinstance(predictive, analysis.NoisyContingencyTable)
     assert predictive.tbl.shape == (2, 3)
@@ -197,7 +197,7 @@ def test_with_stratified_sampling_uncertainty_returns_noisy_contingency_table():
 def test_chi_squared_accepts_predictive_contingency_table():
     table = [[65.0, 109.0], [243.0, 1348.0]]
 
-    stat = analysis.NoisyContingencyTable(table).with_stratified_sampling_uncertainty().chi_squared()
+    stat = analysis.NoisyContingencyTable.stratified(table).chi_squared()
     draws = stat.sample(n=256, rng=123).draws
 
     assert isinstance(stat, NoisyFloat)
@@ -209,7 +209,7 @@ def test_chi_squared_accepts_predictive_contingency_table():
 def test_odds_ratio_accepts_predictive_contingency_table():
     table = [[65.0, 109.0], [243.0, 1348.0]]
 
-    ratio = analysis.NoisyContingencyTable(table).with_stratified_sampling_uncertainty().odds_ratio()
+    ratio = analysis.NoisyContingencyTable.stratified(table).odds_ratio()
     draws = ratio.sample(n=256, rng=123).draws
     finite = draws[np.isfinite(draws)]
 

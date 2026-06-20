@@ -29,6 +29,35 @@ class NoisyContingencyTable:
         assert isfinite(asarray([float(value) for value in tbl.ravel()], dtype=float)).all()
         self.tbl = tbl
 
+    @classmethod
+    def population(cls, tbl):
+        return cls(tbl)
+
+    @classmethod
+    def stratified(cls, tbl):
+        tbl = cls(tbl).tbl
+        n_rows, n_cols = tbl.shape
+        predictive = []
+
+        for i in range(n_rows):
+            row = tuple(tbl[i, :])
+            row_draws = []
+            remaining_total = sum(row).round_nearest()
+            remaining_mass = sum(row)
+
+            for j in range(n_cols - 1):
+                cell = row[j]
+                prob = cell / remaining_mass
+                draw = cell.round_nearest().resample(noise.binomial(remaining_total, prob))
+                remaining_total = remaining_total - draw
+                remaining_mass = remaining_mass - cell
+                row_draws.append(draw)
+
+            row_draws.append(remaining_total)
+            predictive.append(row_draws)
+
+        return cls(predictive)
+
     def chi_squared(self):
         tbl = self.tbl
         n_rows, n_cols = tbl.shape
@@ -60,30 +89,6 @@ class NoisyContingencyTable:
         stat = (grp0_yes * grp1_no) / (grp0_no * grp1_yes)
         valid = (grp0_yes > 0) & (grp0_no > 0) & (grp1_yes > 0) & (grp1_no > 0)
         return stat.guarded(valid)
-
-    def with_stratified_sampling_uncertainty(self):
-        tbl = self.tbl
-        n_rows, n_cols = tbl.shape
-        predictive = []
-
-        for i in range(n_rows):
-            row = tuple(tbl[i, :])
-            row_draws = []
-            remaining_total = sum(row).round_nearest()
-            remaining_mass = sum(row)
-
-            for j in range(n_cols - 1):
-                cell = row[j]
-                prob = cell / remaining_mass
-                draw = cell.round_nearest().resample(noise.binomial(remaining_total, prob))
-                remaining_total = remaining_total - draw
-                remaining_mass = remaining_mass - cell
-                row_draws.append(draw)
-
-            row_draws.append(remaining_total)
-            predictive.append(row_draws)
-
-        return NoisyContingencyTable(predictive)
 
 
 def noisy_min(*values):
