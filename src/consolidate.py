@@ -9,8 +9,8 @@ from .core import (
     NoisyValue,
 )
 from .graph import DerivedNode
+from .graph import NormalNoiseNode
 from .graph import NoiseNode
-from .noise import NormalNoiseNode
 
 
 def _extract_coeff_symbol(expr):

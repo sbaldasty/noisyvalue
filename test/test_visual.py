@@ -4,7 +4,7 @@ import pytest
 
 from conftest import rooted_float
 
-import src.noise as noise
+import src.graph as noise
 from src.graph import LatentNode
 from src.visual import plot_posterior
 

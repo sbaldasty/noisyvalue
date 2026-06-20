@@ -8,10 +8,11 @@ from .consolidate import consolidate
 from .core import (
     NoisyValue, NoisyFloat, NoisyInt, NoisyBool,
 )
+from .graph import BinomialNoiseNode
 from .graph import DerivedNode
 from .graph import LatentNode
+from .graph import NormalNoiseNode
 from .graph import NoiseNode
-from .noise import NormalNoiseNode, BinomialNoiseNode
 from .util import fresh_name
 
 _VERSION = 1

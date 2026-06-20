@@ -2,7 +2,7 @@ import json
 import numpy as np
 import pytest
 
-import src.noise as noise
+import src.graph as noise
 from src.core import (
     NoisyBool, NoisyFloat, NoisyInt,
     noisy_value_sampler, sample_noisy_values,

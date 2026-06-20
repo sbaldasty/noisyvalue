@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-import src.noise as noise
+import src.graph as noise
 import sympy as sp
 
 from numpy.random import default_rng

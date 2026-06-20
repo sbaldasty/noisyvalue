@@ -1,6 +1,7 @@
 import operator as op
 import sympy as sp
 import numpy as np
+import util
 
 from sympy import Abs, And, Eq, Equality, Not, Or, Piecewise, Pow, Rational
 from sympy import sympify
@@ -169,6 +170,13 @@ class NoisyValue:
         return bool(self._obs)
 
     @classmethod
+    def _noise(cls, obs, root, rng=None):
+        if obs is None:
+            rng = util.generator(rng)
+            obs = root.sample(rng)
+        return cls(obs, root)
+
+    @classmethod
     def from_node(cls, obs, root, expr=None):
         if not isinstance(root, Node):
             raise TypeError(f"Expected Node root, got {type(root).__name__}")
@@ -182,8 +190,7 @@ class NoisyValue:
 
     @classmethod
     def draw(cls, true_value, noise_node, rng=None):
-        if not isinstance(rng, np.random.Generator):
-            rng = np.random.default_rng(rng)
+        rng = util.generator(rng)
         theta_node = LatentNode()
         theta = theta_node.symbol
         noise_sym = noise_node.symbol
@@ -304,6 +311,15 @@ class NoisyFloat(NoisyNumber):
     def __init__(self, obs, root):
         super().__init__(float(obs), root)
 
+    @classmethod
+    def normal(cls, loc, scale, obs=None, rng=None):
+        from .graph import gaussian
+        node = gaussian(loc, scale)
+        if obs is None:
+            rng = util.generator(rng)
+            obs = node.sample(rng)
+        return cls(obs, node)
+
     def exp(self):
         return self.unary_op(NoisyFloat, np.exp, sp.exp)
 
@@ -325,6 +341,15 @@ class NoisyInt(NoisyNumber):
 
     def __index__(self):
         return self._obs
+
+    @classmethod
+    def binomial(cls, n, p, obs=None, rng=None):
+        from .graph import binomial
+        node = binomial(n, p)
+        if obs is None:
+            rng = util.generator(rng)
+            obs = node.sample(rng)
+        return cls(obs, node)
 
 
 class NoisyBool(NoisyValue):
@@ -401,9 +426,7 @@ class NoisyValueSampler:
 
     def sample(self, n=1000, rng=None):
         dtypes = tuple(type(value._obs) for value in self._vals)
-
-        if not isinstance(rng, np.random.Generator):
-            rng = np.random.default_rng(rng)
+        rng = util.generator(rng)
 
         if n <= 0:
             return tuple(SampleBatch(np.array([], dtype=dtype)) for dtype in dtypes)

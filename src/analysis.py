@@ -1,8 +1,8 @@
 import numpy as np
 
-from . import noise
 from .core import NoisyBool, NoisyNumber
 from .core import NoisyFloat
+from .graph import binomial
 from numpy import asarray
 from numpy import isfinite
 from sympy import Max
@@ -48,7 +48,7 @@ class NoisyContingencyTable:
             for j in range(n_cols - 1):
                 cell = row[j]
                 prob = cell / remaining_mass
-                draw = cell.round_nearest().resample(noise.binomial(remaining_total, prob))
+                draw = cell.round_nearest().resample(binomial(remaining_total, prob))
                 remaining_total = remaining_total - draw
                 remaining_mass = remaining_mass - cell
                 row_draws.append(draw)
