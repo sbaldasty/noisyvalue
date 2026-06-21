@@ -39,20 +39,9 @@ def _solve_theta_substitutions(thetas, eqns):
     return chosen
 
 
-def _expanded_definitions(root):
-    expanded = {}
-    for node in reversed(root.closure()):
-        if isinstance(node, DerivedNode):
-            expanded[node.symbol] = sympify(node.definition).subs(expanded)
-        else:
-            expanded[node.symbol] = node.symbol
-    return expanded
-
-
 def _preferred_value_expr(noisy_value):
     root = noisy_value._root
-    expanded = _expanded_definitions(root)
-    return expanded[root.symbol]
+    return root.definition if isinstance(root, DerivedNode) else root.symbol
 
 
 def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
@@ -76,7 +65,7 @@ def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
 
 def _sampler_inputs_from_roots(values):
     all_thetas = set()
-    all_eqns = []
+    all_eqns = set()
     dependent_law_nodes = {}
     all_nodes = {}
 
@@ -85,7 +74,7 @@ def _sampler_inputs_from_roots(values):
         for node in root.closure():
             all_nodes[node.symbol] = node
         all_thetas |= root.latent_symbols()
-        all_eqns.extend(root.all_constraints())
+        all_eqns.update(root.all_constraints())
         for node in root.closure():
             if not isinstance(node, NoiseNode) or not node.depends_on:
                 continue
@@ -172,8 +161,7 @@ class NoisyValue:
         expr = root.symbol if expr is None else sympify(expr)
         root_def = root.definition if isinstance(root, DerivedNode) else root.symbol
         if expr != root.symbol and expr != root_def:
-            root = DerivedNode(definition=expr, depends_on=(root,))
-
+            root = DerivedNode.operational(expr, deps=[root])
         return cls(obs, root)
 
     @classmethod
@@ -214,11 +202,12 @@ class NoisyValue:
             obs = obs_op(lhs._obs, rhs._obs)
 
         expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
-        root = DerivedNode(expr, depends_on=(lhs._root, rhs._root))
+        root = DerivedNode.operational(expr, deps=[lhs._root, rhs._root])
         return out_cls(obs, root)
 
     def unary_op(self, out_cls, obs_op, expr_op):
-        return out_cls.from_node(obs_op(self._obs), self._root, expr=expr_op(_preferred_value_expr(self)))
+        root = DerivedNode.operational(expr_op(_preferred_value_expr(self)), deps=[self._root])
+        return out_cls.from_node(obs_op(self._obs), root)
 
 
 class NoisyNumber(NoisyValue):
@@ -285,7 +274,7 @@ class NoisyNumber(NoisyValue):
             (_preferred_value_expr(self), _preferred_value_expr(guard)),
             (fallback, True))
 
-        root = DerivedNode(expr, depends_on=(self._root, guard._root))
+        root = DerivedNode.operational(expr, deps=[self._root, guard._root])
         return type(self)(obs, root)
 
 

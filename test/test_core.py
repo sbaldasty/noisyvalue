@@ -42,7 +42,7 @@ def test_literal_conversions_use_native_root_model():
     converted = NoisyFloat.lift(7.0)
 
     assert isinstance(converted._root, DerivedNode)
-    assert converted._root.constraints == ()
+    assert converted._root.constraints == frozenset()
     assert float(converted) == 7.0
 
 
@@ -111,7 +111,7 @@ def test_noisyvalue_from_node_uses_root_and_constraints():
 
     assert value._root is root
     assert value._root.latent_symbols() == {theta}
-    assert value._root.all_constraints() == (theta - 2.0,)
+    assert value._root.all_constraints() == frozenset({theta - 2.0})
 
 
 def test_sampler_uses_root_constraints():
@@ -322,7 +322,7 @@ def test_sampler_uses_root_output_definition():
 
     value = NoisyFloat.from_node(obs=4.0, root=root, expr=theta + 9.0)
     assert value._root.definition == theta + 9.0
-    assert value._root.constraints == ()
+    assert value._root.constraints == frozenset({theta - 4.0})
     draws = value.sample(n=8, rng=123).draws
 
     assert draws.shape == (8,)

@@ -40,7 +40,7 @@ def test_noisy_max_combines_noisy_value_metadata():
     assert isinstance(out, NoisyFloat)
     assert float(out) == 2.0
     assert out._root.latent_symbols() == a._root.latent_symbols()
-    assert len(out._root.all_constraints()) >= 2
+    assert (theta - 1.0) in out._root.all_constraints()
 
 
 def test_as_contingency_table_returns_noisy_contingency_table():

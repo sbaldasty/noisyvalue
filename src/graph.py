@@ -1,7 +1,6 @@
 import numpy as np
 import util
 
-from sympy import Basic
 from sympy import Symbol
 from sympy import sympify
 from sympy.stats import Normal
@@ -34,7 +33,7 @@ class Node:
         return {node.symbol for node in self.closure() if isinstance(node, LatentNode)}
 
     def all_constraints(self):
-        return tuple(
+        return frozenset(
             c
             for node in self.closure()
             if isinstance(node, DerivedNode)
@@ -51,10 +50,23 @@ class NoiseNode(Node):
 
 
 class DerivedNode(Node):
+
+    @classmethod
+    def operational(cls, expr, deps=()):
+        flat_deps = []
+        flat_eqns = []
+        for node in deps:
+            if isinstance(node, DerivedNode):
+                flat_eqns.extend(node.constraints)
+                flat_deps.extend(node.depends_on)
+            else:
+                flat_deps.append(node)
+        return cls(expr, frozenset(flat_eqns), frozenset(flat_deps))
+
     def __init__(self, definition, constraints=(), depends_on=()):
         super().__init__(depends_on=depends_on)
         self.definition = sympify(definition)
-        self.constraints = tuple(sympify(x) for x in constraints)
+        self.constraints = frozenset(sympify(x) for x in constraints)
 
 
 class NormalNoiseNode(NoiseNode):
