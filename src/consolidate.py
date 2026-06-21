@@ -3,7 +3,6 @@ import util
 from sympy import sympify
 
 from .core import (
-    _preferred_value_expr,
     _sampler_inputs_from_roots,
     _solve_theta_substitutions,
     NoisyValue,
@@ -98,7 +97,7 @@ def consolidate(*values, rules=None):
     all_thetas, theta_eqns, _, _, _ = _sampler_inputs_from_roots(values)
     theta_subs = _solve_theta_substitutions(all_thetas, theta_eqns)
     resolved_exprs = tuple(
-        sympify(_preferred_value_expr(v)).subs(theta_subs) for v in values
+        sympify(v.expr).subs(theta_subs) for v in values
     )
 
     # Build a mutable symbol → node lookup; rules may add new entries.

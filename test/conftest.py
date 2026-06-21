@@ -18,10 +18,10 @@ def _to_expr(value):
     if isinstance(value, (int, float)):
         return value
 
-    from src.core import NoisyFloat, NoisyInt, _preferred_value_expr
+    from src.core import NoisyFloat, NoisyInt
 
     if isinstance(value, (NoisyFloat, NoisyInt)):
-        return _preferred_value_expr(value)
+        return value.expr
 
     expr = sympify(value)
     if isinstance(expr, Basic):

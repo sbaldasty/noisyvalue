@@ -6,7 +6,6 @@ from sympy.stats import quantile
 
 from src.core import _filter_theta_equations
 from src.core import _solve_theta_substitutions
-from src.core import _preferred_value_expr
 from src.graph import NoiseNode
 
 
@@ -83,7 +82,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
         sol = {}
         rhs_noise_symbols = set()
 
-    value_expr = _preferred_value_expr(noisy_value)
+    value_expr = noisy_value.expr
     predictive_noise_symbols = value_expr.free_symbols & independent_noise_symbols
     integration_syms = sorted(rhs_noise_symbols | predictive_noise_symbols, key=str)
 
@@ -201,7 +200,7 @@ def plot_posterior(
 
     curves = []
     for idx, noisy_value in enumerate(noisy_values, start=1):
-        value_expr = _preferred_value_expr(noisy_value)
+        value_expr = noisy_value.expr
         z_values, z_weights = _compute_posterior_quadrature_points(
             noisy_value,
             quadrature_points=quadrature_points,

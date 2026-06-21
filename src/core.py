@@ -39,10 +39,6 @@ def _solve_theta_substitutions(thetas, eqns):
     return chosen
 
 
-def _preferred_value_expr(noisy_value):
-    return noisy_value._root.expr
-
-
 def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
     """Keep only equations suitable for solving latent symbols.
 
@@ -113,7 +109,7 @@ def noisy_value_sampler(*vals):
     ) = _sampler_inputs_from_roots(vals)
 
     theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
-    value_exprs = tuple(_preferred_value_expr(value) for value in vals)
+    value_exprs = tuple(value.expr for value in vals)
 
     return NoisyValueSampler(
         vals,
@@ -182,6 +178,10 @@ class NoisyValue:
         assert issubclass(accept, NoisyValue)
         return value if isinstance(value, accept) else cls(value, DerivedNode(value))
 
+    @property
+    def expr(self):
+        return self._root.expr
+
     def sample(self, n=1000, rng=None):
         return noisy_value_sampler(self).sample(n, rng)[0]
 
@@ -199,12 +199,12 @@ class NoisyValue:
         with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
             obs = obs_op(lhs._obs, rhs._obs)
 
-        expr = expr_op(_preferred_value_expr(lhs), _preferred_value_expr(rhs))
+        expr = expr_op(lhs.expr, rhs.expr)
         root = DerivedNode.operational(expr, deps=[lhs._root, rhs._root])
         return out_cls(obs, root)
 
     def unary_op(self, out_cls, obs_op, expr_op):
-        root = DerivedNode.operational(expr_op(_preferred_value_expr(self)), deps=[self._root])
+        root = DerivedNode.operational(expr_op(self.expr), deps=[self._root])
         return out_cls.from_node(obs_op(self._obs), root)
 
 
@@ -269,7 +269,7 @@ class NoisyNumber(NoisyValue):
 
         obs = self._obs if bool(guard) else fallback
         expr = Piecewise(
-            (_preferred_value_expr(self), _preferred_value_expr(guard)),
+            (self.expr, guard.expr),
             (fallback, True))
 
         root = DerivedNode.operational(expr, deps=[self._root, guard._root])
@@ -284,8 +284,8 @@ class NoisyFloat(NoisyNumber):
     def normal(cls, loc, scale, obs=None, rng=None):
         loc_v = NoisyFloat.lift(loc)
         scale_v = NoisyFloat.lift(scale)
-        loc_expr = _preferred_value_expr(loc_v)
-        scale_expr = _preferred_value_expr(scale_v)
+        loc_expr = loc_v.expr
+        scale_expr = scale_v.expr
         deps = [v._root for v, e in [(loc_v, loc_expr), (scale_v, scale_expr)] if e.free_symbols]
         node = NormalNoiseNode(loc_expr, scale_expr, depends_on=deps)
         if obs is None:
@@ -300,7 +300,7 @@ class NoisyFloat(NoisyNumber):
         return self.unary_op(NoisyFloat, np.log, sp.log)
 
     def round_nearest(self):
-        expr = sp.floor(_preferred_value_expr(self) + Rational(1, 2))
+        expr = sp.floor(self.expr + Rational(1, 2))
         obs = np.floor(self._obs + 0.5)
         return NoisyInt.from_node(obs, self._root, expr=expr)
 
@@ -319,8 +319,8 @@ class NoisyInt(NoisyNumber):
     def binomial(cls, n, p, obs=None, rng=None):
         n_v = NoisyInt.lift(n)
         p_v = NoisyFloat.lift(p)
-        n_expr = _preferred_value_expr(n_v)
-        p_expr = _preferred_value_expr(p_v)
+        n_expr = n_v.expr
+        p_expr = p_v.expr
         deps = [v._root for v, e in [(n_v, n_expr), (p_v, p_expr)] if e.free_symbols]
         node = BinomialNoiseNode(n_expr, p_expr, depends_on=deps)
         if obs is None:
