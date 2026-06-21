@@ -1,5 +1,5 @@
 import numpy as np
-import src.graph as noise
+import conftest as noise
 
 from src.consolidate import consolidate
 from src.core import NoisyFloat, NoisyInt

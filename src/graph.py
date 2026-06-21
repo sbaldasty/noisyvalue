@@ -13,7 +13,7 @@ from .util import fresh_name
 class Node:
     def __init__(self, depends_on=()):
         self.symbol = Symbol(fresh_name())
-        self.depends_on = util.as_nonempty_tuple(depends_on, Node)
+        self.depends_on = util.as_tuple(depends_on, Node)
 
     def closure(self):
         seen = set()
@@ -55,23 +55,6 @@ class DerivedNode(Node):
         super().__init__(depends_on=depends_on)
         self.definition = sympify(definition)
         self.constraints = tuple(sympify(x) for x in constraints)
-
-
-def _to_expr(value):
-    if isinstance(value, Basic):
-        return value
-    if isinstance(value, (int, float)):
-        return value
-
-    from .core import NoisyFloat, NoisyInt, _preferred_value_expr
-
-    if isinstance(value, (NoisyFloat, NoisyInt)):
-        return _preferred_value_expr(value)
-
-    expr = sympify(value)
-    if isinstance(expr, Basic):
-        return expr
-    raise TypeError(f"Unsupported value type: {type(value)}")
 
 
 class NormalNoiseNode(NoiseNode):
@@ -148,14 +131,6 @@ class BinomialNoiseNode(NoiseNode):
 
     def bind(self, parent):
         return BinomialNoiseNode(self._n, self._p, depends_on=(parent,))
-
-
-def gaussian(loc, scale):
-    return NormalNoiseNode(_to_expr(loc), _to_expr(scale))
-
-
-def binomial(n, p):
-    return BinomialNoiseNode(_to_expr(n), _to_expr(p))
 
 
 def topological_sort_law_nodes(law_nodes):

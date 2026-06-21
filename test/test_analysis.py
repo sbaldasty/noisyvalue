@@ -4,7 +4,7 @@ import sympy as sp
 from scipy.stats import chi2_contingency
 
 import src.analysis as analysis
-import src.graph as noise
+import conftest as noise
 
 from conftest import rooted_float
 from src.core import NoisyFloat
