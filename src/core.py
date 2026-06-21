@@ -15,13 +15,6 @@ from .graph import NoiseNode
 from .graph import topological_sort_law_nodes
 
 
-def _as_node(value):
-    root = getattr(value, "_root", None)
-    if not isinstance(root, Node):
-        raise TypeError(f"Expected value with Node root, got {type(value).__name__}")
-    return root
-
-
 def _solve_theta_substitutions(thetas, eqns):
     if not thetas:
         return {}
@@ -57,7 +50,7 @@ def _expanded_definitions(root):
 
 
 def _preferred_value_expr(noisy_value):
-    root = _as_node(noisy_value)
+    root = noisy_value._root
     expanded = _expanded_definitions(root)
     return expanded[root.symbol]
 
@@ -88,7 +81,7 @@ def _sampler_inputs_from_roots(values):
     all_nodes = {}
 
     for value in values:
-        root = _as_node(value)
+        root = value._root
         for node in root.closure():
             all_nodes[node.symbol] = node
         all_thetas |= root.latent_symbols()

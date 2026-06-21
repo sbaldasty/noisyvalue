@@ -3,7 +3,6 @@ import util
 from sympy import sympify
 
 from .core import (
-    _as_node,
     _preferred_value_expr,
     _sampler_inputs_from_roots,
     _solve_theta_substitutions,
@@ -105,14 +104,14 @@ def consolidate(*values, rules=None):
     # Build a mutable symbol → node lookup; rules may add new entries.
     symbol_to_node = {}
     for v in values:
-        for node in _as_node(v).closure():
+        for node in v._root.closure():
             symbol_to_node[node.symbol] = node
 
     # Symbols referenced by dependent (law) node source parameters must stay
     # untouched: consolidating them away breaks the law node's sampling.
     law_param_symbols = set()
     for v in values:
-        for node in _as_node(v).closure():
+        for node in v._root.closure():
             if isinstance(node, NoiseNode) and node.depends_on:
                 law_param_symbols |= node.free_symbols
 
@@ -147,7 +146,7 @@ def consolidate(*values, rules=None):
     constraint_keepers = {
         node
         for v in values
-        for node in _as_node(v).closure()
+        for node in v._root.closure()
         if isinstance(node, DerivedNode)
         and node.constraints
         and any(c.free_symbols & law_param_symbols for c in node.constraints)
