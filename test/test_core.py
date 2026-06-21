@@ -5,6 +5,7 @@ import sympy as sp
 
 from numpy.random import default_rng
 from conftest import rooted_float
+from conftest import from_node
 from src.core import NoisyFloat
 from src.core import NoisyInt
 from src.core import noisy_value_sampler
@@ -98,22 +99,6 @@ def test_node_constructors_reject_unknown_kwargs():
         LatentNode(symbol=sp.Symbol("theta_node"))
 
 
-def test_noisyvalue_from_node_uses_root_and_constraints():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    root = DerivedNode(
-        expr=theta,
-        constraints=(theta - 2.0,),
-        depends_on=(theta_node,),
-    )
-
-    value = NoisyFloat.from_node(obs=2.0, root=root)
-
-    assert value._root is root
-    assert value._root.latent_symbols() == {theta}
-    assert value._root.all_constraints() == frozenset({theta - 2.0})
-
-
 def test_sampler_uses_root_constraints():
     theta_node = LatentNode()
     theta = theta_node.expr
@@ -123,7 +108,7 @@ def test_sampler_uses_root_constraints():
         depends_on=(theta_node,),
     )
 
-    value = NoisyFloat.from_node(obs=3.5, root=root, expr=theta)
+    value = from_node(obs=3.5, root=root, expr=theta)
     draws = value.sample(n=6, rng=123).draws
 
     assert draws.shape == (6,)
@@ -149,7 +134,7 @@ def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
         depends_on=(theta_node,),
     )
 
-    value = NoisyFloat.from_node(obs=2.5, root=root, expr=theta)
+    value = from_node(obs=2.5, root=root, expr=theta)
     rounded = value.round_nearest()
 
     assert int(rounded) == 3
@@ -269,8 +254,7 @@ def test_noisyint_binomial_preserves_upstream_dependency_from_n():
         constraints=(theta - 3.0,),
         depends_on=(theta_node,),
     )
-    count = NoisyInt.from_node(obs=3, root=root, expr=theta)
-
+    count = NoisyInt(3, root)
     resampled = NoisyInt.binomial(count, 0.5, obs=3)
 
     assert theta in resampled._root.latent_symbols()
@@ -284,10 +268,10 @@ def test_noisyint_binomial_invalid_binomial_parameter_yields_nan_draws():
         constraints=(theta - 1.5,),
         depends_on=(theta_node,),
     )
-    prob = NoisyFloat.from_node(obs=1.5, root=root, expr=theta)
+    prob = from_node(obs=1.5, root=root, expr=theta)
     resampled = NoisyInt.binomial(10, prob, obs=3)
 
-    noisy_float = NoisyFloat.from_node(obs=float(int(resampled)), root=resampled._root, expr=resampled._root.expr)
+    noisy_float = from_node(obs=float(int(resampled)), root=resampled._root, expr=resampled._root.expr)
     draws = noisy_float.sample(n=16, rng=123).draws
 
     assert draws.shape == (16,)
@@ -303,7 +287,7 @@ def test_sampler_resolves_multilayer_law_dependencies():
         depends_on=(z2,),
     )
 
-    value = NoisyFloat.from_node(obs=0.0, root=root, expr=z2.expr)
+    value = from_node(obs=0.0, root=root, expr=z2.expr)
     draws = value.sample(n=4000, rng=123).draws
 
     assert draws.shape == (4000,)
@@ -320,7 +304,7 @@ def test_sampler_uses_root_output_definition():
         depends_on=(theta_node,),
     )
 
-    value = NoisyFloat.from_node(obs=4.0, root=root, expr=theta + 9.0)
+    value = from_node(obs=4.0, root=root, expr=theta + 9.0)
     assert value._root.expr == theta + 9.0
     assert value._root.constraints == frozenset({theta - 4.0})
     draws = value.sample(n=8, rng=123).draws
@@ -357,7 +341,7 @@ def test_node_derived_wires_wrapper_and_symbol_nodes_explicitly():
     theta_node = LatentNode()
     theta = theta_node.expr
     base_root = DerivedNode(expr=theta, constraints=(theta - 2.0,), depends_on=(theta_node,))
-    wrapped = NoisyFloat.from_node(obs=3.0, root=base_root, expr=theta + 1.0)
+    wrapped = from_node(obs=3.0, root=base_root, expr=theta + 1.0)
 
     out = DerivedNode(expr=theta + 2.0, depends_on=(wrapped._root, theta_node))
 

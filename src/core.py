@@ -149,16 +149,6 @@ class NoisyValue:
         return bool(self._obs)
 
     @classmethod
-    def from_node(cls, obs, root, expr=None):
-        if not isinstance(root, Node):
-            raise TypeError(f"Expected Node root, got {type(root).__name__}")
-
-        expr = root.expr if expr is None else sympify(expr)
-        if expr != root.expr:
-            root = DerivedNode.operational(expr, deps=[root])
-        return cls(obs, root)
-
-    @classmethod
     def draw(cls, true_value, noise_node, rng=None):
         rng = util.generator(rng)
         theta_node = LatentNode()
@@ -205,7 +195,7 @@ class NoisyValue:
 
     def unary_op(self, out_cls, obs_op, expr_op):
         root = DerivedNode.operational(expr_op(self.expr), deps=[self._root])
-        return out_cls.from_node(obs_op(self._obs), root)
+        return out_cls(obs_op(self._obs), root)
 
 
 class NoisyNumber(NoisyValue):
@@ -300,9 +290,10 @@ class NoisyFloat(NoisyNumber):
         return self.unary_op(NoisyFloat, np.log, sp.log)
 
     def round_nearest(self):
-        expr = sp.floor(self.expr + Rational(1, 2))
         obs = np.floor(self._obs + 0.5)
-        return NoisyInt.from_node(obs, self._root, expr=expr)
+        expr = sp.floor(self.expr + Rational(1, 2))
+        root = DerivedNode.operational(expr, deps=[self._root])
+        return NoisyInt(obs, root)
 
     def sqrt(self):
         return self.unary_op(NoisyFloat, np.sqrt, sp.sqrt)
