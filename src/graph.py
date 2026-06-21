@@ -87,9 +87,6 @@ class NormalNoiseNode(NoiseNode):
     def sympy_rv(self):
         return Normal(fresh_name(), self._loc, self._scale)
 
-    def bind(self, parent):
-        return NormalNoiseNode(self._loc, self._scale, depends_on=(parent,))
-
 
 class BinomialNoiseNode(NoiseNode):
     def __init__(self, n, p, depends_on=()):
@@ -128,9 +125,6 @@ class BinomialNoiseNode(NoiseNode):
 
     def sympy_rv(self):
         return rv(fresh_name(), BinomialDistribution, self._n, self._p, check=False)
-
-    def bind(self, parent):
-        return BinomialNoiseNode(self._n, self._p, depends_on=(parent,))
 
 
 def topological_sort_law_nodes(law_nodes):

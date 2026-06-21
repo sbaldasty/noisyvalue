@@ -38,7 +38,7 @@ The library models "noisy values" — observations paired with a symbolic poster
 
 **`NoisyValue`** wraps a `(obs, root_node)` pair. Subclasses enforce the observed type:
 - `NoisyFloat` — real-valued observations; supports arithmetic, exp/log/sqrt, rounding
-- `NoisyInt` — integer observations; has `resample(source)` to attach a dependent `NoiseSource`
+- `NoisyInt` — integer observations; supports constructor helpers like `NoisyInt.binomial(...)`
 - `NoisyBool` — boolean observations; supports `&`, `|`, `~`
 - `NoisyNumber` — shared numeric base (comparison operators that return `NoisyBool`, `guarded()`)
 

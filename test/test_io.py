@@ -52,8 +52,7 @@ def test_single_noisy_bool_obs_survives_roundtrip(tmp_path):
 # ── binomial noise source ─────────────────────────────────────────────────────
 
 def test_binomial_noise_source_survives_roundtrip(tmp_path):
-    count = NoisyInt.lift(100)
-    v = count.resample(noise.binomial(100, 0.3))
+    v = NoisyInt.binomial(100, 0.3, obs=100)
     rt = _roundtrip(tmp_path, v)
     assert isinstance(rt, NoisyInt)
     orig_ci = v.credible_interval(rng=0)

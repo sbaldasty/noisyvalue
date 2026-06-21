@@ -1,10 +1,9 @@
 import numpy as np
 
 from .core import NoisyBool
+from .core import NoisyInt
 from .core import NoisyNumber
 from .core import NoisyFloat
-from .core import _preferred_value_expr
-from .graph import BinomialNoiseNode
 from numpy import asarray
 from numpy import isfinite
 from sympy import Max
@@ -50,11 +49,8 @@ class NoisyContingencyTable:
             for j in range(n_cols - 1):
                 cell = row[j]
                 prob = cell / remaining_mass
-                noise_node = BinomialNoiseNode(
-                    _preferred_value_expr(remaining_total),
-                    _preferred_value_expr(prob)
-                )
-                draw = cell.round_nearest().resample(noise_node)
+                obs = cell.round_nearest()
+                draw = NoisyInt.binomial(remaining_total, prob, obs=obs)
                 remaining_total = remaining_total - draw
                 remaining_mass = remaining_mass - cell
                 row_draws.append(draw)

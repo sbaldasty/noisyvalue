@@ -288,12 +288,6 @@ class NoisyNumber(NoisyValue):
         root = DerivedNode(expr, depends_on=(self._root, guard._root))
         return type(self)(obs, root)
 
-    def resample(self, noise_node, *, obs=None):
-        bound = noise_node.bind(self._root)
-        if obs is None:
-            obs = self._obs
-        return type(self).from_node(obs, bound, expr=bound.symbol)
-
 
 class NoisyFloat(NoisyNumber):
     def __init__(self, obs, root):

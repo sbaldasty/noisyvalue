@@ -12,6 +12,7 @@ from src.core import sample_noisy_values
 from src.graph import DerivedNode
 from src.graph import LatentNode
 from src.graph import Node
+from src.graph import NormalNoiseNode
 from src.graph import NoiseNode
 
 
@@ -247,9 +248,8 @@ def test_noisyfloat_invalid_real_power_returns_nan_observation():
     assert np.isnan(float(z))
 
 
-def test_noisyint_resample_replaces_value_with_new_law():
-    count = NoisyInt.lift(5)
-    resampled = count.resample(noise.binomial(2, 0.5))
+def test_noisyint_binomial_explicit_obs_replaces_resample_pattern():
+    resampled = NoisyInt.binomial(2, 0.5, obs=5)
 
     assert isinstance(resampled, NoisyInt)
     assert int(resampled) == 5
@@ -261,7 +261,7 @@ def test_noisyint_resample_replaces_value_with_new_law():
     assert np.all(draws <= 2)
 
 
-def test_noisyint_resample_preserves_upstream_dependency():
+def test_noisyint_binomial_preserves_upstream_dependency_from_n():
     theta_node = LatentNode()
     theta = theta_node.symbol
     root = DerivedNode(
@@ -271,12 +271,12 @@ def test_noisyint_resample_preserves_upstream_dependency():
     )
     count = NoisyInt.from_node(obs=3, root=root, expr=theta)
 
-    resampled = count.resample(noise.binomial(theta, 0.5))
+    resampled = NoisyInt.binomial(count, 0.5, obs=3)
 
     assert theta in resampled._root.latent_symbols()
 
 
-def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
+def test_noisyint_binomial_invalid_binomial_parameter_yields_nan_draws():
     theta_node = LatentNode()
     theta = theta_node.symbol
     root = DerivedNode(
@@ -284,8 +284,8 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
         constraints=(theta - 1.5,),
         depends_on=(theta_node,),
     )
-    count = NoisyInt.from_node(obs=3, root=root, expr=sp.Integer(10))
-    resampled = count.resample(noise.binomial(10, theta))
+    prob = NoisyFloat.from_node(obs=1.5, root=root, expr=theta)
+    resampled = NoisyInt.binomial(10, prob, obs=3)
 
     noisy_float = NoisyFloat.from_node(obs=float(int(resampled)), root=resampled._root, expr=resampled._root.symbol)
     draws = noisy_float.sample(n=16, rng=123).draws
@@ -297,7 +297,7 @@ def test_noisyint_resample_invalid_binomial_parameter_yields_nan_draws():
 def test_sampler_resolves_multilayer_law_dependencies():
     z1 = noise.gaussian(0, 1)
     z1_symbol = z1.symbol
-    z2 = noise.gaussian(z1_symbol, 1).bind(z1)
+    z2 = NormalNoiseNode(z1_symbol, 1, depends_on=(z1,))
     root = DerivedNode(
         definition=z2.symbol,
         depends_on=(z2,),
@@ -341,7 +341,7 @@ def test_node_derived_uses_explicit_dependencies():
 def test_node_noise_uses_explicit_dependencies():
     theta = LatentNode()
 
-    z = noise.gaussian(theta.symbol, 1).bind(theta)
+    z = NormalNoiseNode(theta.symbol, 1, depends_on=(theta,))
 
     assert {dep.symbol for dep in z.depends_on} == {theta.symbol}
 

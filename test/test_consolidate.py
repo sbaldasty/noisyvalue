@@ -57,7 +57,7 @@ def test_consolidate_shared_noise_symbol_not_combined():
 def test_consolidate_non_normal_noise_not_combined():
     # The binomial source has no combination rule, so nothing is merged.
     x = _draw(1.0)
-    count = NoisyInt.lift(3).resample(noise.binomial(10, 0.3))
+    count = NoisyInt.binomial(10, 0.3, obs=3)
     z = x + count
     (z_cons,) = consolidate(z)
     assert _noise_node_count(z_cons) == _noise_node_count(z)
