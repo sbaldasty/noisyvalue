@@ -120,7 +120,7 @@ def noisy_value_sampler(*vals):
     """
     from .consolidate import consolidate
 
-    assert vals and all(isinstance(x, NoisyValue) for x in vals)
+    vals = util.as_nonempty_tuple(vals, NoisyValue)
     vals = consolidate(*vals)
 
     (
@@ -170,14 +170,6 @@ class NoisyValue:
 
     def __bool__(self):
         return bool(self._obs)
-
-    @classmethod
-    def noise(cls, obs, node, rng=None):
-        if obs is None:
-            rng = util.generator(rng)
-            obs = node.sample(rng)
-        root = DerivedNode(node.symbol, depends_on=[node])
-        return cls(obs, root)
 
     @classmethod
     def from_node(cls, obs, root, expr=None):

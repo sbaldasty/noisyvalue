@@ -1,5 +1,5 @@
-import sympy as sp
 import numpy as np
+import util
 
 from sympy import Basic
 from sympy import Symbol
@@ -13,9 +13,7 @@ from .util import fresh_name
 class Node:
     def __init__(self, depends_on=()):
         self.symbol = Symbol(fresh_name())
-        self.depends_on = tuple(depends_on)
-        if not all(isinstance(node, Node) for node in self.depends_on):
-            raise TypeError("depends_on must contain Node instances")
+        self.depends_on = util.as_nonempty_tuple(depends_on, Node)
 
     def closure(self):
         seen = set()

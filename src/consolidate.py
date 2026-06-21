@@ -1,4 +1,5 @@
 import sympy as sp
+import util
 from sympy import sympify
 
 from .core import (
@@ -90,7 +91,7 @@ def consolidate(*values, rules=None):
     Noise symbols that appear in more than one value's resolved expression are
     left untouched, preserving correlations between the consolidated values.
     """
-    assert values and all(isinstance(v, NoisyValue) for v in values)
+    values = util.as_nonempty_tuple(values, NoisyValue)
     if rules is None:
         rules = DEFAULT_RULES
 
