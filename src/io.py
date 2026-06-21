@@ -61,12 +61,19 @@ def _rebuild_container(container, it):
     raise TypeError(f"Unsupported container type: {type(container)}")
 
 
+def _node_name(node):
+    """Return a serialization name for a node that is stable within a save() call."""
+    if isinstance(node, DerivedNode):
+        return f"derived_{id(node)}"
+    return str(node.expr)
+
+
 def _collect_nodes(container):
     nodes = {}
 
     def visit_value(v):
         for node in v._root.closure():
-            name = str(node.symbol)
+            name = _node_name(node)
             if name not in nodes:
                 nodes[name] = node
 
@@ -99,14 +106,14 @@ def _node_to_dict(node):
         return {
             "kind": "noise",
             "source": _noise_node_params_to_dict(node),
-            "depends_on": [str(dep.symbol) for dep in node.depends_on],
+            "depends_on": [_node_name(dep) for dep in node.depends_on],
         }
     if isinstance(node, DerivedNode):
         return {
             "kind": "derived",
-            "definition": sp.srepr(node.definition),
+            "definition": sp.srepr(node.expr),
             "constraints": [sp.srepr(c) for c in node.constraints],
-            "depends_on": [str(dep.symbol) for dep in node.depends_on],
+            "depends_on": [_node_name(dep) for dep in node.depends_on],
         }
     raise TypeError(f"Unknown Node type: {type(node)}")
 
@@ -116,7 +123,7 @@ def _value_to_dict(v):
         "kind": "value",
         "type": _TYPE_NAMES[type(v)],
         "obs": v._obs,
-        "root": str(v._root.symbol),
+        "root": _node_name(v._root),
     }
 
 
@@ -125,7 +132,7 @@ def _array_to_dict(arr):
         "kind": "array",
         "shape": list(arr.shape),
         "elements": [
-            {"type": _TYPE_NAMES[type(v)], "obs": v._obs, "root": str(v._root.symbol)}
+            {"type": _TYPE_NAMES[type(v)], "obs": v._obs, "root": _node_name(v._root)}
             for v in arr.flat
         ],
     }
@@ -225,18 +232,19 @@ def _load_nodes(nodes_dict):
 
         if kind == "latent":
             node = LatentNode()
+            name_map[old_name] = node.expr
         elif kind == "noise":
             node = _load_noise_node(nd["source"], name_map, depends_on=deps)
+            name_map[old_name] = node.expr
         elif kind == "derived":
             node = DerivedNode(
-                definition=remap(nd["definition"]),
+                remap(nd["definition"]),
                 constraints=[remap(c) for c in nd["constraints"]],
                 depends_on=deps,
             )
         else:
             raise ValueError(f"Unknown node kind: {kind!r}")
 
-        name_map[old_name] = node.symbol
         built[old_name] = node
 
     return built

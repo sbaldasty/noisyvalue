@@ -8,7 +8,7 @@ from sympy import Basic, sympify
 def rooted_float(obs, expr, eqns=(), depends_on=()):
     expr = sp.sympify(expr)
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
-    root = DerivedNode(definition=expr, constraints=eqns, depends_on=depends_on)
+    root = DerivedNode(expr, constraints=eqns, depends_on=depends_on)
     return NoisyFloat.from_node(obs=obs, root=root, expr=expr)
 
 

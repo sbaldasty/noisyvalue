@@ -30,9 +30,9 @@ def test_sample_shaped_returns_table_shape_plus_sample_axis():
 
 def test_sample_shaped_preserves_shared_dependency_across_cells():
     theta_node = LatentNode()
-    theta = theta_node.symbol
+    theta = theta_node.expr
     eps_obs_node = noise.gaussian(0, 1)
-    eps_obs = eps_obs_node.symbol
+    eps_obs = eps_obs_node.expr
 
     constraints = [theta + eps_obs - 1.0]
     a = rooted_float(obs=0.0, expr=theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))

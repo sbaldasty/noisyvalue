@@ -40,8 +40,7 @@ def _solve_theta_substitutions(thetas, eqns):
 
 
 def _preferred_value_expr(noisy_value):
-    root = noisy_value._root
-    return root.definition if isinstance(root, DerivedNode) else root.symbol
+    return noisy_value._root.expr
 
 
 def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
@@ -72,16 +71,16 @@ def _sampler_inputs_from_roots(values):
     for value in values:
         root = value._root
         for node in root.closure():
-            all_nodes[node.symbol] = node
+            all_nodes[node.expr] = node
         all_thetas |= root.latent_symbols()
         all_eqns.update(root.all_constraints())
         for node in root.closure():
             if not isinstance(node, NoiseNode) or not node.depends_on:
                 continue
-            dependent_law_nodes[node.symbol] = node
+            dependent_law_nodes[node.expr] = node
 
     independent_noise = {
-        node.symbol: node
+        node.expr: node
         for node in all_nodes.values()
         if isinstance(node, NoiseNode) and not node.depends_on
     }
@@ -158,9 +157,8 @@ class NoisyValue:
         if not isinstance(root, Node):
             raise TypeError(f"Expected Node root, got {type(root).__name__}")
 
-        expr = root.symbol if expr is None else sympify(expr)
-        root_def = root.definition if isinstance(root, DerivedNode) else root.symbol
-        if expr != root.symbol and expr != root_def:
+        expr = root.expr if expr is None else sympify(expr)
+        if expr != root.expr:
             root = DerivedNode.operational(expr, deps=[root])
         return cls(obs, root)
 
@@ -168,12 +166,12 @@ class NoisyValue:
     def draw(cls, true_value, noise_node, rng=None):
         rng = util.generator(rng)
         theta_node = LatentNode()
-        theta = theta_node.symbol
-        noise_sym = noise_node.symbol
+        theta = theta_node.expr
+        noise_sym = noise_node.expr
         obs_noise = noise_node.sample(rng)
         obs = sympify(true_value) + obs_noise
         root = DerivedNode(
-            definition=theta,
+            theta,
             constraints=(theta + noise_sym - obs,),
             depends_on=(theta_node, noise_node))
         return cls(obs, root)
@@ -293,8 +291,7 @@ class NoisyFloat(NoisyNumber):
         if obs is None:
             rng = util.generator(rng)
             obs = rng.normal(float(loc_v), float(scale_v))
-        root = DerivedNode(node.symbol, depends_on=[node])
-        return cls(obs, root)
+        return cls(obs, node)
 
     def exp(self):
         return self.unary_op(NoisyFloat, np.exp, sp.exp)
@@ -329,8 +326,7 @@ class NoisyInt(NoisyNumber):
         if obs is None:
             rng = util.generator(rng)
             obs = rng.binomial(int(n_v), float(p_v))
-        root = DerivedNode(node.symbol, depends_on=[node])
-        return cls(obs, root)
+        return cls(obs, node)
 
 
 class NoisyBool(NoisyValue):
@@ -364,7 +360,7 @@ class NoisyValueSampler:
         # Pre-substitute latent solutions into outputs once.
         self._resolved_exprs = tuple(sympify(expr).subs(self._subs) for expr in self._exprs)
 
-        law_symbols = {node.symbol for node in self._law_nodes}
+        law_symbols = {node.expr for node in self._law_nodes}
         self._theta_static = []
         self._theta_dynamic = []
         for theta, rhs in self._subs.items():
@@ -377,7 +373,7 @@ class NoisyValueSampler:
         self._theta_dynamic = tuple(self._theta_dynamic)
 
         eval_symbols = set(self._independent_noise.keys())
-        eval_symbols |= {node.symbol for node in self._law_nodes}
+        eval_symbols |= {node.expr for node in self._law_nodes}
         self._eval_symbols = tuple(sorted(eval_symbols, key=str))
         self._resolved_expr_eval_fns = ()
         try:
@@ -422,7 +418,7 @@ class NoisyValueSampler:
             for node, syms, param_fns in self._law_batch_entries:
                 args = tuple(all_draws[sym] for sym in syms)
                 param_arrays = tuple(np.broadcast_to(fn(*args), (n,)) for fn in param_fns)
-                all_draws[node.symbol] = node.sample_arrays(rng, *param_arrays)
+                all_draws[node.expr] = node.sample_arrays(rng, *param_arrays)
             eval_args = tuple(all_draws[sym] for sym in self._eval_symbols)
             return tuple(
                 SampleBatch(np.broadcast_to(fn(*eval_args), (n,)).astype(dtype))
@@ -448,8 +444,8 @@ class NoisyValueSampler:
 
             for node in self._law_nodes:
                 sampled_value = node.sample(rng, resolved=resolved_values)
-                draws[node.symbol] = sampled_value
-                resolved_values[node.symbol] = sampled_value
+                draws[node.expr] = sampled_value
+                resolved_values[node.expr] = sampled_value
                 if self._theta_dynamic:
                     theta_values.update({
                         theta: rhs.subs(draws)

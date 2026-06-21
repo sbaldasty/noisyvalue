@@ -13,15 +13,15 @@ matplotlib.use("Agg")
 
 def test_plot_posteriors_for_composed_expression_returns_density_curve():
     theta_0_node = LatentNode()
-    theta_0 = theta_0_node.symbol
+    theta_0 = theta_0_node.expr
     theta_1_node = LatentNode()
-    theta_1 = theta_1_node.symbol
+    theta_1 = theta_1_node.expr
     eps_0_node = noise.gaussian(0, 1)
-    eps_0 = eps_0_node.symbol
+    eps_0 = eps_0_node.expr
     eps_1_node = noise.gaussian(0, 2)
-    eps_1 = eps_1_node.symbol
+    eps_1 = eps_1_node.expr
     eps_pred_node = noise.gaussian(0, 0.5)
-    eps_pred = eps_pred_node.symbol
+    eps_pred = eps_pred_node.expr
 
     observed_0 = 3.0
     observed_1 = -1.0
@@ -57,11 +57,11 @@ def test_plot_posteriors_for_composed_expression_returns_density_curve():
 
 def test_plot_posteriors_supports_multiple_values():
     theta_node = LatentNode()
-    theta = theta_node.symbol
+    theta = theta_node.expr
     eps_obs_node = noise.gaussian(0, 1)
-    eps_obs = eps_obs_node.symbol
+    eps_obs = eps_obs_node.expr
     eps_pred_node = noise.gaussian(0, 1)
-    eps_pred = eps_pred_node.symbol
+    eps_pred = eps_pred_node.expr
 
     noisy_a = rooted_float(
         obs=0.0,

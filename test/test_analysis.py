@@ -30,7 +30,7 @@ def test_noisy_min_raises_for_empty_input():
 
 def test_noisy_max_combines_noisy_value_metadata():
     theta_node = LatentNode()
-    theta = theta_node.symbol
+    theta = theta_node.expr
     constraints = [theta - 1.0]
     a = rooted_float(obs=1.0, expr=theta, eqns=constraints, depends_on=(theta_node,))
     b = rooted_float(obs=2.0, expr=2.0 * theta, eqns=constraints, depends_on=(theta_node,))
@@ -96,7 +96,7 @@ def test_chi_squared_returns_nan_when_a_row_has_no_mass():
 
 def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
     theta_node = LatentNode()
-    theta = theta_node.symbol
+    theta = theta_node.expr
     noisy_a = rooted_float(obs=5.0, expr=theta, eqns=[theta - 5.0], depends_on=(theta_node,))
 
     result = analysis.NoisyContingencyTable([[noisy_a, 7.0], [11.0, 13.0]]).chi_squared()
@@ -139,9 +139,9 @@ def test_odds_ratio_sample_with_zero_n_returns_empty_array():
 
 def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
     theta_node = LatentNode()
-    theta = theta_node.symbol
+    theta = theta_node.expr
     eps_node = noise.gaussian(0, 1)
-    eps = eps_node.symbol
+    eps = eps_node.expr
 
     noisy_a = rooted_float(obs=5.0, expr=theta, eqns=[theta + eps - 5.0], depends_on=(theta_node, eps_node))
 

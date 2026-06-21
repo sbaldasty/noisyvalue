@@ -71,10 +71,10 @@ class NormalSumRule(ConsolidationRule):
         combined_mu = sum(c * node._loc for c, node in normal_terms)
         combined_sigma = sp.sqrt(sum((c * node._scale) ** 2 for c, node in normal_terms))
         new_node = NormalNoiseNode(combined_mu, combined_sigma)
-        symbol_to_node[new_node.symbol] = new_node
+        symbol_to_node[new_node.expr] = new_node
         for _, node in normal_terms:
-            eligible.discard(node.symbol)
-        return sp.Add(new_node.symbol, *other_args)
+            eligible.discard(node.expr)
+        return sp.Add(new_node.expr, *other_args)
 
 
 DEFAULT_RULES = [NormalSumRule()]
@@ -105,7 +105,7 @@ def consolidate(*values, rules=None):
     symbol_to_node = {}
     for v in values:
         for node in v._root.closure():
-            symbol_to_node[node.symbol] = node
+            symbol_to_node[node.expr] = node
 
     # Symbols referenced by dependent (law) node source parameters must stay
     # untouched: consolidating them away breaks the law node's sampling.
@@ -119,12 +119,12 @@ def consolidate(*values, rules=None):
     # across the joint expression, ensuring no cross-value correlation is broken.
     joint = sp.Tuple(*resolved_exprs)
     eligible = {
-        sym
-        for sym, node in symbol_to_node.items()
+        expr
+        for expr, node in symbol_to_node.items()
         if isinstance(node, NoiseNode)
         and not node.depends_on
-        and joint.count(sym) == 1
-        and sym not in law_param_symbols
+        and joint.count(expr) == 1
+        and expr not in law_param_symbols
     }
 
     def _query(expr):
@@ -154,8 +154,8 @@ def consolidate(*values, rules=None):
 
     result = []
     for v, new_expr in zip(values, new_exprs):
-        dep_nodes = {node for sym, node in symbol_to_node.items() if sym in new_expr.free_symbols}
+        dep_nodes = {node for expr, node in symbol_to_node.items() if expr in new_expr.free_symbols}
         dep_nodes |= constraint_keepers
-        root = DerivedNode(definition=new_expr, depends_on=list(dep_nodes))
+        root = DerivedNode(new_expr, depends_on=list(dep_nodes))
         result.append(type(v)(v._obs, root))
     return tuple(result)

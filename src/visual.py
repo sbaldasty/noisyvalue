@@ -61,7 +61,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     if quadrature_points < 2:
         raise ValueError("quadrature_points must be at least 2")
 
-    closure_nodes = {node.symbol: node for node in noisy_value._root.closure()}
+    closure_nodes = {node.expr: node for node in noisy_value._root.closure()}
     independent_noise = {
         symbol: node
         for symbol, node in closure_nodes.items()

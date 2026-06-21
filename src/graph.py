@@ -11,7 +11,7 @@ from .util import fresh_name
 
 class Node:
     def __init__(self, depends_on=()):
-        self.symbol = Symbol(fresh_name())
+        self.expr = Symbol(fresh_name())
         self.depends_on = util.as_tuple(depends_on, Node)
 
     def closure(self):
@@ -19,9 +19,9 @@ class Node:
         ordered = []
 
         def walk(node):
-            if node.symbol in seen:
+            if id(node) in seen:
                 return
-            seen.add(node.symbol)
+            seen.add(id(node))
             ordered.append(node)
             for dep in node.depends_on:
                 walk(dep)
@@ -30,7 +30,7 @@ class Node:
         return tuple(ordered)
 
     def latent_symbols(self):
-        return {node.symbol for node in self.closure() if isinstance(node, LatentNode)}
+        return {node.expr for node in self.closure() if isinstance(node, LatentNode)}
 
     def all_constraints(self):
         return frozenset(
@@ -63,9 +63,9 @@ class DerivedNode(Node):
                 flat_deps.append(node)
         return cls(expr, frozenset(flat_eqns), frozenset(flat_deps))
 
-    def __init__(self, definition, constraints=(), depends_on=()):
+    def __init__(self, expr, constraints=(), depends_on=()):
         super().__init__(depends_on=depends_on)
-        self.definition = sympify(definition)
+        self.expr = sympify(expr)
         self.constraints = frozenset(sympify(x) for x in constraints)
 
 
@@ -140,13 +140,13 @@ class BinomialNoiseNode(NoiseNode):
 
 
 def topological_sort_law_nodes(law_nodes):
-    law_symbols = {node.symbol for node in law_nodes}
-    by_symbol = {node.symbol: node for node in law_nodes}
+    law_symbols = {node.expr for node in law_nodes}
+    by_symbol = {node.expr: node for node in law_nodes}
     predecessors = {
-        node.symbol: {
-            dep.symbol
+        node.expr: {
+            dep.expr
             for dep in node.depends_on
-            if not isinstance(dep, DerivedNode) and dep.symbol in law_symbols
+            if not isinstance(dep, DerivedNode) and dep.expr in law_symbols
         }
         for node in law_nodes
     }
