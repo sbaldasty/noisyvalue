@@ -46,7 +46,17 @@ class LatentNode(Node):
 
 
 class NoiseNode(Node):
-    pass
+    def param_exprs(self):
+        raise NotImplementedError
+
+    def param_symbols(self):
+        return {s for p in self.param_exprs() for s in p.free_symbols}
+
+    def sample(self, rng, size=None, resolved=None):
+        raise NotImplementedError
+
+    def sample_arrays(self, rng, *param_arrays):
+        raise NotImplementedError
 
 
 class DerivedNode(Node):
@@ -75,10 +85,6 @@ class NormalNoiseNode(NoiseNode):
         self._loc = sympify(loc)
         self._scale = sympify(scale)
 
-    @property
-    def free_symbols(self):
-        return self._loc.free_symbols | self._scale.free_symbols
-
     def param_exprs(self):
         return (self._loc, self._scale)
 
@@ -105,10 +111,6 @@ class BinomialNoiseNode(NoiseNode):
         super().__init__(depends_on=depends_on)
         self._n = sympify(n)
         self._p = sympify(p)
-
-    @property
-    def free_symbols(self):
-        return self._n.free_symbols | self._p.free_symbols
 
     def param_exprs(self):
         return (self._n, self._p)

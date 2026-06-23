@@ -112,7 +112,7 @@ def consolidate(*values, rules=None):
     for v in values:
         for node in v._root.closure():
             if isinstance(node, NoiseNode) and node.depends_on:
-                law_param_symbols |= node.free_symbols
+                law_param_symbols |= node.param_symbols()
 
     # A noise symbol is eligible for combination only if it appears exactly once
     # across the joint expression, ensuring no cross-value correlation is broken.

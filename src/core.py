@@ -272,15 +272,13 @@ class NoisyFloat(NoisyNumber):
 
     @classmethod
     def normal(cls, loc, scale, obs=None, rng=None):
-        loc_v = NoisyFloat.lift(loc)
-        scale_v = NoisyFloat.lift(scale)
-        loc_expr = loc_v.expr
-        scale_expr = scale_v.expr
-        deps = [v._root for v, e in [(loc_v, loc_expr), (scale_v, scale_expr)] if e.free_symbols]
-        node = NormalNoiseNode(loc_expr, scale_expr, depends_on=deps)
+        loc = NoisyFloat.lift(loc)
+        scale = NoisyFloat.lift(scale)
+        deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
+        node = NormalNoiseNode(loc.expr, scale.expr, depends_on=deps)
         if obs is None:
             rng = util.generator(rng)
-            obs = rng.normal(float(loc_v), float(scale_v))
+            obs = rng.normal(float(loc), float(scale))
         return cls(obs, node)
 
     def exp(self):
@@ -308,15 +306,13 @@ class NoisyInt(NoisyNumber):
 
     @classmethod
     def binomial(cls, n, p, obs=None, rng=None):
-        n_v = NoisyInt.lift(n)
-        p_v = NoisyFloat.lift(p)
-        n_expr = n_v.expr
-        p_expr = p_v.expr
-        deps = [v._root for v, e in [(n_v, n_expr), (p_v, p_expr)] if e.free_symbols]
-        node = BinomialNoiseNode(n_expr, p_expr, depends_on=deps)
+        n = NoisyInt.lift(n)
+        p = NoisyFloat.lift(p)
+        deps = [v._root for v in (n, p) if v.expr.free_symbols]
+        node = BinomialNoiseNode(n.expr, p.expr, deps)
         if obs is None:
             rng = util.generator(rng)
-            obs = rng.binomial(int(n_v), float(p_v))
+            obs = rng.binomial(int(n), float(p))
         return cls(obs, node)
 
 
