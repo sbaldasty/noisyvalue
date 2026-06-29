@@ -148,26 +148,6 @@ class NoisyValue:
     def __bool__(self):
         return bool(self._obs)
 
-    @classmethod
-    def draw(cls, true_value, noise_node, rng=None):
-        rng = util.generator(rng)
-        theta_node = LatentNode()
-        theta = theta_node.expr
-        noise_sym = noise_node.expr
-        obs_noise = noise_node.sample(rng)
-        obs = sympify(true_value) + obs_noise
-        root = DerivedNode(
-            theta,
-            constraints=(theta + noise_sym - obs,),
-            depends_on=(theta_node, noise_node))
-        return cls(obs, root)
-
-    @classmethod
-    def lift(cls, value, accept=None):
-        accept = cls if accept is None else accept
-        assert issubclass(accept, NoisyValue)
-        return value if isinstance(value, accept) else cls(value, DerivedNode(value))
-
     @property
     def expr(self):
         return self._root.expr
@@ -196,6 +176,26 @@ class NoisyValue:
     def unary_op(self, out_cls, obs_op, expr_op):
         root = DerivedNode.operational(expr_op(self.expr), deps=[self._root])
         return out_cls(obs_op(self._obs), root)
+
+    @classmethod
+    def draw(cls, true_value, noise_node, rng=None):
+        rng = util.generator(rng)
+        theta_node = LatentNode()
+        theta = theta_node.expr
+        noise_sym = noise_node.expr
+        obs_noise = noise_node.sample(rng)
+        obs = sympify(true_value) + obs_noise
+        root = DerivedNode(
+            theta,
+            constraints=(theta + noise_sym - obs,),
+            depends_on=(theta_node, noise_node))
+        return cls(obs, root)
+
+    @classmethod
+    def lift(cls, value, accept=None):
+        accept = cls if accept is None else accept
+        assert issubclass(accept, NoisyValue)
+        return value if isinstance(value, accept) else cls(value, DerivedNode(value))
 
 
 class NoisyNumber(NoisyValue):
@@ -270,17 +270,6 @@ class NoisyFloat(NoisyNumber):
     def __init__(self, obs, root):
         super().__init__(float(obs), root)
 
-    @classmethod
-    def normal(cls, loc, scale, obs=None, rng=None):
-        loc = NoisyFloat.lift(loc)
-        scale = NoisyFloat.lift(scale)
-        deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
-        node = NormalNoiseNode(loc.expr, scale.expr, depends_on=deps)
-        if obs is None:
-            rng = util.generator(rng)
-            obs = rng.normal(float(loc), float(scale))
-        return cls(obs, node)
-
     def exp(self):
         return self.unary_op(NoisyFloat, np.exp, sp.exp)
 
@@ -295,6 +284,17 @@ class NoisyFloat(NoisyNumber):
 
     def sqrt(self):
         return self.unary_op(NoisyFloat, np.sqrt, sp.sqrt)
+
+    @classmethod
+    def normal(cls, loc, scale, obs=None, rng=None):
+        loc = NoisyFloat.lift(loc)
+        scale = NoisyFloat.lift(scale)
+        deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
+        node = NormalNoiseNode(loc.expr, scale.expr, depends_on=deps)
+        if obs is None:
+            rng = util.generator(rng)
+            obs = rng.normal(float(loc), float(scale))
+        return cls(obs, node)
 
 
 class NoisyInt(NoisyNumber):

@@ -55,11 +55,20 @@ class NoiseNode(Node):
     def sample(self, rng, size=None, resolved=None):
         raise NotImplementedError
 
-    def sample_arrays(self, rng, *param_arrays):
+    def sympy_rv(self):
+        raise NotImplementedError
+
+    @classmethod
+    def sample_arrays(cls, rng, *param_arrays):
         raise NotImplementedError
 
 
 class DerivedNode(Node):
+
+    def __init__(self, expr, constraints=(), depends_on=()):
+        super().__init__(depends_on)
+        self.expr = sympify(expr)
+        self.constraints = frozenset(sympify(x) for x in constraints)
 
     @classmethod
     def operational(cls, expr, deps=()):
@@ -73,15 +82,10 @@ class DerivedNode(Node):
                 flat_deps.append(node)
         return cls(expr, frozenset(flat_eqns), frozenset(flat_deps))
 
-    def __init__(self, expr, constraints=(), depends_on=()):
-        super().__init__(depends_on=depends_on)
-        self.expr = sympify(expr)
-        self.constraints = frozenset(sympify(x) for x in constraints)
-
 
 class NormalNoiseNode(NoiseNode):
     def __init__(self, loc, scale, depends_on=()):
-        super().__init__(depends_on=depends_on)
+        super().__init__(depends_on)
         self._loc = sympify(loc)
         self._scale = sympify(scale)
 
@@ -93,7 +97,11 @@ class NormalNoiseNode(NoiseNode):
         scale = self._scale if resolved is None else self._scale.subs(resolved)
         return rng.normal(float(loc), float(scale), size=size)
 
-    def sample_arrays(self, rng, loc, scale):
+    def sympy_rv(self):
+        return Normal(fresh_name(), self._loc, self._scale)
+
+    @classmethod
+    def sample_arrays(cls, rng, loc, scale):
         loc = np.asarray(loc, dtype=float)
         scale = np.asarray(scale, dtype=float)
         valid = np.isfinite(loc) & (scale > 0)
@@ -102,13 +110,10 @@ class NormalNoiseNode(NoiseNode):
         result = rng.normal(np.where(valid, loc, 0.0), np.where(valid, scale, 1.0))
         return np.where(valid, result, np.nan)
 
-    def sympy_rv(self):
-        return Normal(fresh_name(), self._loc, self._scale)
-
 
 class BinomialNoiseNode(NoiseNode):
     def __init__(self, n, p, depends_on=()):
-        super().__init__(depends_on=depends_on)
+        super().__init__(depends_on)
         self._n = sympify(n)
         self._p = sympify(p)
 
@@ -127,7 +132,11 @@ class BinomialNoiseNode(NoiseNode):
             return np.nan if size is None else np.full(size, np.nan, dtype=float)
         return rng.binomial(n_val, p_val, size=size)
 
-    def sample_arrays(self, rng, n, p):
+    def sympy_rv(self):
+        return rv(fresh_name(), BinomialDistribution, self._n, self._p, check=False)
+
+    @classmethod
+    def sample_arrays(cls, rng, n, p):
         n = np.asarray(n, dtype=float)
         p = np.asarray(p, dtype=float)
         valid = (n >= 0) & np.isfinite(p) & (p >= 0) & (p <= 1)
@@ -136,9 +145,6 @@ class BinomialNoiseNode(NoiseNode):
             np.where(valid, p, 0.5),
         ), dtype=float)
         return np.where(valid, result, np.nan)
-
-    def sympy_rv(self):
-        return rv(fresh_name(), BinomialDistribution, self._n, self._p, check=False)
 
 
 def topological_sort_law_nodes(law_nodes):
@@ -157,8 +163,6 @@ def topological_sort_law_nodes(law_nodes):
     remaining = set(law_symbols)
     while remaining:
         ready = {sym for sym in remaining if predecessors[sym] <= resolved}
-        if not ready:
-            raise ValueError(f"Cycle in law node dependencies: {remaining}")
         for sym in sorted(ready, key=str):
             ordered.append(by_symbol[sym])
             resolved.add(sym)
