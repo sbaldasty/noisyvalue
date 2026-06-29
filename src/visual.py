@@ -64,7 +64,7 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     independent_noise = {
         symbol: node
         for symbol, node in closure_nodes.items()
-        if isinstance(node, NoiseNode) and not node.depends_on
+        if isinstance(node, NoiseNode) and not node.deps
     }
     independent_noise_symbols = set(independent_noise.keys())
 

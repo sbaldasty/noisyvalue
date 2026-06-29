@@ -35,8 +35,8 @@ def test_sample_shaped_preserves_shared_dependency_across_cells():
     eps_obs = eps_obs_node.expr
 
     constraints = [theta + eps_obs - 1.0]
-    a = rooted_float(obs=0.0, expr=theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))
-    b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))
+    a = rooted_float(obs=0.0, expr=theta, eqns=constraints, deps=(theta_node, eps_obs_node))
+    b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, deps=(theta_node, eps_obs_node))
     table = np.array([[a, b]], dtype=object)
 
     draws = sample_float_array(table, n=300, rng=123)

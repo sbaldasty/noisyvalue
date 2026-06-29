@@ -10,9 +10,9 @@ from .util import fresh_name
 
 
 class Node:
-    def __init__(self, depends_on=()):
+    def __init__(self, deps=()):
         self.expr = Symbol(fresh_name())
-        self.depends_on = util.as_tuple(depends_on, Node)
+        self.deps = util.as_tuple(deps, Node)
 
     def closure(self):
         seen = set()
@@ -23,7 +23,7 @@ class Node:
                 return
             seen.add(id(node))
             ordered.append(node)
-            for dep in node.depends_on:
+            for dep in node.deps:
                 walk(dep)
 
         walk(self)
@@ -64,9 +64,8 @@ class NoiseNode(Node):
 
 
 class DerivedNode(Node):
-
-    def __init__(self, expr, constraints=(), depends_on=()):
-        super().__init__(depends_on)
+    def __init__(self, expr, constraints=(), deps=()):
+        super().__init__(deps)
         self.expr = sympify(expr)
         self.constraints = frozenset(sympify(x) for x in constraints)
 
@@ -77,15 +76,15 @@ class DerivedNode(Node):
         for node in deps:
             if isinstance(node, DerivedNode):
                 flat_eqns.extend(node.constraints)
-                flat_deps.extend(node.depends_on)
+                flat_deps.extend(node.deps)
             else:
                 flat_deps.append(node)
         return cls(expr, frozenset(flat_eqns), frozenset(flat_deps))
 
 
 class NormalNode(NoiseNode):
-    def __init__(self, loc, scale, depends_on=()):
-        super().__init__(depends_on)
+    def __init__(self, loc, scale, deps=()):
+        super().__init__(deps)
         self.loc = sympify(loc)
         self.scale = sympify(scale)
 
@@ -112,8 +111,8 @@ class NormalNode(NoiseNode):
 
 
 class BinomialNode(NoiseNode):
-    def __init__(self, n, p, depends_on=()):
-        super().__init__(depends_on)
+    def __init__(self, n, p, deps=()):
+        super().__init__(deps)
         self.trials = sympify(n)
         self.prob = sympify(p)
 
@@ -153,7 +152,7 @@ def topological_sort_law_nodes(law_nodes):
     predecessors = {
         node.expr: {
             dep.expr
-            for dep in node.depends_on
+            for dep in node.deps
             if not isinstance(dep, DerivedNode) and dep.expr in law_symbols
         }
         for node in law_nodes

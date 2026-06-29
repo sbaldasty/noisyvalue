@@ -52,7 +52,7 @@ class NormalSumRule(ConsolidationRule):
                 and sym in symbol_to_node
                 and isinstance(symbol_to_node[sym], NoiseNode)
                 and isinstance(symbol_to_node[sym], NormalNode)
-                and not symbol_to_node[sym].depends_on
+                and not symbol_to_node[sym].deps
             ):
                 normal_terms.append((coeff, symbol_to_node[sym]))
             else:
@@ -111,7 +111,7 @@ def consolidate(*values, rules=None):
     law_param_symbols = set()
     for v in values:
         for node in v._root.closure():
-            if isinstance(node, NoiseNode) and node.depends_on:
+            if isinstance(node, NoiseNode) and node.deps:
                 law_param_symbols |= node.param_symbols()
 
     # A noise symbol is eligible for combination only if it appears exactly once
@@ -121,7 +121,7 @@ def consolidate(*values, rules=None):
         expr
         for expr, node in symbol_to_node.items()
         if isinstance(node, NoiseNode)
-        and not node.depends_on
+        and not node.deps
         and joint.count(expr) == 1
         and expr not in law_param_symbols
     }
@@ -139,7 +139,7 @@ def consolidate(*values, rules=None):
     new_exprs = new_joint.args
 
     # DerivedNodes that carry theta constraints for law node source params must
-    # stay in each consolidated root's depends_on.  dep_nodes is built from
+    # stay in each consolidated root's deps.  dep_nodes is built from
     # new_expr.free_symbols (leaf nodes only), so those intermediate nodes would
     # otherwise be silently dropped, making the thetas unsolvable at sample time.
     constraint_keepers = {
@@ -155,6 +155,6 @@ def consolidate(*values, rules=None):
     for v, new_expr in zip(values, new_exprs):
         dep_nodes = {node for expr, node in symbol_to_node.items() if expr in new_expr.free_symbols}
         dep_nodes |= constraint_keepers
-        root = DerivedNode(new_expr, depends_on=list(dep_nodes))
+        root = DerivedNode(new_expr, deps=list(dep_nodes))
         result.append(type(v)(v._obs, root))
     return tuple(result)

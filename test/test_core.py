@@ -27,8 +27,8 @@ def test_joint_sampling_preserves_shared_latent_dependency():
     eps_obs = eps_obs_node.expr
 
     constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))
-    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))
+    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, deps=(theta_node, eps_obs_node))
+    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, deps=(theta_node, eps_obs_node))
 
     batch_a, batch_b = sample_noisy_values(noisy_a, noisy_b, n=2000, rng=123)
     draws_a = batch_a.draws
@@ -63,8 +63,8 @@ def test_prepared_sampler_preserves_shared_latent_dependency():
     eps_obs = eps_obs_node.expr
 
     constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))
-    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))
+    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, deps=(theta_node, eps_obs_node))
+    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, deps=(theta_node, eps_obs_node))
 
     prepared = noisy_value_sampler(noisy_a, noisy_b)
     batch_a, batch_b = prepared.sample(n=2000, rng=123)
@@ -83,8 +83,8 @@ def test_prepared_sampler_matches_direct_sampling_for_same_seed():
     eps_obs = eps_obs_node.expr
 
     constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, depends_on=(theta_node, eps_obs_node))
-    noisy_b = rooted_float(obs=0.0, expr=theta + 3.0, eqns=constraints, depends_on=(theta_node, eps_obs_node))
+    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, deps=(theta_node, eps_obs_node))
+    noisy_b = rooted_float(obs=0.0, expr=theta + 3.0, eqns=constraints, deps=(theta_node, eps_obs_node))
 
     direct_a, direct_b = sample_noisy_values(noisy_a, noisy_b, n=250, rng=777)
     prepared = noisy_value_sampler(noisy_a, noisy_b)
@@ -105,7 +105,7 @@ def test_sampler_uses_root_constraints():
     root = DerivedNode(
         expr=theta,
         constraints=(theta - 3.5,),
-        depends_on=(theta_node,),
+        deps=(theta_node,),
     )
 
     value = from_node(obs=3.5, root=root, expr=theta)
@@ -131,7 +131,7 @@ def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
     root = DerivedNode(
         expr=theta,
         constraints=(theta - 2.5,),
-        depends_on=(theta_node,),
+        deps=(theta_node,),
     )
 
     value = from_node(obs=2.5, root=root, expr=theta)
@@ -195,7 +195,7 @@ def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
     eps = eps_node.expr
     constraints = [theta + eps - 4.0]
 
-    value = rooted_float(obs=4.0, expr=theta, eqns=constraints, depends_on=(theta_node, eps_node))
+    value = rooted_float(obs=4.0, expr=theta, eqns=constraints, deps=(theta_node, eps_node))
     guarded = value.guarded(value > 0)
 
     assert isinstance(guarded, NoisyFloat)
@@ -252,7 +252,7 @@ def test_noisyint_binomial_preserves_upstream_dependency_from_n():
     root = DerivedNode(
         expr=theta,
         constraints=(theta - 3.0,),
-        depends_on=(theta_node,),
+        deps=(theta_node,),
     )
     count = NoisyInt(3, root)
     resampled = NoisyInt.binomial(count, 0.5, obs=3)
@@ -266,7 +266,7 @@ def test_noisyint_binomial_invalid_binomial_parameter_yields_nan_draws():
     root = DerivedNode(
         expr=theta,
         constraints=(theta - 1.5,),
-        depends_on=(theta_node,),
+        deps=(theta_node,),
     )
     prob = from_node(obs=1.5, root=root, expr=theta)
     resampled = NoisyInt.binomial(10, prob, obs=3)
@@ -281,10 +281,10 @@ def test_noisyint_binomial_invalid_binomial_parameter_yields_nan_draws():
 def test_sampler_resolves_multilayer_law_dependencies():
     z1 = noise.gaussian(0, 1)
     z1_symbol = z1.expr
-    z2 = NormalNode(z1_symbol, 1, depends_on=(z1,))
+    z2 = NormalNode(z1_symbol, 1, deps=(z1,))
     root = DerivedNode(
         expr=z2.expr,
-        depends_on=(z2,),
+        deps=(z2,),
     )
 
     value = from_node(obs=0.0, root=root, expr=z2.expr)
@@ -301,7 +301,7 @@ def test_sampler_uses_root_output_definition():
     root = DerivedNode(
         expr=theta,
         constraints=(theta - 4.0,),
-        depends_on=(theta_node,),
+        deps=(theta_node,),
     )
 
     value = from_node(obs=4.0, root=root, expr=theta + 9.0)
@@ -317,17 +317,17 @@ def test_node_derived_uses_explicit_dependencies():
     theta = LatentNode()
     eps = noise.gaussian(0, 1)
 
-    value = DerivedNode(expr=theta.expr + eps.expr, depends_on=(theta, eps))
+    value = DerivedNode(expr=theta.expr + eps.expr, deps=(theta, eps))
 
-    assert {dep.expr for dep in value.depends_on} == {theta.expr, eps.expr}
+    assert {dep.expr for dep in value.deps} == {theta.expr, eps.expr}
 
 
 def test_node_noise_uses_explicit_dependencies():
     theta = LatentNode()
 
-    z = NormalNode(theta.expr, 1, depends_on=(theta,))
+    z = NormalNode(theta.expr, 1, deps=(theta,))
 
-    assert {dep.expr for dep in z.depends_on} == {theta.expr}
+    assert {dep.expr for dep in z.deps} == {theta.expr}
 
 
 def test_node_uses_fresh_symbols_for_each_node():
@@ -340,12 +340,12 @@ def test_node_uses_fresh_symbols_for_each_node():
 def test_node_derived_wires_wrapper_and_symbol_nodes_explicitly():
     theta_node = LatentNode()
     theta = theta_node.expr
-    base_root = DerivedNode(expr=theta, constraints=(theta - 2.0,), depends_on=(theta_node,))
+    base_root = DerivedNode(expr=theta, constraints=(theta - 2.0,), deps=(theta_node,))
     wrapped = from_node(obs=3.0, root=base_root, expr=theta + 1.0)
 
-    out = DerivedNode(expr=theta + 2.0, depends_on=(wrapped._root, theta_node))
+    out = DerivedNode(expr=theta + 2.0, deps=(wrapped._root, theta_node))
 
-    dep_symbols = {dep.expr for dep in out.depends_on}
+    dep_symbols = {dep.expr for dep in out.deps}
     assert wrapped._root.expr in dep_symbols
     assert theta in dep_symbols
 
@@ -397,7 +397,7 @@ def test_noisyfloat_normal_plain_params_yield_independent_noise_node():
     x = NoisyFloat.normal(3, 2, rng=42)
 
     noise_nodes = [n for n in x._root.closure() if isinstance(n, NoiseNode)]
-    assert all(len(n.depends_on) == 0 for n in noise_nodes)
+    assert all(len(n.deps) == 0 for n in noise_nodes)
 
 
 def test_noisyfloat_normal_samples_from_correct_distribution():
@@ -463,7 +463,7 @@ def test_noisyint_binomial_plain_params_yield_independent_noise_node():
     k = NoisyInt.binomial(10, 0.3, rng=42)
 
     noise_nodes = [n for n in k._root.closure() if isinstance(n, NoiseNode)]
-    assert all(len(n.depends_on) == 0 for n in noise_nodes)
+    assert all(len(n.deps) == 0 for n in noise_nodes)
 
 
 def test_noisyint_binomial_samples_from_correct_distribution():

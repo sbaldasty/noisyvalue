@@ -71,14 +71,14 @@ def _sampler_inputs_from_roots(values):
         all_thetas |= root.latent_symbols()
         all_eqns.update(root.all_constraints())
         for node in root.closure():
-            if not isinstance(node, NoiseNode) or not node.depends_on:
+            if not isinstance(node, NoiseNode) or not node.deps:
                 continue
             dependent_law_nodes[node.expr] = node
 
     independent_noise = {
         node.expr: node
         for node in all_nodes.values()
-        if isinstance(node, NoiseNode) and not node.depends_on
+        if isinstance(node, NoiseNode) and not node.deps
     }
     independent_noise_symbols = set(independent_noise.keys())
     theta_eqns = _filter_theta_equations(all_eqns, all_thetas, independent_noise_symbols)
@@ -188,7 +188,7 @@ class NoisyValue:
         root = DerivedNode(
             theta,
             constraints=(theta + noise_sym - obs,),
-            depends_on=(theta_node, noise_node))
+            deps=(theta_node, noise_node))
         return cls(obs, root)
 
     @classmethod
@@ -290,7 +290,7 @@ class NoisyFloat(NoisyNumber):
         loc = NoisyFloat.lift(loc)
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
-        node = NormalNode(loc.expr, scale.expr, depends_on=deps)
+        node = NormalNode(loc.expr, scale.expr, deps=deps)
         if obs is None:
             rng = util.generator(rng)
             obs = rng.normal(float(loc), float(scale))

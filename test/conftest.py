@@ -12,10 +12,10 @@ def from_node(obs, root, expr=None):
     return NoisyFloat(obs, root)
 
 
-def rooted_float(obs, expr, eqns=(), depends_on=()):
+def rooted_float(obs, expr, eqns=(), deps=()):
     expr = sp.sympify(expr)
     eqns = tuple(sp.sympify(eqn) for eqn in eqns)
-    root = DerivedNode(expr, constraints=eqns, depends_on=depends_on)
+    root = DerivedNode(expr, constraints=eqns, deps=deps)
     return from_node(obs=obs, root=root, expr=expr)
 
 

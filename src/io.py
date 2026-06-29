@@ -106,14 +106,14 @@ def _node_to_dict(node):
         return {
             "kind": "noise",
             "source": _noise_node_params_to_dict(node),
-            "depends_on": [_node_name(dep) for dep in node.depends_on],
+            "deps": [_node_name(dep) for dep in node.deps],
         }
     if isinstance(node, DerivedNode):
         return {
             "kind": "derived",
             "definition": sp.srepr(node.expr),
             "constraints": [sp.srepr(c) for c in node.constraints],
-            "depends_on": [_node_name(dep) for dep in node.depends_on],
+            "deps": [_node_name(dep) for dep in node.deps],
         }
     raise TypeError(f"Unknown Node type: {type(node)}")
 
@@ -184,7 +184,7 @@ def _topo_sort(nodes_dict):
         if name in visited:
             return
         visited.add(name)
-        for dep in nodes_dict[name].get("depends_on", []):
+        for dep in nodes_dict[name].get("deps", []):
             visit(dep)
         order.append(name)
 
@@ -200,19 +200,19 @@ def _parse_expr(s, name_map):
     return expr
 
 
-def _load_noise_node(source_dict, name_map, depends_on=()):
+def _load_noise_node(source_dict, name_map, deps=()):
     t = source_dict["type"]
     if t == "normal":
         return NormalNode(
             _parse_expr(source_dict["loc"], name_map),
             _parse_expr(source_dict["scale"], name_map),
-            depends_on=depends_on,
+            deps=deps,
         )
     if t == "binomial":
         return BinomialNode(
             _parse_expr(source_dict["n"], name_map),
             _parse_expr(source_dict["p"], name_map),
-            depends_on=depends_on,
+            deps=deps,
         )
     raise ValueError(f"Unknown source type: {t!r}")
 
@@ -225,7 +225,7 @@ def _load_nodes(nodes_dict):
     for old_name in order:
         nd = nodes_dict[old_name]
         kind = nd["kind"]
-        deps = [built[dep_name] for dep_name in nd.get("depends_on", [])]
+        deps = [built[dep_name] for dep_name in nd.get("deps", [])]
 
         def remap(s, _map=name_map):
             return _parse_expr(s, _map)
@@ -234,13 +234,13 @@ def _load_nodes(nodes_dict):
             node = LatentNode()
             name_map[old_name] = node.expr
         elif kind == "noise":
-            node = _load_noise_node(nd["source"], name_map, depends_on=deps)
+            node = _load_noise_node(nd["source"], name_map, deps=deps)
             name_map[old_name] = node.expr
         elif kind == "derived":
             node = DerivedNode(
                 remap(nd["definition"]),
                 constraints=[remap(c) for c in nd["constraints"]],
-                depends_on=deps,
+                deps=deps,
             )
         else:
             raise ValueError(f"Unknown node kind: {kind!r}")
