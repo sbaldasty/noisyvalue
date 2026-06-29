@@ -15,7 +15,7 @@ from .graph import NormalNode
 from .graph import NoiseNode
 from .util import fresh_name
 
-_VERSION = 1
+_VERSION = 2
 
 _TYPE_CLASSES = {
     "NoisyFloat": NoisyFloat,
@@ -91,12 +91,15 @@ def _collect_nodes(container):
     return nodes
 
 
+_NOISE_NODE_TYPE_NAMES = {NormalNode: "normal", BinomialNode: "binomial"}
+_NOISE_NODE_TYPES = {v: k for k, v in _NOISE_NODE_TYPE_NAMES.items()}
+
+
 def _noise_node_params_to_dict(node):
-    if isinstance(node, NormalNode):
-        return {"type": "normal", "loc": sp.srepr(node.loc), "scale": sp.srepr(node.scale)}
-    if isinstance(node, BinomialNode):
-        return {"type": "binomial", "n": sp.srepr(node.trials), "p": sp.srepr(node.prob)}
-    raise TypeError(f"Unknown NoiseNode type: {type(node)}")
+    t = _NOISE_NODE_TYPE_NAMES.get(type(node))
+    if t is None:
+        raise TypeError(f"Unknown NoiseNode type: {type(node)}")
+    return {"type": t, "params": [sp.srepr(p) for p in node.params]}
 
 
 def _node_to_dict(node):
@@ -202,19 +205,11 @@ def _parse_expr(s, name_map):
 
 def _load_noise_node(source_dict, name_map, deps=()):
     t = source_dict["type"]
-    if t == "normal":
-        return NormalNode(
-            _parse_expr(source_dict["loc"], name_map),
-            _parse_expr(source_dict["scale"], name_map),
-            deps=deps,
-        )
-    if t == "binomial":
-        return BinomialNode(
-            _parse_expr(source_dict["n"], name_map),
-            _parse_expr(source_dict["p"], name_map),
-            deps=deps,
-        )
-    raise ValueError(f"Unknown source type: {t!r}")
+    cls = _NOISE_NODE_TYPES.get(t)
+    if cls is None:
+        raise ValueError(f"Unknown source type: {t!r}")
+    params = [_parse_expr(p, name_map) for p in source_dict["params"]]
+    return cls(params, deps)
 
 
 def _load_nodes(nodes_dict):

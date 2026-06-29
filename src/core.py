@@ -290,7 +290,7 @@ class NoisyFloat(NoisyNumber):
         loc = NoisyFloat.lift(loc)
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
-        node = NormalNode(loc.expr, scale.expr, deps=deps)
+        node = NormalNode.create(loc.expr, scale.expr, deps=deps)
         if obs is None:
             rng = util.generator(rng)
             obs = rng.normal(float(loc), float(scale))
@@ -309,7 +309,7 @@ class NoisyInt(NoisyNumber):
         n = NoisyInt.lift(n)
         p = NoisyFloat.lift(p)
         deps = [v._root for v in (n, p) if v.expr.free_symbols]
-        node = BinomialNode(n.expr, p.expr, deps)
+        node = BinomialNode.create(n.expr, p.expr, deps=deps)
         if obs is None:
             rng = util.generator(rng)
             obs = rng.binomial(int(n), float(p))
@@ -380,10 +380,10 @@ class NoisyValueSampler:
                 syms = tuple(available)
                 param_fns = tuple(
                     sp.lambdify(syms, sympify(expr).subs(self._subs), modules="numpy")
-                    for expr in node.param_exprs()
+                    for expr in node.params
                 )
                 law_batch_entries.append((node, syms, param_fns))
-                available.append(node.symbol)
+                available.append(node.expr)
             self._law_batch_entries = tuple(law_batch_entries)
         except Exception:
             self._law_batch_entries = None

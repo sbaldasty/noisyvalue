@@ -46,11 +46,17 @@ class LatentNode(Node):
 
 
 class NoiseNode(Node):
-    def param_exprs(self):
-        raise NotImplementedError
+    def __init__(self, params, deps=()):
+        super().__init__(deps)
+        self.params = list(params)
 
     def param_symbols(self):
-        return {s for p in self.param_exprs() for s in p.free_symbols}
+        return {s for p in self.params for s in p.free_symbols}
+
+    def _resolve_params(self, resolved):
+        if resolved is None:
+            return self.params
+        return [p.subs(resolved) for p in self.params]
 
     def sample(self, rng, size=None, resolved=None):
         raise NotImplementedError
@@ -83,21 +89,24 @@ class DerivedNode(Node):
 
 
 class NormalNode(NoiseNode):
-    def __init__(self, loc, scale, deps=()):
-        super().__init__(deps)
-        self.loc = sympify(loc)
-        self.scale = sympify(scale)
+    @property
+    def loc(self):
+        return self.params[0]
 
-    def param_exprs(self):
-        return (self.loc, self.scale)
+    @property
+    def scale(self):
+        return self.params[1]
 
     def sample(self, rng, size=None, resolved=None):
-        loc = self.loc if resolved is None else self.loc.subs(resolved)
-        scale = self.scale if resolved is None else self.scale.subs(resolved)
+        loc, scale = self._resolve_params(resolved)
         return rng.normal(float(loc), float(scale), size=size)
 
     def sympy_rv(self):
         return Normal(fresh_name(), self.loc, self.scale)
+
+    @classmethod
+    def create(cls, loc, scale, deps=()):
+        return cls([sympify(loc), sympify(scale)], deps)
 
     @classmethod
     def sample_arrays(cls, rng, loc, scale):
@@ -111,17 +120,16 @@ class NormalNode(NoiseNode):
 
 
 class BinomialNode(NoiseNode):
-    def __init__(self, n, p, deps=()):
-        super().__init__(deps)
-        self.trials = sympify(n)
-        self.prob = sympify(p)
+    @property
+    def trials(self):
+        return self.params[0]
 
-    def param_exprs(self):
-        return (self.trials, self.prob)
+    @property
+    def prob(self):
+        return self.params[1]
 
     def sample(self, rng, size=None, resolved=None):
-        n = self.trials if resolved is None else self.trials.subs(resolved)
-        p = self.prob if resolved is None else self.prob.subs(resolved)
+        n, p = self._resolve_params(resolved)
         try:
             n_val = int(n)
             p_val = float(p)
@@ -133,6 +141,10 @@ class BinomialNode(NoiseNode):
 
     def sympy_rv(self):
         return rv(fresh_name(), BinomialDistribution, self.trials, self.prob, check=False)
+
+    @classmethod
+    def create(cls, n, p, deps=()):
+        return cls([sympify(n), sympify(p)], deps)
 
     @classmethod
     def sample_arrays(cls, rng, n, p):

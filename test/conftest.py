@@ -37,8 +37,8 @@ def _to_expr(value):
 
 
 def gaussian(loc, scale):
-    return NormalNode(_to_expr(loc), _to_expr(scale))
+    return NormalNode.create(_to_expr(loc), _to_expr(scale))
 
 
 def binomial(n, p):
-    return BinomialNode(_to_expr(n), _to_expr(p))
+    return BinomialNode.create(_to_expr(n), _to_expr(p))
