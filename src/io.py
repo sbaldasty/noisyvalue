@@ -8,10 +8,10 @@ from .consolidate import consolidate
 from .core import (
     NoisyValue, NoisyFloat, NoisyInt, NoisyBool,
 )
-from .graph import BinomialNoiseNode
+from .graph import BinomialNode
 from .graph import DerivedNode
 from .graph import LatentNode
-from .graph import NormalNoiseNode
+from .graph import NormalNode
 from .graph import NoiseNode
 from .util import fresh_name
 
@@ -92,10 +92,10 @@ def _collect_nodes(container):
 
 
 def _noise_node_params_to_dict(node):
-    if isinstance(node, NormalNoiseNode):
-        return {"type": "normal", "loc": sp.srepr(node._loc), "scale": sp.srepr(node._scale)}
-    if isinstance(node, BinomialNoiseNode):
-        return {"type": "binomial", "n": sp.srepr(node._n), "p": sp.srepr(node._p)}
+    if isinstance(node, NormalNode):
+        return {"type": "normal", "loc": sp.srepr(node.loc), "scale": sp.srepr(node.scale)}
+    if isinstance(node, BinomialNode):
+        return {"type": "binomial", "n": sp.srepr(node.trials), "p": sp.srepr(node.prob)}
     raise TypeError(f"Unknown NoiseNode type: {type(node)}")
 
 
@@ -203,13 +203,13 @@ def _parse_expr(s, name_map):
 def _load_noise_node(source_dict, name_map, depends_on=()):
     t = source_dict["type"]
     if t == "normal":
-        return NormalNoiseNode(
+        return NormalNode(
             _parse_expr(source_dict["loc"], name_map),
             _parse_expr(source_dict["scale"], name_map),
             depends_on=depends_on,
         )
     if t == "binomial":
-        return BinomialNoiseNode(
+        return BinomialNode(
             _parse_expr(source_dict["n"], name_map),
             _parse_expr(source_dict["p"], name_map),
             depends_on=depends_on,

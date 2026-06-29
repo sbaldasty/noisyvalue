@@ -83,22 +83,22 @@ class DerivedNode(Node):
         return cls(expr, frozenset(flat_eqns), frozenset(flat_deps))
 
 
-class NormalNoiseNode(NoiseNode):
+class NormalNode(NoiseNode):
     def __init__(self, loc, scale, depends_on=()):
         super().__init__(depends_on)
-        self._loc = sympify(loc)
-        self._scale = sympify(scale)
+        self.loc = sympify(loc)
+        self.scale = sympify(scale)
 
     def param_exprs(self):
-        return (self._loc, self._scale)
+        return (self.loc, self.scale)
 
     def sample(self, rng, size=None, resolved=None):
-        loc = self._loc if resolved is None else self._loc.subs(resolved)
-        scale = self._scale if resolved is None else self._scale.subs(resolved)
+        loc = self.loc if resolved is None else self.loc.subs(resolved)
+        scale = self.scale if resolved is None else self.scale.subs(resolved)
         return rng.normal(float(loc), float(scale), size=size)
 
     def sympy_rv(self):
-        return Normal(fresh_name(), self._loc, self._scale)
+        return Normal(fresh_name(), self.loc, self.scale)
 
     @classmethod
     def sample_arrays(cls, rng, loc, scale):
@@ -111,18 +111,18 @@ class NormalNoiseNode(NoiseNode):
         return np.where(valid, result, np.nan)
 
 
-class BinomialNoiseNode(NoiseNode):
+class BinomialNode(NoiseNode):
     def __init__(self, n, p, depends_on=()):
         super().__init__(depends_on)
-        self._n = sympify(n)
-        self._p = sympify(p)
+        self.trials = sympify(n)
+        self.prob = sympify(p)
 
     def param_exprs(self):
-        return (self._n, self._p)
+        return (self.trials, self.prob)
 
     def sample(self, rng, size=None, resolved=None):
-        n = self._n if resolved is None else self._n.subs(resolved)
-        p = self._p if resolved is None else self._p.subs(resolved)
+        n = self.trials if resolved is None else self.trials.subs(resolved)
+        p = self.prob if resolved is None else self.prob.subs(resolved)
         try:
             n_val = int(n)
             p_val = float(p)
@@ -133,7 +133,7 @@ class BinomialNoiseNode(NoiseNode):
         return rng.binomial(n_val, p_val, size=size)
 
     def sympy_rv(self):
-        return rv(fresh_name(), BinomialDistribution, self._n, self._p, check=False)
+        return rv(fresh_name(), BinomialDistribution, self.trials, self.prob, check=False)
 
     @classmethod
     def sample_arrays(cls, rng, n, p):

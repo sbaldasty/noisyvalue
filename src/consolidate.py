@@ -8,7 +8,7 @@ from .core import (
     NoisyValue,
 )
 from .graph import DerivedNode
-from .graph import NormalNoiseNode
+from .graph import NormalNode
 from .graph import NoiseNode
 
 
@@ -51,7 +51,7 @@ class NormalSumRule(ConsolidationRule):
                 and sym in eligible
                 and sym in symbol_to_node
                 and isinstance(symbol_to_node[sym], NoiseNode)
-                and isinstance(symbol_to_node[sym], NormalNoiseNode)
+                and isinstance(symbol_to_node[sym], NormalNode)
                 and not symbol_to_node[sym].depends_on
             ):
                 normal_terms.append((coeff, symbol_to_node[sym]))
@@ -67,9 +67,9 @@ class NormalSumRule(ConsolidationRule):
 
     def apply(self, expr, symbol_to_node, eligible):
         normal_terms, other_args = self._parse(expr, symbol_to_node, eligible)
-        combined_mu = sum(c * node._loc for c, node in normal_terms)
-        combined_sigma = sp.sqrt(sum((c * node._scale) ** 2 for c, node in normal_terms))
-        new_node = NormalNoiseNode(combined_mu, combined_sigma)
+        combined_mu = sum(c * node.loc for c, node in normal_terms)
+        combined_sigma = sp.sqrt(sum((c * node.scale) ** 2 for c, node in normal_terms))
+        new_node = NormalNode(combined_mu, combined_sigma)
         symbol_to_node[new_node.expr] = new_node
         for _, node in normal_terms:
             eligible.discard(node.expr)

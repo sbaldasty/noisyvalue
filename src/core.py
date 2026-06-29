@@ -6,8 +6,8 @@ import util
 from sympy import Abs, And, Eq, Equality, Not, Or, Piecewise, Pow, Rational
 from sympy import sympify
 
-from .graph import NormalNoiseNode
-from .graph import BinomialNoiseNode
+from .graph import NormalNode
+from .graph import BinomialNode
 from .graph import DerivedNode
 from .graph import LatentNode
 from .graph import Node
@@ -290,7 +290,7 @@ class NoisyFloat(NoisyNumber):
         loc = NoisyFloat.lift(loc)
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
-        node = NormalNoiseNode(loc.expr, scale.expr, depends_on=deps)
+        node = NormalNode(loc.expr, scale.expr, depends_on=deps)
         if obs is None:
             rng = util.generator(rng)
             obs = rng.normal(float(loc), float(scale))
@@ -309,7 +309,7 @@ class NoisyInt(NoisyNumber):
         n = NoisyInt.lift(n)
         p = NoisyFloat.lift(p)
         deps = [v._root for v in (n, p) if v.expr.free_symbols]
-        node = BinomialNoiseNode(n.expr, p.expr, deps)
+        node = BinomialNode(n.expr, p.expr, deps)
         if obs is None:
             rng = util.generator(rng)
             obs = rng.binomial(int(n), float(p))

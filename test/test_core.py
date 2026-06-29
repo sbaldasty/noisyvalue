@@ -13,7 +13,7 @@ from src.core import sample_noisy_values
 from src.graph import DerivedNode
 from src.graph import LatentNode
 from src.graph import Node
-from src.graph import NormalNoiseNode
+from src.graph import NormalNode
 from src.graph import NoiseNode
 
 
@@ -281,7 +281,7 @@ def test_noisyint_binomial_invalid_binomial_parameter_yields_nan_draws():
 def test_sampler_resolves_multilayer_law_dependencies():
     z1 = noise.gaussian(0, 1)
     z1_symbol = z1.expr
-    z2 = NormalNoiseNode(z1_symbol, 1, depends_on=(z1,))
+    z2 = NormalNode(z1_symbol, 1, depends_on=(z1,))
     root = DerivedNode(
         expr=z2.expr,
         depends_on=(z2,),
@@ -325,7 +325,7 @@ def test_node_derived_uses_explicit_dependencies():
 def test_node_noise_uses_explicit_dependencies():
     theta = LatentNode()
 
-    z = NormalNoiseNode(theta.expr, 1, depends_on=(theta,))
+    z = NormalNode(theta.expr, 1, depends_on=(theta,))
 
     assert {dep.expr for dep in z.depends_on} == {theta.expr}
 
