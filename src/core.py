@@ -290,7 +290,7 @@ class NoisyFloat(NoisyNumber):
         loc = NoisyFloat.lift(loc)
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
-        node = NormalNode.create(loc.expr, scale.expr, deps=deps)
+        node = NormalNode.create(deps=deps, loc=loc.expr, scale=scale.expr)
         if obs is None:
             rng = util.generator(rng)
             obs = rng.normal(float(loc), float(scale))
@@ -309,7 +309,7 @@ class NoisyInt(NoisyNumber):
         n = NoisyInt.lift(n)
         p = NoisyFloat.lift(p)
         deps = [v._root for v in (n, p) if v.expr.free_symbols]
-        node = BinomialNode.create(n.expr, p.expr, deps=deps)
+        node = BinomialNode.create(deps=deps, trials=n.expr, prob=p.expr)
         if obs is None:
             rng = util.generator(rng)
             obs = rng.binomial(int(n), float(p))

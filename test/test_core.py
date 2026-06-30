@@ -281,7 +281,7 @@ def test_noisyint_binomial_invalid_binomial_parameter_yields_nan_draws():
 def test_sampler_resolves_multilayer_law_dependencies():
     z1 = noise.gaussian(0, 1)
     z1_symbol = z1.expr
-    z2 = NormalNode.create(z1_symbol, 1, deps=(z1,))
+    z2 = NormalNode.create(deps=(z1,), loc=z1_symbol, scale=1)
     root = DerivedNode(
         expr=z2.expr,
         deps=(z2,),
@@ -325,7 +325,7 @@ def test_node_derived_uses_explicit_dependencies():
 def test_node_noise_uses_explicit_dependencies():
     theta = LatentNode()
 
-    z = NormalNode.create(theta.expr, 1, deps=(theta,))
+    z = NormalNode.create(deps=(theta,), loc=theta.expr, scale=1)
 
     assert {dep.expr for dep in z.deps} == {theta.expr}
 

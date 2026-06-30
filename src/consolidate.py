@@ -69,7 +69,7 @@ class NormalSumRule(ConsolidationRule):
         normal_terms, other_args = self._parse(expr, symbol_to_node, eligible)
         combined_mu = sum(c * node.loc for c, node in normal_terms)
         combined_sigma = sp.sqrt(sum((c * node.scale) ** 2 for c, node in normal_terms))
-        new_node = NormalNode.create(combined_mu, combined_sigma)
+        new_node = NormalNode.create(loc=combined_mu, scale=combined_sigma)
         symbol_to_node[new_node.expr] = new_node
         for _, node in normal_terms:
             eligible.discard(node.expr)
