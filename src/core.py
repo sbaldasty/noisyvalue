@@ -8,6 +8,7 @@ from sympy import sympify
 
 from .graph import NormalNode
 from .graph import BinomialNode
+from .graph import DiscreteGaussianNode
 from .graph import DerivedNode
 from .graph import LatentNode
 from .graph import Node
@@ -313,6 +314,16 @@ class NoisyInt(NoisyNumber):
         if obs is None:
             rng = util.generator(rng)
             obs = rng.binomial(int(n), float(p))
+        return cls(obs, node)
+
+    @classmethod
+    def discrete_gaussian(cls, scale, obs=None, rng=None):
+        scale = NoisyFloat.lift(scale)
+        deps = [v._root for v in (scale,) if v.expr.free_symbols]
+        node = DiscreteGaussianNode.create(deps=deps, loc=sp.Integer(0), scale=scale.expr)
+        if obs is None:
+            rng = util.generator(rng)
+            obs = int(DiscreteGaussianNode._draw(rng, 0, float(scale)))
         return cls(obs, node)
 
 

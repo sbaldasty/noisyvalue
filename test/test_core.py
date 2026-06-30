@@ -15,6 +15,7 @@ from src.graph import LatentNode
 from src.graph import Node
 from src.graph import NormalNode
 from src.graph import NoiseNode
+from src.graph import DiscreteGaussianNode
 
 
 _rng_factory = lambda: default_rng(42)
@@ -487,3 +488,59 @@ def test_noisyint_binomial_noisy_p_propagates_uncertainty_in_sampling():
 
     assert draws.mean() == pytest.approx(5.0, abs=0.3)
     assert draws.std() > np.sqrt(10 * 0.5 * 0.5)  # wider than pure binomial variance
+
+
+# ── NoisyInt.discrete_gaussian ────────────────────────────────────────────────
+
+def test_noisyint_discrete_gaussian_returns_noisyint_with_int_obs():
+    k = NoisyInt.discrete_gaussian(10, rng=42)
+
+    assert isinstance(k, NoisyInt)
+    assert isinstance(k._obs, int)
+
+
+def test_noisyint_discrete_gaussian_root_is_noise_node():
+    k = NoisyInt.discrete_gaussian(10, rng=42)
+
+    assert isinstance(k._root, DiscreteGaussianNode)
+
+
+def test_noisyint_discrete_gaussian_explicit_obs_is_used():
+    k = NoisyInt.discrete_gaussian(10, obs=-3)
+
+    assert k._obs == -3
+
+
+def test_noisyint_discrete_gaussian_same_rng_gives_same_obs():
+    assert NoisyInt.discrete_gaussian(10, rng=42)._obs == NoisyInt.discrete_gaussian(10, rng=42)._obs
+
+
+def test_noisyint_discrete_gaussian_plain_scale_yields_independent_noise_node():
+    k = NoisyInt.discrete_gaussian(10, rng=42)
+
+    noise_nodes = [n for n in k._root.closure() if isinstance(n, NoiseNode)]
+    assert all(len(n.deps) == 0 for n in noise_nodes)
+
+
+def test_noisyint_discrete_gaussian_samples_are_integers():
+    k = NoisyInt.discrete_gaussian(10, rng=42)
+    draws = k.sample(n=200, rng=99).draws
+
+    assert draws.dtype == int
+
+
+def test_noisyint_discrete_gaussian_samples_have_correct_mean_and_variance():
+    k = NoisyInt.discrete_gaussian(20, rng=42)
+    draws = k.sample(n=8000, rng=99).draws
+
+    assert draws.mean() == pytest.approx(0.0, abs=1.0)
+    assert draws.var() == pytest.approx(400.0, rel=0.1)
+
+
+def test_noisyint_discrete_gaussian_noisy_scale_propagates_uncertainty():
+    sigma = NoisyFloat.normal(10.0, 1.0, rng=1)
+    k = NoisyInt.discrete_gaussian(sigma, rng=2)
+    draws = k.sample(n=4000, rng=99).draws
+
+    assert draws.mean() == pytest.approx(0.0, abs=0.5)
+    assert draws.std() == pytest.approx(10.0, abs=1.5)

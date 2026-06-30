@@ -46,7 +46,7 @@ class Node:
         return tuple(ordered)
 
     def latent_symbols(self):
-        return {node.expr for node in self.closure() if isinstance(node, LatentNode)}
+        return {x.expr for x in self.closure() if isinstance(x, LatentNode)}
 
     def all_constraints(self):
         return frozenset(
@@ -94,10 +94,14 @@ class NoiseNode(Node):
     def param_symbols(self):
         return {s for p in self.params for s in p.free_symbols}
 
+    def sympy_rv(self):
+        raise NotImplementedError
+
     def sample(self, rng, size=None, resolved=None):
         raise NotImplementedError
 
-    def sympy_rv(self):
+    @classmethod
+    def sample_arrays(cls, rng, *param_arrays):
         raise NotImplementedError
 
     @classmethod
@@ -110,22 +114,18 @@ class NoiseNode(Node):
                 raise TypeError(f"Missing parameter: {p.name}")
         return cls(params, deps)
 
-    @classmethod
-    def sample_arrays(cls, rng, *param_arrays):
-        raise NotImplementedError
-
 
 class NormalNode(NoiseNode):
     loc = Parameter(0)
     scale = Parameter(1)
 
+    def sympy_rv(self):
+        return Normal(fresh_name(), self.loc, self.scale)
+
     def sample(self, rng, size=None, resolved=()):
         loc = float(self.loc.subs(resolved))
         scale = float(self.scale.subs(resolved))
         return rng.normal(loc, scale, size=size)
-
-    def sympy_rv(self):
-        return Normal(fresh_name(), self.loc, self.scale)
 
     @classmethod
     def sample_arrays(cls, rng, loc, scale):
@@ -142,6 +142,9 @@ class BinomialNode(NoiseNode):
     trials = Parameter(0)
     prob = Parameter(1)
 
+    def sympy_rv(self):
+        return rv(fresh_name(), BinomialDistribution, self.trials, self.prob, check=False)
+
     def sample(self, rng, size=None, resolved=()):
         try:
             trials = int(self.trials.subs(resolved))
@@ -152,9 +155,6 @@ class BinomialNode(NoiseNode):
             return np.nan if size is None else np.full(size, np.nan, dtype=float)
         return rng.binomial(trials, prob, size=size)
 
-    def sympy_rv(self):
-        return rv(fresh_name(), BinomialDistribution, self.trials, self.prob, check=False)
-
     @classmethod
     def sample_arrays(cls, rng, n, p):
         n = np.asarray(n, dtype=float)
@@ -162,9 +162,62 @@ class BinomialNode(NoiseNode):
         valid = (n >= 0) & np.isfinite(p) & (p >= 0) & (p <= 1)
         result = np.asarray(rng.binomial(
             np.where(valid, n, 0).astype(int),
-            np.where(valid, p, 0.5),
-        ), dtype=float)
+            np.where(valid, p, 0.5)), dtype=float)
         return np.where(valid, result, np.nan)
+
+
+class DiscreteGaussianNode(NoiseNode):
+    """Discrete Gaussian noise over the integers, parameterized by loc and scale (σ).
+
+    PMF ∝ exp(-(k - loc)² / (2σ²)) for k ∈ ℤ.
+
+    Used by the US Census Bureau for differentially private integer counts.
+    sympy_rv() returns a continuous Normal approximation (accurate for σ >> 1).
+    """
+
+    loc = Parameter(0)
+    scale = Parameter(1)
+
+    def sympy_rv(self):
+        # Continuous Normal as quantile-space approximation for visualization.
+        return Normal(fresh_name(), self.loc, self.scale)
+
+    def sample(self, rng, size=None, resolved=()):
+        loc = float(self.loc.subs(resolved))
+        scale = float(self.scale.subs(resolved))
+        if not np.isfinite(loc) or not np.isfinite(scale) or scale <= 0:
+            return np.nan if size is None else np.full(size, np.nan, dtype=float)
+        return self._draw(rng, loc, scale, size)
+
+    @classmethod
+    def sample_arrays(cls, rng, loc, scale):
+        loc = np.asarray(loc, dtype=float)
+        scale = np.asarray(scale, dtype=float)
+        n = loc.shape[0]
+        if np.all(loc == loc[0]) and np.all(scale == scale[0]):
+            l, s = float(loc[0]), float(scale[0])
+            if not np.isfinite(l) or not np.isfinite(s) or s <= 0:
+                return np.full(n, np.nan, dtype=float)
+            return cls._draw(rng, l, s, size=n).astype(float)
+        result = np.empty(n, dtype=float)
+        for i in range(n):
+            l, s = float(loc[i]), float(scale[i])
+            if not np.isfinite(l) or not np.isfinite(s) or s <= 0:
+                result[i] = np.nan
+            else:
+                result[i] = float(cls._draw(rng, l, s))
+        return result
+
+    @classmethod
+    def _draw(cls, rng, loc, scale, size=None):
+        K = int(np.ceil(max(50.0, 6.0 * abs(scale))))
+        k_center = int(np.round(loc))
+        k_vals = np.arange(k_center - K, k_center + K + 1)
+        log_pmf = -0.5 * ((k_vals - loc) ** 2) / (scale ** 2)
+        log_pmf -= log_pmf.max()
+        pmf = np.exp(log_pmf)
+        pmf /= pmf.sum()
+        return rng.choice(k_vals, size=size, p=pmf)
 
 
 def topological_sort_law_nodes(law_nodes):
