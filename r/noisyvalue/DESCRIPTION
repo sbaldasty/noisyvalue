@@ -1,12 +1,15 @@
 Package: noisyvalue
-Title: Tidy R Interface to the Python noisyvalue Library
+Title: Analyze Differentially Private Data with Honest Uncertainty
 Version: 0.1.0
 Authors@R: person("Steven", "Baldasty", role = c("aut", "cre"), email = "sbaldasty@gmail.com")
-Description: Thin reticulate-based wrappers around the Python noisyvalue
-    library. Exposes NoisyValue-backed pandas DataFrame columns as
-    tibble-compatible R vectors, and forwards R arithmetic and comparison
-    operators straight through to the underlying Python objects so that
-    posterior/symbolic provenance is preserved through R code.
+Description: Tools for analyzing data released under differential privacy,
+    such as the 2020 Census noisy measurement files. Each released number
+    is a noisy value: the observed figure together with a posterior
+    distribution over the true value it measures. Noisy values work in
+    tibbles and support arithmetic, credible intervals, and probabilities
+    of comparisons (for example, how likely one count is to exceed
+    another), with the uncertainty from the privacy noise carried through
+    every calculation.
 License: MIT
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

@@ -6,6 +6,15 @@ template:
 repo:
   url: ~
 
+home:
+  sidebar:
+    structure: []
+
+footer:
+  structure:
+    left: package
+    right: built_with
+
 reference:
   - title: Setup
     contents:
