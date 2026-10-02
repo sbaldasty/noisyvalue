@@ -1,0 +1,27 @@
+url: ~
+template:
+  bootstrap: 5
+
+# No repository links, so participants cannot reach the source.
+repo:
+  url: ~
+
+reference:
+  - title: Setup
+    contents:
+      - noisyvalue_init
+  - title: Loading data
+    contents:
+      - get_dhc
+      - get_decennial
+      - dhc_queries
+      - read_noisy_frame
+      - as_noisy_tibble
+  - title: Noisy vectors
+    contents:
+      - noisy_vec
+      - Ops.noisy_vec
+  - title: Summaries
+    contents:
+      - noisy_prob
+      - noisy_credible_interval

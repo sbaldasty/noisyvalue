@@ -1,0 +1,110 @@
+---
+title: "Working with noisy values"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE, comment = "#>")
+```
+
+## What is a noisy value?
+
+The Census Bureau protects the 2020 data with differential privacy: random
+noise was added to every count before release. The number you download is
+therefore an *observed* value, not the true count.
+
+A noisy value pairs that observed number with a **posterior**: a probability
+distribution over the true count, given the noise mechanism that was
+actually used. Printing one shows the observed number prefixed with `~`:
+
+```{r}
+library(noisyvalue)
+noisyvalue_init()
+
+population <- get_decennial(
+  geography = "county",
+  variables = c(male = "P12_002N", female = "P12_026N"),
+  state = "VT")
+
+population$value
+#> <noisy_vec[noisyint]: 28>
+#>  [1] ~79412 ~82233 ...
+```
+
+The `value` column is a **noisy vector** (see `noisy_vec()`). Everything
+else in the tibble is an ordinary column.
+
+## Doing arithmetic
+
+Arithmetic on noisy values combines their posteriors, so the result is
+still a noisy value you can summarize. Dependencies between values (shared
+noise) are tracked, so sums and differences stay correct.
+
+```{r}
+chittenden <- population[population$GEOID == "50007", ]
+orange     <- population[population$GEOID == "50017", ]
+
+male_total <- chittenden$value[chittenden$variable == "male"] +
+  orange$value[orange$variable == "male"]
+```
+
+Supported: `+ - * / ^ %% %/%`, `sum()`, `mean()`, `any()`, `all()`, `&`,
+`|`, `!`. Functions with no meaningful posterior (`median()`, `sort()`,
+`unique()`, ...) raise an error instead of silently using the observed
+numbers.
+
+## Summarizing a value
+
+```{r}
+noisy_credible_interval(male_total)            # central 95% interval
+noisy_credible_interval(male_total, p = 0.9)
+```
+
+The interval covers where the *true* count plausibly lies. It is not the
+sampling interval you would get from a survey.
+
+## Comparing values
+
+Comparing two single noisy values gives a noisy boolean, which has a
+probability rather than a definite answer:
+
+```{r}
+male   <- chittenden$value[chittenden$variable == "male"]
+female <- chittenden$value[chittenden$variable == "female"]
+
+noisy_prob(male > female)   # P(true male count > true female count)
+```
+
+Comparing two longer columns instead gives an ordinary logical vector over
+the *observed* numbers, which is what you want for filtering rows:
+
+```{r}
+population[population$value > 50000, ]
+```
+
+## Single values and columns
+
+* `x[[i]]` returns one value; `x[i]` returns a length-one column.
+* `noisy_credible_interval()` and `noisy_prob()` accept either, as long as
+  it is a single value. For a whole column, reduce it first with `sum()` or
+  `mean()`.
+* `c()` combines noisy vectors of the same type.
+
+## Randomness
+
+`noisy_credible_interval()` and `noisy_prob()` estimate by simulation. Use
+`n` for more draws (more precise, slower) and `rng` to fix the seed:
+
+```{r}
+noisy_prob(male > female, n = 10000, rng = 1)
+```
+
+## Finding data
+
+```{r}
+dhc_queries()               # what get_dhc() can return
+get_dhc("county", "sex*hispanic", state = "VT", county = "007")
+```
+
+`get_decennial()` accepts the same variable codes as
+`tidycensus::get_decennial()` (table `P12` so far) and returns the same
+shape of result.

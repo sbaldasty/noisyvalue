@@ -17,16 +17,33 @@ new_noisy_vec <- function(py, dtype) {
 .py <- function(x) attr(x, "py")
 .dtype <- function(x) attr(x, "dtype")
 
-#' Wrap a noisyvalue-backed Python object as an R vector
+#' Noisy vectors: values with a posterior over the truth
 #'
-#' `py` is either a pandas Series whose dtype is `noisyfloat`/`noisyint`/
-#' `noisybool` (a *column*), or a scalar `NoisyFloat`/`NoisyInt`/`NoisyBool`
-#' Python object (e.g. the result of indexing a single element, or of
-#' `mean()`/`sum()` on a column). Both cases share one R class: arithmetic
-#' and comparison forward straight through to the wrapped Python object
-#' either way, so nothing but printing/subsetting needs to tell them apart.
+#' A `noisy_vec` holds noisy values: each is an observed (released) number
+#' paired with a posterior distribution over the true value it measures.
+#' Columns such as `value` in [get_dhc()] results are `noisy_vec`s. A
+#' `noisy_vec` is either a *column* (many values) or a *single value*:
 #'
-#' @param py A Python object imported with `convert = FALSE`.
+#' * `x[[i]]` selects one value; `x[i]` keeps a (length-one) column.
+#' * `+`, `-`, `*`, `/`, `^`, `%%`, `%/%` combine values and carry the
+#'   posterior along, including correlations between values built from the
+#'   same underlying noise. Sums such as `a + b` are therefore correct even
+#'   when `a` and `b` are dependent.
+#' * `sum()` and `mean()` reduce a column to a single value; `any()` and
+#'   `all()` do the same for noisy booleans.
+#' * Comparing two *single* values or length-one columns (`a > b`) gives a
+#'   noisy boolean; pass it to [noisy_prob()] for its probability. Comparing
+#'   longer *columns* gives an ordinary logical vector over the observed
+#'   numbers, for filtering rows.
+#' * [noisy_credible_interval()] summarizes a single value. `format()` and
+#'   `print()` show the observed number prefixed with `~`.
+#'
+#' Operations without a meaningful posterior (`median()`, `quantile()`,
+#' `sort()`, `unique()`, and most math functions) raise an error.
+#'
+#' @param py A Python object imported with `convert = FALSE`; you normally
+#'   get `noisy_vec`s from [get_dhc()] or [get_decennial()] instead of
+#'   calling this.
 #' @export
 noisy_vec <- function(py) new_noisy_vec(py, .noisy_dtype(py))
 
@@ -172,10 +189,12 @@ c.noisy_vec <- function(...) {
 
 #' Arithmetic and comparison on noisy_vec objects
 #'
-#' Forwards straight through to the wrapped Python object's own operator
-#' (`NoisyValue`/`NoisyFloatArray`/... already implement these), so the
-#' symbolic posterior composition happens on the Python side exactly as it
-#' would from Python.
+#' Arithmetic (`+ - * / ^ %% %/%`), comparison (`== != < <= > >=`) and logical
+#' (`& |`, `!`) operators combine noisy values while carrying their
+#' posteriors, including shared noise. See [noisy_vec()] for how comparisons
+#' behave on single values versus columns.
+#'
+#' @param e1,e2 A `noisy_vec` or a plain number.
 #' @export
 Ops.noisy_vec <- function(e1, e2) {
   op <- .Generic

@@ -9,3 +9,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Auto-generated R doc
+r/noisyvalue/docs

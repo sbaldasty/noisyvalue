@@ -2,18 +2,38 @@
 % Please edit documentation in R/noisy_vec.R
 \name{noisy_vec}
 \alias{noisy_vec}
-\title{Wrap a noisyvalue-backed Python object as an R vector}
+\title{Noisy vectors: values with a posterior over the truth}
 \usage{
 noisy_vec(py)
 }
 \arguments{
-\item{py}{A Python object imported with \code{convert = FALSE}.}
+\item{py}{A Python object imported with \code{convert = FALSE}; you normally
+get \code{noisy_vec}s from \code{\link[=get_dhc]{get_dhc()}} or \code{\link[=get_decennial]{get_decennial()}} instead of
+calling this.}
 }
 \description{
-\code{py} is either a pandas Series whose dtype is \code{noisyfloat}/\code{noisyint}/
-\code{noisybool} (a \emph{column}), or a scalar \code{NoisyFloat}/\code{NoisyInt}/\code{NoisyBool}
-Python object (e.g. the result of indexing a single element, or of
-\code{mean()}/\code{sum()} on a column). Both cases share one R class: arithmetic
-and comparison forward straight through to the wrapped Python object
-either way, so nothing but printing/subsetting needs to tell them apart.
+A \code{noisy_vec} holds noisy values: each is an observed (released) number
+paired with a posterior distribution over the true value it measures.
+Columns such as \code{value} in \code{\link[=get_dhc]{get_dhc()}} results are \code{noisy_vec}s. A
+\code{noisy_vec} is either a \emph{column} (many values) or a \emph{single value}:
+}
+\details{
+\itemize{
+\item \code{x[[i]]} selects one value; \code{x[i]} keeps a (length-one) column.
+\item \code{+}, \code{-}, \code{*}, \code{/}, \code{^}, \code{\%\%}, \code{\%/\%} combine values and carry the
+posterior along, including correlations between values built from the
+same underlying noise. Sums such as \code{a + b} are therefore correct even
+when \code{a} and \code{b} are dependent.
+\item \code{sum()} and \code{mean()} reduce a column to a single value; \code{any()} and
+\code{all()} do the same for noisy booleans.
+\item Comparing two \emph{single} values or length-one columns (\code{a > b}) gives a
+noisy boolean; pass it to \code{\link[=noisy_prob]{noisy_prob()}} for its probability. Comparing
+longer \emph{columns} gives an ordinary logical vector over the observed
+numbers, for filtering rows.
+\item \code{\link[=noisy_credible_interval]{noisy_credible_interval()}} summarizes a single value. \code{format()} and
+\code{print()} show the observed number prefixed with \code{~}.
+}
+
+Operations without a meaningful posterior (\code{median()}, \code{quantile()},
+\code{sort()}, \code{unique()}, and most math functions) raise an error.
 }

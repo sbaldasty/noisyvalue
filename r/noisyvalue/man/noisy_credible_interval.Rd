@@ -21,8 +21,8 @@ noisy_credible_interval(x, p = 0.95, n = 1000, rng = NULL)
 A length-2 numeric vector \code{c(lower, upper)}.
 }
 \description{
-Draws \code{n} joint posterior samples of \code{x} (via the wrapped Python
-\code{NoisyValue.credible_interval}) and returns the central \code{p} interval. If
+Draws \code{n} joint posterior samples of \code{x} and returns the central \code{p}
+interval. If
 \code{x} was built out of other noisy values via arithmetic (e.g. a sum or
 difference), the samples correctly reflect any shared latent/noise
 dependencies baked into its posterior.

@@ -2,15 +2,14 @@
 
 #' Point reticulate at the noisyvalue Python package
 #'
-#' Call this once, before anything else in this package, to select the
-#' virtualenv created by `uv sync --extra dev` and import the Python modules
-#' the rest of the package wraps. Mirrors the setup in
-#' `example/reticulate_demo.R`.
+#' Call this once per R session, before any other function in this package.
+#' The package is a thin interface to the Python `noisyvalue` library, which
+#' does the posterior computation; this selects the Python environment that
+#' holds it.
 #'
-#' @param venv Path to the virtualenv (defaults to `.venv` in the current
-#'   working directory, i.e. the repo root).
-#' @param src Path to the `src` directory containing the `noisyvalue` Python
-#'   package.
+#' @param venv Path to the Python virtualenv (defaults to `.venv` in the
+#'   current working directory, i.e. the repo root).
+#' @param src Path to the `src` directory containing the Python library.
 #' @export
 noisyvalue_init <- function(venv = ".venv", src = "src") {
   reticulate::use_virtualenv(normalizePath(venv), required = TRUE)

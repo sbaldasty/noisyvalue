@@ -18,8 +18,9 @@ get_dhc(
 \item{geography}{One of \code{"us"}, \code{"state"}, or \code{"county"} (\code{"county"}
 requires \code{state}).}
 
-\item{queries}{Query name or character vector of names (e.g.
-\code{"sex*hispanic"}).}
+\item{queries}{Query name or character vector of names, as listed by
+\code{\link[=dhc_queries]{dhc_queries()}} (e.g. \code{"sex*hispanic"}). The \code{"detailed"} query alone
+has 1,227,744 cells per geography, so request it only for small areas.}
 
 \item{state}{State FIPS code, postal abbreviation, or name; may be a
 vector.}
@@ -28,10 +29,12 @@ vector.}
 
 \item{root}{Directory holding the fetched DHC parquet partitions.}
 
-\item{nonnegative}{Truncate every posterior at zero.}
+\item{nonnegative}{Truncate every posterior at zero, since true counts
+cannot be negative.}
 
-\item{apply_constraints}{Condition posteriors on the NMF constraint rows
-(the exact PL94 invariant, relgq age rules, and GQ bounds).}
+\item{apply_constraints}{Condition posteriors on the constraints released
+alongside the noisy counts (the exact PL94 totals, age rules for group
+quarters, and group quarters bounds).}
 }
 \value{
 A tibble with one row per histogram cell: plain columns \code{geoid},
@@ -39,8 +42,16 @@ A tibble with one row per histogram cell: plain columns \code{geoid},
 \code{age}, \code{hispanic}, \code{cenrace}), \code{variance}, and a noisy \code{value} column.
 }
 \description{
-Thin wrapper around the Python \code{noisyvalue.census.get_dhc}; see its
-docstring for the full parameter semantics. This is the DHC \emph{person}
-product -- the one whose histogram resolves sex and single-year age,
-which PL94 has neither of.
+Reads the 2020 DHC \emph{person} Noisy Measurement File -- the noisy counts the
+Census Bureau actually released under differential privacy. Its histogram
+resolves sex and single-year age, which the PL94 release does not. Each
+cell of the returned \code{value} column is a noisy value: the released number
+plus a posterior over the true count (see \code{\link[=noisy_vec]{noisy_vec()}}).
+}
+\details{
+Values returned by a single call are jointly consistent (for example,
+cells the exact PL94 totals pin down sum to those totals). Values from
+separate calls are treated as independent, so request every query you
+plan to combine in one call. Use \code{\link[=dhc_queries]{dhc_queries()}} to see the available
+queries.
 }

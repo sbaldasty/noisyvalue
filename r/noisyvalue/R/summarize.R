@@ -23,8 +23,8 @@
 
 #' Credible interval for a scalar noisy value
 #'
-#' Draws `n` joint posterior samples of `x` (via the wrapped Python
-#' `NoisyValue.credible_interval`) and returns the central `p` interval. If
+#' Draws `n` joint posterior samples of `x` and returns the central `p`
+#' interval. If
 #' `x` was built out of other noisy values via arithmetic (e.g. a sum or
 #' difference), the samples correctly reflect any shared latent/noise
 #' dependencies baked into its posterior.

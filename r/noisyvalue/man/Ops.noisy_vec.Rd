@@ -6,9 +6,12 @@
 \usage{
 \method{Ops}{noisy_vec}(e1, e2)
 }
+\arguments{
+\item{e1, e2}{A \code{noisy_vec} or a plain number.}
+}
 \description{
-Forwards straight through to the wrapped Python object's own operator
-(\code{NoisyValue}/\code{NoisyFloatArray}/... already implement these), so the
-symbolic posterior composition happens on the Python side exactly as it
-would from Python.
+Arithmetic (\verb{+ - * / ^ \%\% \%/\%}), comparison (\verb{== != < <= > >=}) and logical
+(\verb{& |}, \code{!}) operators combine noisy values while carrying their
+posteriors, including shared noise. See \code{\link[=noisy_vec]{noisy_vec()}} for how comparisons
+behave on single values versus columns.
 }

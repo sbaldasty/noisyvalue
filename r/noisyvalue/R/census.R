@@ -1,21 +1,31 @@
 #' Read DHC person NMF measurements as a noisy tibble
 #'
-#' Thin wrapper around the Python `noisyvalue.census.get_dhc`; see its
-#' docstring for the full parameter semantics. This is the DHC *person*
-#' product -- the one whose histogram resolves sex and single-year age,
-#' which PL94 has neither of.
+#' Reads the 2020 DHC *person* Noisy Measurement File -- the noisy counts the
+#' Census Bureau actually released under differential privacy. Its histogram
+#' resolves sex and single-year age, which the PL94 release does not. Each
+#' cell of the returned `value` column is a noisy value: the released number
+#' plus a posterior over the true count (see [noisy_vec()]).
+#'
+#' Values returned by a single call are jointly consistent (for example,
+#' cells the exact PL94 totals pin down sum to those totals). Values from
+#' separate calls are treated as independent, so request every query you
+#' plan to combine in one call. Use [dhc_queries()] to see the available
+#' queries.
 #'
 #' @param geography One of `"us"`, `"state"`, or `"county"` (`"county"`
 #'   requires `state`).
-#' @param queries Query name or character vector of names (e.g.
-#'   `"sex*hispanic"`).
+#' @param queries Query name or character vector of names, as listed by
+#'   [dhc_queries()] (e.g. `"sex*hispanic"`). The `"detailed"` query alone
+#'   has 1,227,744 cells per geography, so request it only for small areas.
 #' @param state State FIPS code, postal abbreviation, or name; may be a
 #'   vector.
 #' @param county County FIPS code(s), to narrow a county-level read.
 #' @param root Directory holding the fetched DHC parquet partitions.
-#' @param nonnegative Truncate every posterior at zero.
-#' @param apply_constraints Condition posteriors on the NMF constraint rows
-#'   (the exact PL94 invariant, relgq age rules, and GQ bounds).
+#' @param nonnegative Truncate every posterior at zero, since true counts
+#'   cannot be negative.
+#' @param apply_constraints Condition posteriors on the constraints released
+#'   alongside the noisy counts (the exact PL94 totals, age rules for group
+#'   quarters, and group quarters bounds).
 #' @return A tibble with one row per histogram cell: plain columns `geoid`,
 #'   `geocode`, `aian`, `query`, one label column per axis (`relgq`, `sex`,
 #'   `age`, `hispanic`, `cenrace`), `variance`, and a noisy `value` column.
@@ -30,18 +40,24 @@ get_dhc <- function(geography, queries, state = NULL, county = NULL,
   as_noisy_tibble(df_py)
 }
 
+#' List the queries available from [get_dhc()]
+#'
+#' @return A tibble with one row per query: `query` (the name to pass to
+#'   [get_dhc()]), `nmf_query_name` (the Census Bureau's name for it), `cells`
+#'   (cells per geography), and `has_sex` (whether the query resolves sex).
+#' @export
+dhc_queries <- function() as_noisy_tibble(.nv("census")$dhc_queries())
+
 #' Read named DHC variables as a tidy long table, tidycensus-style
 #'
 #' A drop-in replacement for
 #' `tidycensus::get_decennial(variables = c(name = "P12_002N", ...))` when
 #' `sumfile = "dhc"`: `variables` takes the same literal Census variable
-#' codes tidycensus does. Each code is resolved via the Python
-#' `census.dhc_table_variables()` crosswalk into the `get_dhc()` query and
-#' axis filter(s) that reconstruct that published cell from the actual NMF
-#' measurements -- see its docstring for why that reconstruction is
-#' necessary (the NMF was measured against query workloads, not published
-#' table cells) and how it picks the lowest-variance query available for
-#' each cell.
+#' codes tidycensus does. Each code is resolved into the [get_dhc()] query
+#' and axis filter(s) that reconstruct that published cell from the actual
+#' noisy measurements. The reconstruction is necessary because the
+#' measurements were made against query workloads, not published table
+#' cells; the lowest-variance query available for each cell is used.
 #'
 #' Only table P12 ("Sex by Age") is covered so far, and only 43 of its 49
 #' codes: codes from other tables (`"P1_..."`, `"H1_..."`, etc.) error
@@ -52,7 +68,7 @@ get_dhc <- function(geography, queries, state = NULL, county = NULL,
 #' produces a posterior far from its own observed value (most of those
 #' cells fall in PL94 constraint blocks with 3+ still-free cells, where the
 #' block total is only an upper bound rather than a tight joint
-#' constraint -- see Python's `census.dhc_table_variables()` docstring).
+#' constraint).
 #' Every other P12 code checks out: its reconstruction's credible interval
 #' sits tightly around its own observed value, as expected.
 #'

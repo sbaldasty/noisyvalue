@@ -49,13 +49,11 @@ analog for).
 A drop-in replacement for
 \code{tidycensus::get_decennial(variables = c(name = "P12_002N", ...))} when
 \code{sumfile = "dhc"}: \code{variables} takes the same literal Census variable
-codes tidycensus does. Each code is resolved via the Python
-\code{census.dhc_table_variables()} crosswalk into the \code{get_dhc()} query and
-axis filter(s) that reconstruct that published cell from the actual NMF
-measurements -- see its docstring for why that reconstruction is
-necessary (the NMF was measured against query workloads, not published
-table cells) and how it picks the lowest-variance query available for
-each cell.
+codes tidycensus does. Each code is resolved into the \code{\link[=get_dhc]{get_dhc()}} query
+and axis filter(s) that reconstruct that published cell from the actual
+noisy measurements. The reconstruction is necessary because the
+measurements were made against query workloads, not published table
+cells; the lowest-variance query available for each cell is used.
 }
 \details{
 Only table P12 ("Sex by Age") is covered so far, and only 43 of its 49
@@ -67,7 +65,7 @@ the ~5,000 detailed cells one of these buckets marginalizes over
 produces a posterior far from its own observed value (most of those
 cells fall in PL94 constraint blocks with 3+ still-free cells, where the
 block total is only an upper bound rather than a tight joint
-constraint -- see Python's \code{census.dhc_table_variables()} docstring).
+constraint).
 Every other P12 code checks out: its reconstruction's credible interval
 sits tightly around its own observed value, as expected.
 
