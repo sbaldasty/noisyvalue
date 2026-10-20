@@ -44,7 +44,7 @@ The library models "noisy values" — observations paired with a symbolic poster
 
 Arithmetic operators on `NoisyValue` subclasses call `bin_op` / `unary_op`, which compose both the observed scalar and the symbolic expression in tandem.
 
-**`NoisyValueSampler`** (`src/sample.py`; returned by `noisy_value_sampler()`) does the heavy lifting. `NoisyValue` has no `.sample()`/`.credible_interval()` convenience methods — use `sample_noisy_values(value, n=..., rng=...)[0]` (a `SampleBatch`, which has `.credible_interval(p)`). `core.py` keeps `consolidate` and the latent-solving helpers that `io.py`/`visual.py` share:
+**`NoisyValueSampler`** (`src/sample.py`; returned by `noisy_value_sampler()`) does the heavy lifting. `NoisyValue` has no `.sample()`/`.credible_interval()` convenience methods — use `sample_noisy_values(value, n=..., rng=...)[0]` (a `SampleBatch`, which has `.credible_interval(p)`). `core.py` keeps the latent-solving helpers that `io.py`/`visual.py` share, while `src/consolidate.py` holds `consolidate` and the `ConsolidationRule` registry (`NormalSumRule`):
 1. Collects all latent symbols and constraints across a joint set of values
 2. Solves latent symbols symbolically via `sympy.solve` (static substitutions, computed once)
 3. Separates noise nodes into *independent* (no `deps`) and *dependent* (hierarchical)

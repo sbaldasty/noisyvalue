@@ -6,7 +6,7 @@ from . import util
 from .core import NoisyValue
 from .core import _solve_theta_substitutions
 from .core import _sampler_inputs_from_roots
-from .core import consolidate
+from .consolidate import consolidate
 from .graph import topological_sort_law_nodes
 
 

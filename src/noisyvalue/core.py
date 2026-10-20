@@ -2,7 +2,6 @@ import operator as op
 import sympy as sp
 import numpy as np
 from . import util
-from collections import Counter
 
 from sympy import Abs, And, Eq, Equality, Not, Or, Piecewise, Pow, Rational
 from sympy import sympify
@@ -10,7 +9,6 @@ from sympy import sympify
 from .graph import GaussianNode
 from .graph import LaplaceNode
 from .graph import BinomialNode
-from .graph import ConsolidationRule
 from .graph import DiscreteGaussianNode
 from .graph import DiscreteLaplaceNode
 from .graph import DerivedNode
@@ -91,93 +89,6 @@ def _sampler_inputs_from_roots(values):
         dependent_law_nodes[sym] for sym in sorted(dependent_law_nodes, key=str)
     )
     return all_thetas, theta_eqns, ordered_law_nodes, independent_noise_symbols, independent_noise
-
-
-def consolidate(*values):
-    """Return copies of values backed by a simplified noise graph.
-
-    Noise symbols that can be combined by a rule are merged into fewer nodes.
-    The returned values have the same observed values and equivalent marginal
-    distributions, but share no nodes with the originals.
-
-    Noise symbols that appear in more than one value's resolved expression are
-    left untouched, preserving correlations between the consolidated values.
-    """
-    values = util.as_nonempty_tuple(values, NoisyValue)
-    rules = ConsolidationRule.registry
-
-    # Resolve latent variables so each expression is purely over noise symbols.
-    all_thetas, theta_eqns, _, _, _ = _sampler_inputs_from_roots(values)
-    theta_subs = _solve_theta_substitutions(all_thetas, theta_eqns)
-    resolved_exprs = tuple(
-        sympify(v.expr).subs(theta_subs) for v in values
-    )
-
-    # Build a mutable symbol → node lookup; rules may add new entries.
-    symbol_to_node = {}
-    for v in values:
-        for node in v._root.closure():
-            symbol_to_node[node.expr] = node
-
-    # Symbols referenced by dependent (law) node source parameters must stay
-    # untouched: consolidating them away breaks the law node's sampling.
-    law_param_symbols = set()
-    for v in values:
-        for node in v._root.closure():
-            if isinstance(node, NoiseNode) and node.deps:
-                law_param_symbols |= node.param_symbols()
-
-    # A noise symbol is eligible for combination only if it appears exactly once
-    # across the joint expression, ensuring no cross-value correlation is broken.
-    # Occurrences are tallied in one traversal; per-symbol joint.count() calls
-    # are quadratic in the number of values.
-    joint = sp.Tuple(*resolved_exprs)
-    occurrences = Counter(
-        sub
-        for sub in sp.preorder_traversal(joint)
-        if isinstance(sub, sp.Symbol)
-    )
-    eligible = {
-        expr
-        for expr, node in symbol_to_node.items()
-        if isinstance(node, NoiseNode)
-        and not node.deps
-        and occurrences.get(expr, 0) == 1
-        and expr not in law_param_symbols
-    }
-
-    def _query(expr):
-        return any(rule.matches(expr, symbol_to_node, eligible) for rule in rules)
-
-    def _value(expr):
-        for rule in rules:
-            if rule.matches(expr, symbol_to_node, eligible):
-                return rule.apply(expr, symbol_to_node, eligible)
-        return expr
-
-    new_joint = joint.replace(_query, _value)
-    new_exprs = new_joint.args
-
-    # DerivedNodes that carry theta constraints for law node source params must
-    # stay in each consolidated root's deps.  dep_nodes is built from
-    # new_expr.free_symbols (leaf nodes only), so those intermediate nodes would
-    # otherwise be silently dropped, making the thetas unsolvable at sample time.
-    constraint_keepers = {
-        node
-        for v in values
-        for node in v._root.closure()
-        if isinstance(node, DerivedNode)
-        and node.constraints
-        and any(c.free_symbols & law_param_symbols for c in node.constraints)
-    }
-
-    result = []
-    for v, new_expr in zip(values, new_exprs):
-        dep_nodes = {node for expr, node in symbol_to_node.items() if expr in new_expr.free_symbols}
-        dep_nodes |= constraint_keepers
-        root = DerivedNode(new_expr, deps=list(dep_nodes))
-        result.append(type(v)(v._obs, root))
-    return tuple(result)
 
 
 class NoisyValue:
