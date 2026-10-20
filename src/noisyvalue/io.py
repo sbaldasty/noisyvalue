@@ -12,7 +12,7 @@ from sympy.functions.elementary.piecewise import ExprCondPair
 from sympy.logic.boolalg import BooleanAtom
 
 from . import util
-from .analysis import NoisyContingencyTable
+from .contingency import NoisyContingencyTable
 from .consolidate import consolidate
 from .core import NoisyFloat, NoisyInt, NoisyBool
 from .graph import BinomialNode, DerivedNode, DiscreteGaussianNode, DiscreteLaplaceNode, GaussianNode, LatentNode

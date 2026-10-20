@@ -298,7 +298,7 @@ performance characteristics shift.
 
 ## Deferred
 
-`analysis.py`'s `with_stratified_sampling_uncertainty` is the pattern for
+`contingency.py`'s `with_stratified_sampling_uncertainty` is the pattern for
 stacking another uncertainty layer on top of dataset values. If views compose —
 a measurement view feeding a sampling-uncertainty view — that generalizes
 cleanly. Worth building only once the base view abstraction has earned its

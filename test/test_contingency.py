@@ -218,3 +218,12 @@ def test_odds_ratio_accepts_predictive_contingency_table():
     assert draws.shape == (256,)
     assert finite.size > 0
     assert np.std(finite) > 0.0
+
+
+def test_noisy_min_and_noisy_max_accept_a_single_iterable():
+    assert float(nv.noisy_min([3.0, -1.5, 8.0])) == -1.5
+    assert float(nv.noisy_max(x for x in (3.0, -1.5, 8.0))) == 8.0
+    assert float(nv.noisy_max(np.array([3.0, 8.0]))) == 8.0
+    assert float(nv.noisy_min(NoisyFloat.lift(4.0))) == 4.0
+    with pytest.raises(ValueError, match="Requires at least one value"):
+        nv.noisy_max([])

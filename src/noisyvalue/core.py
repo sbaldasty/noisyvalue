@@ -1,9 +1,12 @@
+import math
 import operator as op
 import sympy as sp
 import numpy as np
 
 from sympy import Abs
 from sympy import And
+from sympy import Max
+from sympy import Min
 from sympy import Not
 from sympy import Or
 from sympy import Piecewise
@@ -280,3 +283,27 @@ class NoisyBool(NoisyValue):
 
     def __invert__(self):
         return self.unary_op(NoisyBool, op.not_, Not)
+
+
+def _fold_float(values, op, zero):
+    # Like the built-in min/max: accept either several values or one iterable
+    if len(values) == 1 and not isinstance(values[0], NoisyValue):
+        try:
+            values = tuple(values[0])
+        except TypeError:
+            pass
+    if not values:
+        raise ValueError("Requires at least one value")
+
+    result = NoisyFloat.lift(zero)
+    for value in values:
+        result = result.bin_op(value, NoisyFloat, op)
+    return result
+
+
+def noisy_min(*values):
+    return _fold_float(values, Min, math.inf)
+
+
+def noisy_max(*values):
+    return _fold_float(values, Max, -math.inf)

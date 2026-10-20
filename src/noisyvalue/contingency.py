@@ -6,18 +6,6 @@ from .core import NoisyNumber
 from .core import NoisyFloat
 from numpy import asarray
 from numpy import isfinite
-from sympy import Max
-from sympy import Min
-
-
-def _fold_float(values, op):
-    if not values:
-        raise ValueError("Requires at least one value")
-
-    result = NoisyFloat.lift(values[0])
-    for value in values[1:]:
-        result = result.bin_op(value, NoisyFloat, op)
-    return result
 
 
 class NoisyContingencyTable:
@@ -92,11 +80,3 @@ class NoisyContingencyTable:
         stat = (grp0_yes * grp1_no) / (grp0_no * grp1_yes)
         valid = (grp0_yes > 0) & (grp0_no > 0) & (grp1_yes > 0) & (grp1_no > 0)
         return stat.guarded(valid)
-
-
-def noisy_min(*values):
-    return _fold_float(values, Min)
-
-
-def noisy_max(*values):
-    return _fold_float(values, Max)

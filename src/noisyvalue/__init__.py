@@ -1,9 +1,9 @@
 from . import census
 from . import wikimedia
-from .analysis import NoisyContingencyTable, noisy_max, noisy_min
+from .contingency import NoisyContingencyTable
 from .array import float_array_sampler, sample_float_array
 from .census import dhc_queries, fetch_dhc, get_dhc, get_pl94, pl94_queries
-from .core import NoisyBool, NoisyFloat, NoisyInt, NoisyNumber, NoisyValue
+from .core import NoisyBool, NoisyFloat, NoisyInt, NoisyNumber, NoisyValue, noisy_max, noisy_min
 from .sample import SampleBatch, noisy_value_sampler, sample_noisy_values
 from .dataset import Product, View
 from .io import load, save

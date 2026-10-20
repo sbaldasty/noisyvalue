@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 import conftest as noise
-from noisyvalue.analysis import NoisyContingencyTable
+from noisyvalue.contingency import NoisyContingencyTable
 from noisyvalue.core import NoisyBool, NoisyFloat, NoisyInt
 from noisyvalue.sample import noisy_value_sampler, sample_noisy_values
 from noisyvalue.io import load, save
