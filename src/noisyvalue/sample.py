@@ -30,23 +30,17 @@ def noisy_value_sampler(*vals):
     vals = util.as_nonempty_tuple(vals, NoisyValue)
     vals = consolidate(*vals)
 
-    (
-        all_thetas,
-        all_eqns,
-        law_nodes,
-        independent_noise_symbols,
-        independent_noise,
-    ) = sampler_inputs_from_roots([v._root for v in vals])
+    inputs = sampler_inputs_from_roots([v._root for v in vals])
 
-    theta_substitutions = solve_theta_substitutions(all_thetas, all_eqns)
+    theta_substitutions = solve_theta_substitutions(inputs.thetas, inputs.theta_eqns)
     value_exprs = tuple(value.expr for value in vals)
 
     return NoisyValueSampler(
         vals,
         exprs=value_exprs,
         subs=theta_substitutions,
-        independent_noise=independent_noise,
-        law_nodes=law_nodes,
+        independent_noise=inputs.independent_noise,
+        law_nodes=inputs.law_nodes,
     )
 
 

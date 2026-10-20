@@ -1,11 +1,12 @@
 import matplotlib
 import numpy as np
 import pytest
+import sympy as sp
 
 from conftest import rooted_float
 
 import conftest as noise
-from noisyvalue.graph import LatentNode
+from noisyvalue.graph import GaussianNode, LatentNode
 from noisyvalue.visual import plot_posterior
 
 
@@ -107,3 +108,14 @@ def test_plot_posterior_supports_suppressed_cells():
     curve = result["curves"][0]
     assert curve["x"].min() > -100
     assert curve["x"].max() < 300
+
+
+def test_plot_posterior_rejects_dependent_noise():
+    scale_node = noise.gaussian(5, 1)
+    eps_node = GaussianNode.create(
+        deps=(scale_node,), loc=0, scale=scale_node.expr, low=-sp.oo, high=sp.oo)
+
+    noisy = rooted_float(obs=0.0, expr=eps_node.expr, deps=(eps_node,))
+
+    with pytest.raises(ValueError, match="dependent"):
+        plot_posterior(noisy, quadrature_points=5)

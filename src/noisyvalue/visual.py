@@ -4,9 +4,8 @@ import sympy as sp
 
 from sympy.stats import quantile
 
-from .latents import filter_theta_equations
+from .latents import sampler_inputs_from_roots
 from .latents import solve_theta_substitutions
-from .graph import NoiseNode
 
 
 def _weighted_quantile(values, weights, q):
@@ -66,31 +65,23 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
     if quadrature_points < 2:
         raise ValueError("quadrature_points must be at least 2")
 
-    closure_nodes = {node.expr: node for node in noisy_value._root.closure()}
-    independent_noise = {
-        symbol: node
-        for symbol, node in closure_nodes.items()
-        if isinstance(node, NoiseNode) and not node.deps
-    }
-    independent_noise_symbols = set(independent_noise.keys())
-
-    thetas = noisy_value._root.latent_symbols()
-    constraints = noisy_value._root.all_constraints()
-    theta_constraints = filter_theta_equations(constraints, thetas, independent_noise_symbols)
-
-    if thetas:
-        sol = solve_theta_substitutions(thetas, theta_constraints)
-        rhs_noise_symbols = set()
-        for rhs in sol.values():
-            rhs_expr = sp.sympify(rhs)
-            rhs_noise_symbols |= rhs_expr.free_symbols & independent_noise_symbols
-    else:
-        sol = {}
-        rhs_noise_symbols = set()
+    inputs = sampler_inputs_from_roots([noisy_value._root])
+    independent_noise = inputs.independent_noise
+    sol = solve_theta_substitutions(inputs.thetas, inputs.theta_eqns)
 
     value_expr = noisy_value.expr
-    predictive_noise_symbols = value_expr.free_symbols & independent_noise_symbols
-    integration_syms = sorted(rhs_noise_symbols | predictive_noise_symbols, key=str)
+    needed_symbols = set(value_expr.free_symbols)
+    for rhs in sol.values():
+        needed_symbols |= sp.sympify(rhs).free_symbols
+
+    dependent_symbols = {node.expr for node in inputs.law_nodes} & needed_symbols
+    if dependent_symbols:
+        raise ValueError(
+            "Deterministic quadrature does not support dependent (hierarchical) noise; "
+            f"found {sorted(map(str, dependent_symbols))}. Use sample_noisy_values instead."
+        )
+
+    integration_syms = sorted(needed_symbols & inputs.independent_noise_symbols, key=str)
 
     if not integration_syms:
         value = float(value_expr)

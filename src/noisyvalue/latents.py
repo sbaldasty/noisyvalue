@@ -5,6 +5,8 @@ the latents and constraints under some root nodes into symbolic substitutions.
 """
 import sympy as sp
 
+from typing import NamedTuple
+
 from sympy import Eq, Equality
 from sympy import sympify
 
@@ -63,20 +65,30 @@ def filter_theta_equations(eqns, thetas, independent_noise_symbols):
     return tuple(theta_eqns)
 
 
-def sampler_inputs_from_roots(roots):
-    """Collect everything a sampler needs from the DAGs under `roots`.
+class SamplerInputs(NamedTuple):
+    """Everything a sampler needs from the DAGs under some root nodes.
 
-    Walks the closure of every root node, so nodes shared between roots are
-    counted once. Returns a 5-tuple:
-
-    - `all_thetas`: the set of latent symbols across all roots.
+    - `thetas`: the set of latent symbols across all roots.
     - `theta_eqns`: constraint equations usable for solving the latents, i.e.
       those whose non-latent symbols are all independent noise symbols (see
       `filter_theta_equations`).
-    - `ordered_law_nodes`: dependent noise nodes (those with `deps`),
-      sorted by symbol name.
+    - `law_nodes`: dependent noise nodes (those with `deps`), sorted by
+      symbol name.
     - `independent_noise_symbols`: the symbols of noise nodes with no deps.
     - `independent_noise`: the same noise nodes, keyed by their symbol.
+    """
+    thetas: set
+    theta_eqns: tuple
+    law_nodes: tuple
+    independent_noise_symbols: set
+    independent_noise: dict
+
+
+def sampler_inputs_from_roots(roots):
+    """Collect a `SamplerInputs` from the DAGs under `roots`.
+
+    Walks the closure of every root node, so nodes shared between roots are
+    counted once.
     """
     all_thetas = set()
     all_eqns = set()
@@ -104,4 +116,10 @@ def sampler_inputs_from_roots(roots):
     ordered_law_nodes = tuple(
         dependent_law_nodes[sym] for sym in sorted(dependent_law_nodes, key=str)
     )
-    return all_thetas, theta_eqns, ordered_law_nodes, independent_noise_symbols, independent_noise
+    return SamplerInputs(
+        thetas=all_thetas,
+        theta_eqns=theta_eqns,
+        law_nodes=ordered_law_nodes,
+        independent_noise_symbols=independent_noise_symbols,
+        independent_noise=independent_noise,
+    )

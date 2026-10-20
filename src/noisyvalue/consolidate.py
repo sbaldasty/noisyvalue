@@ -104,8 +104,8 @@ def consolidate(*values):
     rules = ConsolidationRule.registry
 
     # Resolve latent variables so each expression is purely over noise symbols.
-    all_thetas, theta_eqns, _, _, _ = sampler_inputs_from_roots([v._root for v in values])
-    theta_subs = solve_theta_substitutions(all_thetas, theta_eqns)
+    inputs = sampler_inputs_from_roots([v._root for v in values])
+    theta_subs = solve_theta_substitutions(inputs.thetas, inputs.theta_eqns)
     resolved_exprs = tuple(
         sympify(v.expr).subs(theta_subs) for v in values
     )
