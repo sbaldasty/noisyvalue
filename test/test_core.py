@@ -1,3 +1,4 @@
+import noisyvalue as nv
 import numpy as np
 import pytest
 import scipy.stats
@@ -712,3 +713,56 @@ def test_a_noisy_float_times_a_noisy_int_keeps_both_posteriors():
     assert len(product.expr.free_symbols) == 2
     a, b, c = sample_noisy_values(product, scale, count, n=300, rng=6)
     assert np.allclose(a.draws, b.draws * c.draws)
+
+
+def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():
+    lo = nv.noisy_min(3.0, -1.5, 8.0)
+    hi = nv.noisy_max(3.0, -1.5, 8.0)
+
+    assert isinstance(lo, NoisyFloat)
+    assert isinstance(hi, NoisyFloat)
+    assert float(lo) == -1.5
+    assert float(hi) == 8.0
+
+
+def test_noisy_min_raises_for_empty_input():
+    with pytest.raises(ValueError, match="Requires at least one value"):
+        nv.noisy_min()
+
+
+def test_noisy_max_combines_noisy_value_metadata():
+    theta_node = LatentNode()
+    theta = theta_node.expr
+    constraints = [theta - 1.0]
+    a = rooted_float(obs=1.0, expr=theta, eqns=constraints, deps=(theta_node,))
+    b = rooted_float(obs=2.0, expr=2.0 * theta, eqns=constraints, deps=(theta_node,))
+
+    out = nv.noisy_max(a, b)
+
+    assert isinstance(out, NoisyFloat)
+    assert float(out) == 2.0
+    assert out._root.latent_symbols() == a._root.latent_symbols()
+    assert (theta - 1.0) in out._root.all_constraints()
+
+
+def test_noisy_min_and_noisy_max_accept_a_single_iterable():
+    assert float(nv.noisy_min([3.0, -1.5, 8.0])) == -1.5
+    assert float(nv.noisy_max(x for x in (3.0, -1.5, 8.0))) == 8.0
+    assert float(nv.noisy_max(np.array([3.0, 8.0]))) == 8.0
+    assert float(nv.noisy_min(NoisyFloat.lift(4.0))) == 4.0
+    with pytest.raises(ValueError, match="Requires at least one value"):
+        nv.noisy_max([])
+
+
+def test_noisy_min_and_noisy_max_preserve_integer_type():
+    a = nv.NoisyInt.lift(4)
+    lo, hi = nv.noisy_min(a, 7, 5), nv.noisy_max([a, 7, 5])
+    assert isinstance(lo, nv.NoisyInt) and int(lo) == 4
+    assert isinstance(hi, nv.NoisyInt) and int(hi) == 7
+    assert isinstance(nv.noisy_max(3), nv.NoisyInt)
+
+
+def test_noisy_min_and_noisy_max_mixing_ints_and_floats_gives_float():
+    out = nv.noisy_min(nv.NoisyInt.lift(4), 3.5)
+    assert isinstance(out, NoisyFloat) and float(out) == 3.5
+    assert float(nv.noisy_max(3.5, nv.NoisyInt.lift(4))) == 4.0

@@ -1,4 +1,3 @@
-import math
 import operator as op
 import sympy as sp
 import numpy as np
@@ -94,18 +93,6 @@ class NoisyValue:
         if not isinstance(accept, type) or not issubclass(accept, NoisyValue):
             raise TypeError(f"Expected accept to be subclass of NoisyValue, got {accept!r}")
         return value if isinstance(value, accept) else cls(value, DerivedNode(value))
-
-
-def _is_int_like(x):
-    if isinstance(x, NoisyInt):
-        return True
-    if isinstance(x, NoisyValue):
-        return False
-    return isinstance(x, (int, np.integer)) and not isinstance(x, bool)
-
-
-def _numeric_result_cls(a, b):
-    return NoisyInt if _is_int_like(a) and _is_int_like(b) else NoisyFloat
 
 
 class NoisyNumber(NoisyValue):
@@ -285,7 +272,19 @@ class NoisyBool(NoisyValue):
         return self.unary_op(NoisyBool, op.not_, Not)
 
 
-def _fold_float(values, op, zero):
+def _is_int_like(x):
+    if isinstance(x, NoisyInt):
+        return True
+    if isinstance(x, NoisyValue):
+        return False
+    return isinstance(x, (int, np.integer)) and not isinstance(x, bool)
+
+
+def _numeric_result_cls(a, b):
+    return NoisyInt if _is_int_like(a) and _is_int_like(b) else NoisyFloat
+
+
+def _fold_numbers(values, op):
     # Like the built-in min/max: accept either several values or one iterable
     if len(values) == 1 and not isinstance(values[0], NoisyValue):
         try:
@@ -295,15 +294,36 @@ def _fold_float(values, op, zero):
     if not values:
         raise ValueError("Requires at least one value")
 
-    result = NoisyFloat.lift(zero)
-    for value in values:
-        result = result.bin_op(value, NoisyFloat, op)
+    # Lift everything first so a plain float is never coerced to the int type
+    values = [(NoisyInt if _is_int_like(v) else NoisyFloat).lift(v, accept=NoisyNumber)
+              for v in values]
+    result = values[0]
+    for value in values[1:]:
+        result = result.bin_op(value, _numeric_result_cls(result, value), op)
     return result
 
 
 def noisy_min(*values):
-    return _fold_float(values, Min, math.inf)
+    """Minimum of noisy values, as a new noisy value.
+
+    Accepts several values or a single iterable, like the built-in `min`.
+    The posterior of the result reflects the uncertainty about which
+    input is smallest, not just the observed winner.
+
+    The result is a `NoisyInt` if every input is an integer, otherwise a
+    `NoisyFloat`. Raises `ValueError` if there are no inputs.
+    """
+    return _fold_numbers(values, Min)
 
 
 def noisy_max(*values):
-    return _fold_float(values, Max, -math.inf)
+    """Maximum of noisy values, as a new noisy value.
+
+    Accepts several values or a single iterable, like the built-in `max`.
+    The posterior of the result reflects the uncertainty about which
+    input is largest, not just the observed winner.
+
+    The result is a `NoisyInt` if every input is an integer, otherwise a
+    `NoisyFloat`. Raises `ValueError` if there are no inputs.
+    """
+    return _fold_numbers(values, Max)

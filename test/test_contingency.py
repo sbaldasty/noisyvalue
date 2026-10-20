@@ -1,4 +1,3 @@
-import noisyvalue as nv
 from noisyvalue.sample import sample_noisy_values
 import numpy as np
 import pytest
@@ -12,36 +11,6 @@ from noisyvalue import NoisyFloat
 from noisyvalue.graph import LatentNode
 from noisyvalue.graph import Node
 from noisyvalue.graph import NoiseNode
-
-
-def test_noisy_min_and_noisy_max_for_plain_floats_match_python_min_max():
-    lo = nv.noisy_min(3.0, -1.5, 8.0)
-    hi = nv.noisy_max(3.0, -1.5, 8.0)
-
-    assert isinstance(lo, NoisyFloat)
-    assert isinstance(hi, NoisyFloat)
-    assert float(lo) == -1.5
-    assert float(hi) == 8.0
-
-
-def test_noisy_min_raises_for_empty_input():
-    with pytest.raises(ValueError, match="Requires at least one value"):
-        nv.noisy_min()
-
-
-def test_noisy_max_combines_noisy_value_metadata():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    constraints = [theta - 1.0]
-    a = rooted_float(obs=1.0, expr=theta, eqns=constraints, deps=(theta_node,))
-    b = rooted_float(obs=2.0, expr=2.0 * theta, eqns=constraints, deps=(theta_node,))
-
-    out = nv.noisy_max(a, b)
-
-    assert isinstance(out, NoisyFloat)
-    assert float(out) == 2.0
-    assert out._root.latent_symbols() == a._root.latent_symbols()
-    assert (theta - 1.0) in out._root.all_constraints()
 
 
 def test_as_contingency_table_returns_noisy_contingency_table():
@@ -218,12 +187,3 @@ def test_odds_ratio_accepts_predictive_contingency_table():
     assert draws.shape == (256,)
     assert finite.size > 0
     assert np.std(finite) > 0.0
-
-
-def test_noisy_min_and_noisy_max_accept_a_single_iterable():
-    assert float(nv.noisy_min([3.0, -1.5, 8.0])) == -1.5
-    assert float(nv.noisy_max(x for x in (3.0, -1.5, 8.0))) == 8.0
-    assert float(nv.noisy_max(np.array([3.0, 8.0]))) == 8.0
-    assert float(nv.noisy_min(NoisyFloat.lift(4.0))) == 4.0
-    with pytest.raises(ValueError, match="Requires at least one value"):
-        nv.noisy_max([])
