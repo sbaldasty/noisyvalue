@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from noisyvalue import wikimedia as wm
-from noisyvalue.core import sample_noisy_values
+from noisyvalue.sample import sample_noisy_values
 from noisyvalue.dataset import DiscreteLaplaceFamily
 from noisyvalue.pandas import NoisyIntArray
 
@@ -144,7 +144,7 @@ def test_not_published_countries_are_refused():
 def test_a_released_count_becomes_a_nonnegative_posterior_at_the_observation():
     m = wm.mechanism(d("2024-03-01"), "BD")       # medium risk: sigma ~ 90
     cell = m.cell(600)
-    draws = cell.sample(4000, rng=7).draws
+    draws = sample_noisy_values(cell, n=4000, rng=7)[0].draws
 
     assert cell._obs == 600
     assert draws.min() >= 0
@@ -256,7 +256,7 @@ def test_quotes_in_titles_are_read_literally(root):
 
 def test_values_sample_around_the_released_count(root):
     value = wm.get_pageviews("2024-03-01", country="BD", root=root)["value"][0]
-    draws = value.sample(2000, rng=11).draws
+    draws = sample_noisy_values(value, n=2000, rng=11)[0].draws
 
     assert draws.min() >= 0
     assert draws.mean() == pytest.approx(780, abs=10)
@@ -288,7 +288,7 @@ def test_missing_cells_can_be_read_as_censored_posteriors(root):
     assert not frame.loc["BD", "censored"]
     assert frame.loc["IS", "censored"]
     value = frame.loc["IS", "value"]
-    draws = value.sample(2000, rng=5).draws
+    draws = sample_noisy_values(value, n=2000, rng=5)[0].draws
     assert draws.min() >= 0
     assert draws.max() <= 89 + 110               # threshold plus the shoulder grid
     assert draws.mean() == pytest.approx(45, abs=10)

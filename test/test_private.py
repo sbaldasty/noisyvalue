@@ -1,5 +1,6 @@
 import math
 
+from noisyvalue.sample import sample_noisy_values
 import numpy as np
 import pytest
 import scipy.stats
@@ -40,7 +41,7 @@ def test_weighted_sum_release_matches_calibrated_scale():
     a, b = (total_lo - loc) / noise_scale, (total_hi - loc) / noise_scale
     expected_mean = scipy.stats.truncnorm.mean(a, b, loc=loc, scale=noise_scale)
     expected_std = scipy.stats.truncnorm.std(a, b, loc=loc, scale=noise_scale)
-    draws = value.sample(n=20000, rng=np.random.default_rng(1)).draws
+    draws = sample_noisy_values(value, n=20000, rng=np.random.default_rng(1))[0].draws
     assert abs(draws.std() - expected_std) < 0.05 * noise_scale
     assert abs(draws.mean() - expected_mean) < 0.05 * noise_scale
 
@@ -54,7 +55,7 @@ def test_release_posterior_is_truncated_to_declared_bounds():
 
     total_lo = sum(t.lo for t in terms)
     total_hi = sum(t.hi for t in terms)
-    draws = value.sample(n=20000, rng=np.random.default_rng(2)).draws
+    draws = sample_noisy_values(value, n=20000, rng=np.random.default_rng(2))[0].draws
     # Without truncation this posterior (an unclamped Gaussian several
     # scales wide) would regularly sample outside [0, 4000]; asserting the
     # bound here is exactly the behavior this test is guarding.
@@ -73,7 +74,7 @@ def test_bool_count_release_is_discrete_with_sensitivity_one():
 
     assert isinstance(value, NoisyInt)
     expected_scale = 1.0 / math.sqrt(2 * 0.2)
-    draws = value.sample(n=20000, rng=np.random.default_rng(2)).draws
+    draws = sample_noisy_values(value, n=20000, rng=np.random.default_rng(2))[0].draws
     assert abs(draws.std() - expected_scale) < 0.05 * expected_scale + 0.05
 
 
@@ -126,10 +127,10 @@ def test_shared_key_tightens_posterior_across_releases():
     ds = PrivateDataset(units)
 
     first = ds.release(terms, rho=0.1, key="total")
-    before_std = first.sample(n=20000, rng=np.random.default_rng(3)).draws.std()
+    before_std = sample_noisy_values(first, n=20000, rng=np.random.default_rng(3))[0].draws.std()
 
     ds.release(terms, rho=0.1, key="total")
-    after_std = first.sample(n=20000, rng=np.random.default_rng(4)).draws.std()
+    after_std = sample_noisy_values(first, n=20000, rng=np.random.default_rng(4))[0].draws.std()
 
     assert after_std < before_std  # folding in the second measurement tightens it
     assert ds.rho_spent == pytest.approx(0.2)

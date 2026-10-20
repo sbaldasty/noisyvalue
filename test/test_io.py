@@ -5,10 +5,8 @@ import pytest
 
 import conftest as noise
 from noisyvalue.analysis import NoisyContingencyTable
-from noisyvalue.core import (
-    NoisyBool, NoisyFloat, NoisyInt,
-    noisy_value_sampler, sample_noisy_values,
-)
+from noisyvalue.core import NoisyBool, NoisyFloat, NoisyInt
+from noisyvalue.sample import noisy_value_sampler, sample_noisy_values
 from noisyvalue.io import load, save
 from noisyvalue.pandas import NoisyBoolArray, NoisyFloatArray, NoisyIntArray
 
@@ -31,8 +29,8 @@ def test_single_noisy_float_obs_survives_roundtrip(tmp_path):
 def test_single_noisy_float_posterior_survives_roundtrip(tmp_path):
     v = NoisyFloat.draw(10.0, noise.gaussian(0, 1), rng=0)
     rt = _roundtrip(tmp_path, v)
-    orig_ci = v.credible_interval(rng=0)
-    rt_ci = rt.credible_interval(rng=0)
+    orig_ci = sample_noisy_values(v, rng=0)[0].credible_interval()
+    rt_ci = sample_noisy_values(rt, rng=0)[0].credible_interval()
     assert orig_ci == pytest.approx(rt_ci, abs=0.2)
 
 
@@ -58,8 +56,8 @@ def test_binomial_noise_source_survives_roundtrip(tmp_path):
     v = NoisyInt.binomial(100, 0.3, obs=100)
     rt = _roundtrip(tmp_path, v)
     assert isinstance(rt, NoisyInt)
-    orig_ci = v.credible_interval(rng=0)
-    rt_ci = rt.credible_interval(rng=0)
+    orig_ci = sample_noisy_values(v, rng=0)[0].credible_interval()
+    rt_ci = sample_noisy_values(rt, rng=0)[0].credible_interval()
     assert orig_ci == pytest.approx(rt_ci, abs=2.0)
 
 
@@ -70,8 +68,8 @@ def test_discrete_gaussian_noise_source_survives_roundtrip(tmp_path):
     rt = _roundtrip(tmp_path, v)
     assert isinstance(rt, NoisyInt)
     assert int(rt) == int(v)
-    orig_ci = v.credible_interval(rng=0)
-    rt_ci = rt.credible_interval(rng=0)
+    orig_ci = sample_noisy_values(v, rng=0)[0].credible_interval()
+    rt_ci = sample_noisy_values(rt, rng=0)[0].credible_interval()
     assert orig_ci == pytest.approx(rt_ci, abs=2.0)
 
 
@@ -246,8 +244,8 @@ def test_contingency_table_shape_and_obs_survive_roundtrip(tmp_path):
 def test_contingency_table_stratified_posterior_survives_roundtrip(tmp_path):
     tbl = NoisyContingencyTable.stratified([[10, 20], [30, 40]])
     rt = _roundtrip(tmp_path, tbl)
-    orig_ci = tbl.chi_squared().credible_interval(rng=0)
-    rt_ci = rt.chi_squared().credible_interval(rng=0)
+    orig_ci = sample_noisy_values(tbl.chi_squared(), rng=0)[0].credible_interval()
+    rt_ci = sample_noisy_values(rt.chi_squared(), rng=0)[0].credible_interval()
     assert orig_ci == pytest.approx(rt_ci, abs=2.0)
 
 
@@ -294,6 +292,6 @@ def test_censored_cell_survives_roundtrip(tmp_path):
     rt = _roundtrip(tmp_path, v)
     assert isinstance(rt, NoisyInt)
     assert int(rt) == int(v)
-    orig_ci = v.credible_interval(rng=0)
-    rt_ci = rt.credible_interval(rng=0)
+    orig_ci = sample_noisy_values(v, rng=0)[0].credible_interval()
+    rt_ci = sample_noisy_values(rt, rng=0)[0].credible_interval()
     assert orig_ci == pytest.approx(rt_ci, abs=2.0)

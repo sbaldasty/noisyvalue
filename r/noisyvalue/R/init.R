@@ -24,6 +24,7 @@ noisyvalue_init <- function(venv = ".venv", src = "src") {
   .noisyvalue_env$pd <- reticulate::import("pandas", convert = FALSE)
   .noisyvalue_env$np <- reticulate::import("numpy", convert = FALSE)
   .noisyvalue_env$core <- reticulate::import("noisyvalue.core", convert = FALSE)
+  .noisyvalue_env$sample <- reticulate::import("noisyvalue.sample", convert = FALSE)
   .noisyvalue_env$io <- reticulate::import("noisyvalue.io", convert = FALSE)
   .noisyvalue_env$pdext <- reticulate::import("noisyvalue.pandas", convert = FALSE)
   .noisyvalue_env$census <- reticulate::import("noisyvalue.census", convert = FALSE)

@@ -1,4 +1,5 @@
 import noisyvalue as nv
+from noisyvalue.sample import sample_noisy_values
 import numpy as np
 import pytest
 from scipy.stats import chi2_contingency
@@ -104,7 +105,7 @@ def test_chi_squared_builds_single_noisy_float_with_propagated_uncertainty():
     assert isinstance(result, NoisyFloat)
     assert result._root.latent_symbols() == noisy_a._root.latent_symbols()
 
-    draws = result.sample(n=128, rng=123).draws
+    draws = sample_noisy_values(result, n=128, rng=123)[0].draws
     assert draws.shape == (128,)
     assert np.all(np.isfinite(draws))
 
@@ -121,7 +122,7 @@ def test_odds_ratio_sample_keeps_only_valid_draws():
     ratio = NoisyContingencyTable([[5.0, 7.0], [11.0, 13.0]]).odds_ratio()
     expected = (5.0 * 13.0) / (7.0 * 11.0)
 
-    draws = ratio.sample(n=400, rng=123).draws
+    draws = sample_noisy_values(ratio, n=400, rng=123)[0].draws
 
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (400,)
@@ -132,7 +133,7 @@ def test_odds_ratio_sample_keeps_only_valid_draws():
 def test_odds_ratio_sample_with_zero_n_returns_empty_array():
     ratio = NoisyContingencyTable([[1.0, 2.0], [3.0, 4.0]]).odds_ratio()
 
-    draws = ratio.sample(n=0, rng=123).draws
+    draws = sample_noisy_values(ratio, n=0, rng=123)[0].draws
 
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (0,)
@@ -151,7 +152,7 @@ def test_odds_ratio_builds_single_noisy_float_with_propagated_uncertainty():
     assert ratio._root.latent_symbols() == noisy_a._root.latent_symbols()
     assert any(isinstance(node, NoiseNode) for node in ratio._root.closure())
 
-    draws = ratio.sample(n=128, rng=123).draws
+    draws = sample_noisy_values(ratio, n=128, rng=123)[0].draws
     assert draws.shape == (128,)
     assert np.all(np.isfinite(draws))
 
@@ -168,7 +169,7 @@ def test_odds_ratio_sampling_handles_out_of_range_noisy_probabilities():
     # Invalid observed counts produce NaNs through the validity gate.
     ratio = NoisyContingencyTable([[5.0, -1.0], [11.0, 13.0]]).odds_ratio()
 
-    draws = ratio.sample(n=64, rng=123).draws
+    draws = sample_noisy_values(ratio, n=64, rng=123)[0].draws
 
     assert isinstance(draws, np.ndarray)
     assert draws.shape == (64,)
@@ -198,7 +199,7 @@ def test_chi_squared_accepts_predictive_contingency_table():
     table = [[65.0, 109.0], [243.0, 1348.0]]
 
     stat = NoisyContingencyTable.stratified(table).chi_squared()
-    draws = stat.sample(n=256, rng=123).draws
+    draws = sample_noisy_values(stat, n=256, rng=123)[0].draws
 
     assert isinstance(stat, NoisyFloat)
     assert draws.shape == (256,)
@@ -210,7 +211,7 @@ def test_odds_ratio_accepts_predictive_contingency_table():
     table = [[65.0, 109.0], [243.0, 1348.0]]
 
     ratio = NoisyContingencyTable.stratified(table).odds_ratio()
-    draws = ratio.sample(n=256, rng=123).draws
+    draws = sample_noisy_values(ratio, n=256, rng=123)[0].draws
     finite = draws[np.isfinite(draws)]
 
     assert isinstance(ratio, NoisyFloat)

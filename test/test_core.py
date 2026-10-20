@@ -10,8 +10,8 @@ from conftest import from_node
 from noisyvalue.core import NoisyFloat
 from noisyvalue.core import NoisyInt
 from noisyvalue.core import consolidate
-from noisyvalue.core import noisy_value_sampler
-from noisyvalue.core import sample_noisy_values
+from noisyvalue.sample import noisy_value_sampler
+from noisyvalue.sample import sample_noisy_values
 from noisyvalue.graph import DerivedNode
 from noisyvalue.graph import LatentNode
 from noisyvalue.graph import Node
@@ -113,7 +113,7 @@ def test_sampler_uses_root_constraints():
     )
 
     value = from_node(obs=3.5, root=root, expr=theta)
-    draws = value.sample(n=6, rng=123).draws
+    draws = sample_noisy_values(value, n=6, rng=123)[0].draws
 
     assert draws.shape == (6,)
     assert np.all(draws == 3.5)
@@ -125,7 +125,7 @@ def test_noisyfloat_round_nearest_for_deterministic_value():
 
     assert isinstance(rounded, NoisyInt)
     assert int(rounded) == 3
-    draws = rounded.sample(n=5, rng=123).draws
+    draws = sample_noisy_values(rounded, n=5, rng=123)[0].draws
     assert np.all(draws == 3)
 
 
@@ -142,7 +142,7 @@ def test_noisyfloat_round_nearest_tie_uses_floor_plus_half_rule():
     rounded = value.round_nearest()
 
     assert int(rounded) == 3
-    draws = rounded.sample(n=4, rng=123).draws
+    draws = sample_noisy_values(rounded, n=4, rng=123)[0].draws
     assert np.all(draws == 3)
 
 
@@ -177,7 +177,7 @@ def test_noisyfloat_guarded_returns_value_when_guard_true():
 
     assert isinstance(guarded, NoisyFloat)
     assert float(guarded) == pytest.approx(3.5)
-    draws = guarded.sample(n=5, rng=123).draws
+    draws = sample_noisy_values(guarded, n=5, rng=123)[0].draws
     assert np.all(draws == 3.5)
 
 
@@ -188,7 +188,7 @@ def test_noisyfloat_guarded_returns_nan_when_guard_false():
 
     assert isinstance(guarded, NoisyFloat)
     assert np.isnan(float(guarded))
-    draws = guarded.sample(n=5, rng=123).draws
+    draws = sample_noisy_values(guarded, n=5, rng=123)[0].draws
     assert np.all(np.isnan(draws))
 
 
@@ -203,7 +203,7 @@ def test_noisyfloat_guarded_preserves_uncertainty_when_guard_is_noisy_bool():
     guarded = value.guarded(value > 0)
 
     assert isinstance(guarded, NoisyFloat)
-    draws = guarded.sample(n=128, rng=123).draws
+    draws = sample_noisy_values(guarded, n=128, rng=123)[0].draws
     finite = draws[np.isfinite(draws)]
     assert draws.shape == (128,)
     assert finite.size > 0
@@ -244,7 +244,7 @@ def test_noisyint_binomial_explicit_obs_replaces_resample_pattern():
     assert int(resampled) == 5
     assert any(isinstance(node, NoiseNode) for node in resampled._root.closure())
 
-    draws = resampled.sample(n=128, rng=123).draws
+    draws = sample_noisy_values(resampled, n=128, rng=123)[0].draws
     assert draws.dtype == int
     assert np.all(draws >= 0)
     assert np.all(draws <= 2)
@@ -276,7 +276,7 @@ def test_noisyint_binomial_invalid_binomial_parameter_yields_nan_draws():
     resampled = NoisyInt.binomial(10, prob, obs=3)
 
     noisy_float = from_node(obs=float(int(resampled)), root=resampled._root, expr=resampled._root.expr)
-    draws = noisy_float.sample(n=16, rng=123).draws
+    draws = sample_noisy_values(noisy_float, n=16, rng=123)[0].draws
 
     assert draws.shape == (16,)
     assert np.all(np.isnan(draws))
@@ -294,7 +294,7 @@ def test_noisyint_binomial_invalid_parameter_raises_instead_of_corrupting_draws(
     resampled = NoisyInt.binomial(10, prob, obs=3)
 
     with pytest.raises(ValueError, match="NaN"):
-        resampled.sample(n=16, rng=123)
+        sample_noisy_values(resampled, n=16, rng=123)[0]
 
 
 def test_sampler_resolves_multilayer_law_dependencies():
@@ -307,7 +307,7 @@ def test_sampler_resolves_multilayer_law_dependencies():
     )
 
     value = from_node(obs=0.0, root=root, expr=z2.expr)
-    draws = value.sample(n=4000, rng=123).draws
+    draws = sample_noisy_values(value, n=4000, rng=123)[0].draws
 
     assert draws.shape == (4000,)
     assert np.all(np.isfinite(draws))
@@ -326,7 +326,7 @@ def test_sampler_uses_root_output_definition():
     value = from_node(obs=4.0, root=root, expr=theta + 9.0)
     assert value._root.expr == theta + 9.0
     assert value._root.constraints == frozenset({theta - 4.0})
-    draws = value.sample(n=8, rng=123).draws
+    draws = sample_noisy_values(value, n=8, rng=123)[0].draws
 
     assert draws.shape == (8,)
     assert np.all(draws == 13.0)
@@ -421,7 +421,7 @@ def test_noisyfloat_gaussian_plain_params_yield_independent_noise_node():
 
 def test_noisyfloat_gaussian_samples_from_correct_distribution():
     x = NoisyFloat.gaussian(3.0, 2.0, rng=42)
-    draws = x.sample(n=4000, rng=99).draws
+    draws = sample_noisy_values(x, n=4000, rng=99)[0].draws
 
     assert draws.mean() == pytest.approx(3.0, abs=0.15)
     assert draws.std() == pytest.approx(2.0, abs=0.15)
@@ -436,7 +436,7 @@ def test_noisyfloat_gaussian_unbounded_by_default():
 
 def test_noisyfloat_gaussian_truncated_samples_stay_within_bounds():
     x = NoisyFloat.gaussian(3.0, 2.0, low=2.0, high=4.0, rng=42)
-    draws = x.sample(n=2000, rng=99).draws
+    draws = sample_noisy_values(x, n=2000, rng=99)[0].draws
 
     assert draws.min() >= 2.0
     assert draws.max() <= 4.0
@@ -445,7 +445,7 @@ def test_noisyfloat_gaussian_truncated_samples_stay_within_bounds():
 def test_noisyfloat_gaussian_truncated_matches_scipy_truncnorm():
     loc, scale, low, high = 3.0, 2.0, 1.0, 5.0
     x = NoisyFloat.gaussian(loc, scale, low=low, high=high, obs=loc)
-    draws = x.sample(n=20000, rng=99).draws
+    draws = sample_noisy_values(x, n=20000, rng=99)[0].draws
 
     a, b = (low - loc) / scale, (high - loc) / scale
     assert draws.mean() == pytest.approx(
@@ -471,7 +471,7 @@ def test_noisyfloat_laplace_explicit_obs_is_used():
 
 def test_noisyfloat_laplace_samples_from_correct_distribution():
     x = NoisyFloat.laplace(3.0, 2.0, rng=42)
-    draws = x.sample(n=4000, rng=99).draws
+    draws = sample_noisy_values(x, n=4000, rng=99)[0].draws
 
     assert draws.mean() == pytest.approx(3.0, abs=0.2)
     assert draws.std() == pytest.approx(2.0 * np.sqrt(2.0), abs=0.25)
@@ -486,7 +486,7 @@ def test_noisyfloat_laplace_unbounded_by_default():
 
 def test_noisyfloat_laplace_truncated_samples_stay_within_bounds():
     x = NoisyFloat.laplace(3.0, 2.0, low=1.0, high=5.0, rng=42)
-    draws = x.sample(n=2000, rng=99).draws
+    draws = sample_noisy_values(x, n=2000, rng=99)[0].draws
 
     assert draws.min() >= 1.0
     assert draws.max() <= 5.0
@@ -511,7 +511,7 @@ def test_noisyfloat_gaussian_noisy_loc_obs_uses_observed_value_of_loc():
 def test_noisyfloat_gaussian_noisy_loc_propagates_uncertainty_in_sampling():
     mu = NoisyFloat.gaussian(5.0, 1.0, rng=1)
     x = NoisyFloat.gaussian(mu, 0.1, rng=2)
-    draws = x.sample(n=4000, rng=99).draws
+    draws = sample_noisy_values(x, n=4000, rng=99)[0].draws
 
     assert draws.mean() == pytest.approx(5.0, abs=0.2)
     assert draws.std() == pytest.approx(1.0, abs=0.15)
@@ -561,7 +561,7 @@ def test_noisyint_binomial_plain_params_yield_independent_noise_node():
 
 def test_noisyint_binomial_samples_from_correct_distribution():
     k = NoisyInt.binomial(20, 0.4, rng=42)
-    draws = k.sample(n=4000, rng=99).draws
+    draws = sample_noisy_values(k, n=4000, rng=99)[0].draws
 
     assert draws.mean() == pytest.approx(8.0, abs=0.3)
 
@@ -576,7 +576,7 @@ def test_noisyint_binomial_noisy_p_obs_uses_observed_value_of_p():
 def test_noisyint_binomial_noisy_p_propagates_uncertainty_in_sampling():
     p = NoisyFloat.gaussian(0.5, 0.05, rng=1)
     k = NoisyInt.binomial(10, p, rng=2)
-    draws = k.sample(n=4000, rng=99).draws
+    draws = sample_noisy_values(k, n=4000, rng=99)[0].draws
 
     assert draws.mean() == pytest.approx(5.0, abs=0.3)
     assert draws.std() > np.sqrt(10 * 0.5 * 0.5)  # wider than pure binomial variance
@@ -616,14 +616,14 @@ def test_noisyint_discrete_gaussian_plain_scale_yields_independent_noise_node():
 
 def test_noisyint_discrete_gaussian_samples_are_integers():
     k = NoisyInt.discrete_gaussian(10, rng=42)
-    draws = k.sample(n=200, rng=99).draws
+    draws = sample_noisy_values(k, n=200, rng=99)[0].draws
 
     assert draws.dtype == int
 
 
 def test_noisyint_discrete_gaussian_samples_have_correct_mean_and_variance():
     k = NoisyInt.discrete_gaussian(20, rng=42)
-    draws = k.sample(n=8000, rng=99).draws
+    draws = sample_noisy_values(k, n=8000, rng=99)[0].draws
 
     assert draws.mean() == pytest.approx(0.0, abs=1.0)
     assert draws.var() == pytest.approx(400.0, rel=0.1)
@@ -632,7 +632,7 @@ def test_noisyint_discrete_gaussian_samples_have_correct_mean_and_variance():
 def test_noisyint_discrete_gaussian_noisy_scale_propagates_uncertainty():
     sigma = NoisyFloat.gaussian(10.0, 1.0, rng=1)
     k = NoisyInt.discrete_gaussian(sigma, rng=2)
-    draws = k.sample(n=4000, rng=99).draws
+    draws = sample_noisy_values(k, n=4000, rng=99)[0].draws
 
     assert draws.mean() == pytest.approx(0.0, abs=0.5)
     assert draws.std() == pytest.approx(10.0, abs=1.5)
@@ -659,7 +659,7 @@ def test_noisyint_discrete_laplace_same_rng_gives_same_obs():
 
 def test_noisyint_discrete_laplace_samples_have_correct_mean_and_variance():
     k = NoisyInt.discrete_laplace(20, rng=42)
-    draws = k.sample(n=8000, rng=99).draws
+    draws = sample_noisy_values(k, n=8000, rng=99)[0].draws
 
     # two-sided geometric with scale 20: variance = 2p/(1-p)^2, p = e^(-1/20)
     p = np.exp(-1 / 20)
@@ -671,14 +671,14 @@ def test_noisyint_discrete_laplace_tails_are_heavier_than_gaussian():
     # P(|X| > 4 sd) is ~3.5e-3 for Laplace noise but ~6e-5 for Gaussian;
     # this is what distinguishes the log-density from the Gaussian node's
     k = NoisyInt.discrete_laplace(30, rng=42)
-    draws = k.sample(n=20000, rng=99).draws
+    draws = sample_noisy_values(k, n=20000, rng=99)[0].draws
 
     assert (np.abs(draws) > 4 * draws.std()).mean() > 1e-3
 
 
 def test_noisyint_discrete_laplace_respects_truncation_bounds():
     k = NoisyInt.discrete_laplace(10, low=0, high=5, rng=1)
-    draws = k.sample(n=500, rng=99).draws
+    draws = sample_noisy_values(k, n=500, rng=99)[0].draws
 
     assert draws.min() >= 0
     assert draws.max() <= 5
@@ -783,7 +783,7 @@ def test_consolidate_samples_have_correct_mean():
     y = _draw(2.0)
     z = x + y
     (z_cons,) = consolidate(z)
-    samples = z_cons.sample(n=5000, rng=42)
+    samples = sample_noisy_values(z_cons, n=5000, rng=42)[0]
     assert abs(samples.mean() - float(z)) < 0.1
 
 
@@ -792,8 +792,8 @@ def test_consolidate_samples_match_original_std():
     y = _draw(2.0)
     z = x + y
     (z_cons,) = consolidate(z)
-    orig_std = np.std(z.sample(n=5000, rng=42).draws)
-    cons_std = np.std(z_cons.sample(n=5000, rng=42).draws)
+    orig_std = np.std(sample_noisy_values(z, n=5000, rng=42)[0].draws)
+    cons_std = np.std(sample_noisy_values(z_cons, n=5000, rng=42)[0].draws)
     assert abs(orig_std - cons_std) < 0.05
 
 
@@ -805,7 +805,7 @@ def test_consolidate_combined_sigma_scales_with_coefficients():
     (z_cons,) = consolidate(z)
     assert _noise_node_count(z_cons) == 1
     expected_std = float(np.sqrt(13))
-    actual_std = np.std(z_cons.sample(n=10000, rng=42).draws)
+    actual_std = np.std(sample_noisy_values(z_cons, n=10000, rng=42)[0].draws)
     assert abs(actual_std - expected_std) < 0.1
 
 

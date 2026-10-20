@@ -7,7 +7,8 @@ dp = pytest.importorskip("opendp.prelude")
 dp.enable_features("contrib", "honest-but-curious")
 
 from noisyvalue import opendp as nvdp
-from noisyvalue.core import NoisyFloat, NoisyInt, sample_noisy_values
+from noisyvalue.core import NoisyFloat, NoisyInt
+from noisyvalue.sample import sample_noisy_values
 
 
 def float_space():
@@ -27,7 +28,7 @@ def test_scalar_gaussian_release_matches_posterior():
     value = meas(10.0)
 
     assert isinstance(value, NoisyFloat)
-    draws = value.sample(n=8000, rng=np.random.default_rng(0)).draws
+    draws = sample_noisy_values(value, n=8000, rng=np.random.default_rng(0))[0].draws
     assert abs(draws.mean() - float(value)) < 0.1
     assert abs(draws.std() - 2.0) < 0.2
 
@@ -45,7 +46,7 @@ def test_vector_integer_laplace_releases_noisy_ints():
     assert len(values) == 3
     assert all(isinstance(v, NoisyInt) for v in values)
     sd = math.sqrt(nvdp._release_variance("laplace", True, 3.0))
-    draws = values[0].sample(n=8000, rng=np.random.default_rng(0)).draws
+    draws = sample_noisy_values(values[0], n=8000, rng=np.random.default_rng(0))[0].draws
     assert abs(draws.mean() - int(values[0])) < 0.2 * sd
     assert abs(draws.std() - sd) < 0.15 * sd
 
@@ -104,7 +105,7 @@ def test_histogram_total_roundtrip_tightens_total():
     assert variance < direct_variance
 
     # The value released before the fold reflects the tightened posterior.
-    draws = total.sample(n=8000, rng=np.random.default_rng(0)).draws
+    draws = sample_noisy_values(total, n=8000, rng=np.random.default_rng(0))[0].draws
     assert abs(draws.mean() - center) < 0.2
     assert abs(draws.std() - math.sqrt(variance)) < 0.15 * math.sqrt(variance)
 
@@ -185,7 +186,7 @@ def test_release_query_wraps_grouped_counts():
 
     value = release.frame["len"].iloc[0]
     assert isinstance(value, NoisyInt)
-    draws = value.sample(n=6000, rng=np.random.default_rng(0)).draws
+    draws = sample_noisy_values(value, n=6000, rng=np.random.default_rng(0))[0].draws
     assert draws.min() >= 0  # count columns carry the true >= 0 bound
     assert abs(draws.std() - scale) < 0.15 * scale
 
@@ -200,8 +201,7 @@ def test_release_query_wraps_float_sums():
     assert isinstance(release.frame["income"].array, NoisyFloatArray)
     _, mechanism, discrete, scale = release.noised_columns["income"]
     assert (mechanism, discrete) == ("gaussian", False)
-    draws = release.frame["income"].iloc[0].sample(
-        n=6000, rng=np.random.default_rng(0)).draws
+    draws = sample_noisy_values(release.frame["income"].iloc[0], n=6000, rng=np.random.default_rng(0))[0].draws
     assert abs(draws.std() - scale) < 0.15 * scale
 
 
@@ -270,8 +270,7 @@ def test_link_sum_tightens_total_by_closed_form():
     assert center == pytest.approx(expected_center)
 
     # The total value released before the link samples from the tightened law.
-    draws = coarse.frame["len"].iloc[0].sample(
-        n=8000, rng=np.random.default_rng(0)).draws
+    draws = sample_noisy_values(coarse.frame["len"].iloc[0], n=8000, rng=np.random.default_rng(0))[0].draws
     assert abs(draws.std() - math.sqrt(variance)) < 0.15 * math.sqrt(variance)
 
 

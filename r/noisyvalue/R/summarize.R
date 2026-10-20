@@ -1,5 +1,5 @@
 # Both public functions below need a genuine scalar Python object to call
-# .credible_interval()/.sample() on. `x` may already be one (e.g. the
+# sampled with noisyvalue.sample on. `x` may already be one (e.g. the
 # result of sum()/mean()), or it may be a length-1 *Series* -- e.g.
 # `tbl$value[tbl$variable == "male"]`, which stays Series-backed under `[`
 # even once filtered down to one row (`[[` is what actually unboxes to a
@@ -21,6 +21,12 @@
   .py(x)$iloc[0L]
 }
 
+# Jointly sample a single scalar noisy value, returning its SampleBatch.
+.sample_one <- function(py, n, rng) {
+  batches <- .nv("sample")$sample_noisy_values(py, n = as.integer(n), rng = rng)
+  reticulate::py_get_item(batches, 0L)
+}
+
 #' Credible interval for a scalar noisy value
 #'
 #' Draws `n` joint posterior samples of `x` and returns the central `p`
@@ -40,7 +46,8 @@
 noisy_credible_interval <- function(x, p = 0.95, n = 1000, rng = NULL) {
   py <- .scalar_py(x, "noisy_credible_interval")
   rng <- if (is.null(rng)) NULL else as.integer(rng)
-  raw <- py$credible_interval(p = p, n = as.integer(n), rng = rng)
+  batch <- .sample_one(py, n, rng)
+  raw <- batch$credible_interval(p = p)
   as.vector(reticulate::py_to_r(raw))
 }
 
@@ -63,6 +70,6 @@ noisy_prob <- function(x, n = 1000, rng = NULL) {
   }
   py <- .scalar_py(x, "noisy_prob")
   rng <- if (is.null(rng)) NULL else as.integer(rng)
-  batch <- py$sample(n = as.integer(n), rng = rng)
+  batch <- .sample_one(py, n, rng)
   as.vector(reticulate::py_to_r(batch$mean()))
 }

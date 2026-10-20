@@ -18,7 +18,8 @@ import pytest
 import sympy as sp
 
 from noisyvalue import census
-from noisyvalue.core import NoisyInt, sample_noisy_values
+from noisyvalue.core import NoisyInt
+from noisyvalue.sample import sample_noisy_values
 from noisyvalue.dataset import GeographyUnavailable
 from noisyvalue.graph import DiscreteGaussianNode, NoiseNode
 from sympy import oo
@@ -198,9 +199,9 @@ def test_hhgq_lower_bounds_apply_only_to_whole_category_totals(pl94_root):
     df = _view(census.pl94_2020, pl94_root).query("hhgq")
     correctional = df[df["hhgq"] == "correctional"]["value"].array[0]
     # obs 3 with an exact lower bound of 5: the posterior lives in [5, 6000]
-    assert correctional.sample(2000, rng=3).draws.min() >= 5
+    assert sample_noisy_values(correctional, n=2000, rng=3)[0].draws.min() >= 5
     military = df[df["hhgq"] == "military"]["value"].array[0]
-    assert military.sample(2000, rng=3).draws.min() >= 0   # obs -4, nonnegative
+    assert sample_noisy_values(military, n=2000, rng=3)[0].draws.min() >= 0   # obs -4, nonnegative
 
 
 def test_hhgq_lower_bounds_do_not_reach_a_sliced_category(pl94_root):
@@ -227,7 +228,7 @@ def test_nonnegativity_can_be_declined(pl94_root):
     df = _view(census.pl94_2020, pl94_root, nonnegative=False,
                apply_constraints=False).query("hhgq")
     military = df[df["hhgq"] == "military"]["value"].array[0]
-    assert military.sample(2000, rng=3).draws.min() < 0
+    assert sample_noisy_values(military, n=2000, rng=3)[0].draws.min() < 0
 
 
 def test_the_nursing_structural_zero_pins_under_18_residents(pl94_root):
@@ -236,9 +237,9 @@ def test_the_nursing_structural_zero_pins_under_18_residents(pl94_root):
     slab = df[(df["hhgq"] == "nursing") & (df["votingage"] == "under_18")]
     assert len(slab) == 126
     for value in slab["value"]:
-        assert np.all(value.sample(20, rng=5).draws == 0)
+        assert np.all(sample_noisy_values(value, n=20, rng=5)[0].draws == 0)
     other = df[(df["hhgq"] == "nursing") & (df["votingage"] == "voting_age")]
-    assert any(v.sample(20, rng=5).draws.std() > 0 for v in other["value"])
+    assert any(sample_noisy_values(v, n=20, rng=5)[0].draws.std() > 0 for v in other["value"])
 
 
 def test_the_unit_total_is_served_from_evidence_and_conditions_the_pair(pl94_root):
@@ -246,7 +247,7 @@ def test_the_unit_total_is_served_from_evidence_and_conditions_the_pair(pl94_roo
     df = view.queries(["h1", "total"])
     total = df[df["measurement"] == "total"]["value"].array[0]
     assert int(total) == 100
-    assert np.all(total.sample(20, rng=1).draws == 100)
+    assert np.all(sample_noisy_values(total, n=20, rng=1)[0].draws == 100)
 
     vac = df[df["h1"] == "vacant"]["value"].array[0]
     occ = df[df["h1"] == "occupied"]["value"].array[0]
@@ -364,7 +365,7 @@ def test_tabulation_block_groups_are_recovered_by_descending_to_blocks(block_roo
     assert int(combined) == 30
     assert bool(df[df["geoid"] == "500010001001"]["aian"].iloc[0]) is False
     # noise from both summed blocks survives; it is not collapsed to a constant
-    assert combined.sample(3000, rng=1).draws.std() > 5
+    assert sample_noisy_values(combined, n=3000, rng=1)[0].draws.std() > 5
 
     solo = df[df["geoid"] == "500010001002"]["value"].array[0]
     assert int(solo) == 5
@@ -463,10 +464,10 @@ def test_a_zero_pl94_block_empties_every_cell_it_covers(dhc_root):
     slab = df[df["relgq"] == "institutional_gq"]["value"]
     assert len(slab) == 2
     for value in slab:
-        assert np.all(value.sample(20, rng=5).draws == 0)
+        assert np.all(sample_noisy_values(value, n=20, rng=5)[0].draws == 0)
     # but noninstitutional GQ holds 40, so those cells stay free
     other = df[df["relgq"] == "noninstitutional_gq"]["value"]
-    assert any(v.sample(50, rng=5).draws.std() > 0 for v in other)
+    assert any(sample_noisy_values(v, n=50, rng=5)[0].draws.std() > 0 for v in other)
 
 
 def test_blocks_of_three_or_more_keep_the_total_only_as_a_bound(dhc_root):
@@ -474,7 +475,7 @@ def test_blocks_of_three_or_more_keep_the_total_only_as_a_bound(dhc_root):
     df = view.query("sex*age_18_64_116")
     # six cells (2 sexes x 3 age groups) against a PL94 invariant that only
     # resolves under-18 vs voting-age: three free cells per block
-    draws = [v.sample(400, rng=4).draws for v in df["value"]]
+    draws = [sample_noisy_values(v, n=400, rng=4)[0].draws for v in df["value"]]
     assert all(d.std() > 0 for d in draws)
     assert all(d.max() <= 1000 for d in draws)
 
@@ -551,7 +552,7 @@ def test_truncated_discrete_gaussian_window_far_from_loc():
 def test_observe_posterior_centers_on_observation():
     node = DiscreteGaussianNode.create(loc=0, scale=3, low=-sp.oo, high=sp.oo)
     value = NoisyInt.observe(100, node)
-    batch = value.sample(4000, rng=11)
+    batch = sample_noisy_values(value, n=4000, rng=11)[0]
     assert int(value) == 100
     assert abs(batch.mean() - 100) < 0.5
     assert np.all(batch.draws == batch.draws.astype(int))
@@ -817,7 +818,7 @@ def test_real_national_person_total_comes_from_the_invariant():
     df = census.pl94_2020.view("us").query("total")
     total = df["value"].array[0]
     assert int(total) == 331449281
-    assert np.all(total.sample(50, rng=1).draws == 331449281)
+    assert np.all(sample_noisy_values(total, n=50, rng=1)[0].draws == 331449281)
 
 
 @requires_pl94

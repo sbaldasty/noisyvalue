@@ -3,7 +3,8 @@ import pandas as pd
 import pytest
 
 import conftest as noise
-from noisyvalue.core import NoisyBool, NoisyFloat, NoisyInt, sample_noisy_values
+from noisyvalue.core import NoisyBool, NoisyFloat, NoisyInt
+from noisyvalue.sample import sample_noisy_values
 from noisyvalue.pandas import NoisyBoolArray, NoisyFloatArray, NoisyIntArray
 
 

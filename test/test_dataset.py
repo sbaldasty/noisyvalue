@@ -28,7 +28,7 @@ from noisyvalue.dataset import (
     marginal_coarsening,
     solve,
 )
-from noisyvalue.core import sample_noisy_values
+from noisyvalue.sample import sample_noisy_values
 from noisyvalue.dataset.solve import build_values
 from noisyvalue.graph import DiscreteGaussianNode, NoiseNode
 from sympy import oo
@@ -294,7 +294,7 @@ def test_one_free_cell_becomes_a_point_mass_at_the_block_total():
 
 
 def test_two_free_cells_stay_anti_correlated_around_the_exact_total():
-    from noisyvalue.core import sample_noisy_values
+    from noisyvalue.sample import sample_noisy_values
     universe = _universe()
     known = ExactHistogram(
         marginal_coarsening(universe, {}), np.array([[100]]))
@@ -315,7 +315,7 @@ def test_three_free_cells_keep_the_total_only_as_a_bound_and_say_so():
     weakened = [n for n in resolution.notes if n["kind"].startswith("exact total")]
     assert weakened and weakened[0]["cells"] == 3
     assert "bound only" in weakened[0]["detail"]
-    draws = values[0].sample(500, rng=2).draws
+    draws = sample_noisy_values(values[0], n=500, rng=2)[0].draws
     assert draws.max() <= 12 and draws.min() >= 0
 
 
@@ -349,7 +349,7 @@ def test_structural_zeros_are_taken_off_a_block_total_before_the_ladder():
         np.array([[70], [0]]), source="known")
     # the block spans house, prison and dorm, but the rule empties prison, so
     # what is left is a two-cell block and gets the closed form, not a bound
-    from noisyvalue.core import sample_noisy_values
+    from noisyvalue.sample import sample_noisy_values
     _, values = _cells(universe, ("detailed", "*"), [30, 2, 45, 1],
                        [zero, known])
     assert int(values[1]) == 0
@@ -362,9 +362,9 @@ def test_structural_zeros_are_taken_off_a_block_total_before_the_ladder():
 def test_nonnegativity_is_the_default_and_can_be_declined():
     universe = _universe()
     _, values = _cells(universe, ("*", "*"), [-40], [])
-    assert values[0].sample(200, rng=1).draws.min() >= 0
+    assert sample_noisy_values(values[0], n=200, rng=1)[0].draws.min() >= 0
     _, values = _cells(universe, ("*", "*"), [-40], [], nonnegative=False)
-    assert values[0].sample(200, rng=1).draws.min() < 0
+    assert sample_noisy_values(values[0], n=200, rng=1)[0].draws.min() < 0
 
 
 def test_a_bound_outside_the_sampled_support_is_dropped_as_inert():
@@ -384,7 +384,7 @@ def test_a_bound_outside_the_sampled_support_is_dropped_as_inert():
     assert isinstance(node, DiscreteGaussianNode)
     # theta <= 505 becomes a lower bound in eps-space (eps = obs - theta)
     assert node.low != -oo
-    assert values[0].sample(400, rng=1).draws.max() <= 505
+    assert sample_noisy_values(values[0], n=400, rng=1)[0].draws.max() <= 505
 
 
 def test_dropping_an_inert_bound_leaves_the_posterior_unchanged():
@@ -392,8 +392,8 @@ def test_dropping_an_inert_bound_leaves_the_posterior_unchanged():
     family = DiscreteGaussianFamily()
     plain = family.cell(500, 16.0)
     bounded = family.cell(500, 16.0, lo=0, hi=10 ** 9)
-    assert np.array_equal(plain.sample(500, rng=4).draws,
-                          bounded.sample(500, rng=4).draws)
+    assert np.array_equal(sample_noisy_values(plain, n=500, rng=4)[0].draws,
+                          sample_noisy_values(bounded, n=500, rng=4)[0].draws)
 
 
 # ── the discrete Laplace family ──────────────────────────────────────────────
@@ -408,7 +408,7 @@ def test_laplace_scale_and_variance_conversions_are_inverse():
 def test_laplace_cell_posterior_is_centred_at_the_observation():
     family = DiscreteLaplaceFamily()
     variance = family.variance_from_scale(30.0)   # Wikimedia's historical scale
-    draws = family.cell(1000, variance).sample(8000, rng=1).draws
+    draws = sample_noisy_values(family.cell(1000, variance), n=8000, rng=1)[0].draws
 
     assert draws.dtype == int
     assert draws.mean() == pytest.approx(1000.0, abs=2.0)
@@ -418,7 +418,7 @@ def test_laplace_cell_posterior_is_centred_at_the_observation():
 def test_laplace_cell_respects_a_nonnegativity_bound():
     family = DiscreteLaplaceFamily()
     variance = family.variance_from_scale(30.0)
-    draws = family.cell(40, variance, lo=0).sample(4000, rng=3).draws
+    draws = sample_noisy_values(family.cell(40, variance, lo=0), n=4000, rng=3)[0].draws
 
     assert draws.min() >= 0
 
@@ -428,7 +428,7 @@ def test_laplace_cell_pinned_by_equal_bounds_is_exact():
     cell = family.cell(40, 1800.0, lo=7, hi=7)
 
     assert cell._obs == 7
-    assert np.all(cell.sample(50, rng=4).draws == 7)
+    assert np.all(sample_noisy_values(cell, n=50, rng=4)[0].draws == 7)
 
 
 def test_laplace_dropping_an_inert_bound_leaves_the_posterior_unchanged():
@@ -439,8 +439,8 @@ def test_laplace_dropping_an_inert_bound_leaves_the_posterior_unchanged():
     plain = family.cell(500, variance)
     bounded = family.cell(500, variance, lo=0, hi=10 ** 9)
 
-    assert np.array_equal(plain.sample(500, rng=4).draws,
-                          bounded.sample(500, rng=4).draws)
+    assert np.array_equal(sample_noisy_values(plain, n=500, rng=4)[0].draws,
+                          sample_noisy_values(bounded, n=500, rng=4)[0].draws)
 
 
 def test_laplace_family_has_no_pair_closed_form():
@@ -453,7 +453,7 @@ def test_laplace_family_has_no_pair_closed_form():
 def test_suppressed_cell_is_roughly_uniform_below_the_threshold():
     family = DiscreteLaplaceFamily()
     cell = family.suppressed(450, family.variance_from_scale(30.0))
-    draws = cell.sample(8000, rng=1).draws
+    draws = sample_noisy_values(cell, n=8000, rng=1)[0].draws
 
     assert draws.min() >= 0
     assert draws.mean() == pytest.approx(450 / 2, abs=20)
@@ -466,13 +466,13 @@ def test_suppressed_cell_obs_is_the_posterior_median():
     cell = family.suppressed(90, 332.2)
 
     assert 35 <= cell._obs <= 55                 # ~ threshold / 2
-    draws = cell.sample(4000, rng=2).draws
+    draws = sample_noisy_values(cell, n=4000, rng=2)[0].draws
     assert np.median(draws) == pytest.approx(cell._obs, abs=6)
 
 
 def test_suppressed_cell_respects_an_upper_bound():
     family = DiscreteGaussianFamily()
-    draws = family.suppressed(550, 8109.0, hi=500).sample(2000, rng=3).draws
+    draws = sample_noisy_values(family.suppressed(550, 8109.0, hi=500), n=2000, rng=3)[0].draws
     assert draws.max() <= 500
 
 

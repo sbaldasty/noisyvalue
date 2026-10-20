@@ -1,6 +1,6 @@
 import numpy as np
 
-from .core import noisy_value_sampler
+from .sample import noisy_value_sampler
 
 
 def float_array_sampler(vals):
