@@ -6,8 +6,8 @@ from sympy import sympify
 
 from . import util
 from .core import NoisyValue
-from .core import _solve_theta_substitutions
-from .core import _sampler_inputs_from_roots
+from .latents import solve_theta_substitutions
+from .latents import sampler_inputs_from_roots
 from .graph import DerivedNode
 from .graph import GaussianNode
 from .graph import NoiseNode
@@ -104,8 +104,8 @@ def consolidate(*values):
     rules = ConsolidationRule.registry
 
     # Resolve latent variables so each expression is purely over noise symbols.
-    all_thetas, theta_eqns, _, _, _ = _sampler_inputs_from_roots(values)
-    theta_subs = _solve_theta_substitutions(all_thetas, theta_eqns)
+    all_thetas, theta_eqns, _, _, _ = sampler_inputs_from_roots([v._root for v in values])
+    theta_subs = solve_theta_substitutions(all_thetas, theta_eqns)
     resolved_exprs = tuple(
         sympify(v.expr).subs(theta_subs) for v in values
     )

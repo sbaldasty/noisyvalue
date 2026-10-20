@@ -1,11 +1,17 @@
 import operator as op
 import sympy as sp
 import numpy as np
-from . import util
 
-from sympy import Abs, And, Eq, Equality, Not, Or, Piecewise, Pow, Rational
+from sympy import Abs
+from sympy import And
+from sympy import Not
+from sympy import Or
+from sympy import Piecewise
+from sympy import Pow
+from sympy import Rational
 from sympy import sympify
 
+from . import util
 from .graph import GaussianNode
 from .graph import LaplaceNode
 from .graph import BinomialNode
@@ -14,81 +20,6 @@ from .graph import DiscreteLaplaceNode
 from .graph import DerivedNode
 from .graph import LatentNode
 from .graph import Node
-from .graph import NoiseNode
-
-
-def _solve_theta_substitutions(thetas, eqns):
-    if not thetas:
-        return {}
-
-    equations = []
-    for eq in eqns:
-        eq = sympify(eq)
-        if isinstance(eq, Equality):
-            equations.append(eq)
-        else:
-            equations.append(Eq(eq, 0))
-    theta_list = list(thetas)
-
-    sol = sp.solve(equations, theta_list, dict=True)
-    if not sol:
-        raise ValueError(f"Could not solve latent variables from constraints: {thetas}")
-    chosen = sol[0]
-    missing = set(thetas) - set(chosen.keys())
-    if missing:
-        raise ValueError(f"Latent variables are underidentified: {missing}")
-
-    return chosen
-
-
-def _filter_theta_equations(eqns, thetas, independent_noise_symbols):
-    """Keep only equations suitable for solving latent symbols.
-
-    We keep equations whose non-latent free symbols are all independent noise
-    symbols (plain symbols of noise nodes with no dependencies).
-    """
-    thetas = set(thetas)
-    theta_eqns = []
-    for eqn in eqns:
-        eqn = sympify(eqn)
-        non_latent_symbols = eqn.free_symbols - thetas
-        if not non_latent_symbols:
-            theta_eqns.append(eqn)
-            continue
-        if non_latent_symbols.issubset(independent_noise_symbols):
-            theta_eqns.append(eqn)
-    return tuple(theta_eqns)
-
-
-def _sampler_inputs_from_roots(values):
-    all_thetas = set()
-    all_eqns = set()
-    dependent_law_nodes = {}
-    all_nodes = {}
-
-    for value in values:
-        root = value._root
-        for node in root.closure():
-            all_nodes[node.expr] = node
-        all_thetas |= root.latent_symbols()
-        all_eqns.update(root.all_constraints())
-        for node in root.closure():
-            if not isinstance(node, NoiseNode) or not node.deps:
-                continue
-            dependent_law_nodes[node.expr] = node
-
-    independent_noise = {
-        node.expr: node
-        for node in all_nodes.values()
-        if isinstance(node, NoiseNode) and not node.deps
-    }
-    independent_noise_symbols = set(independent_noise.keys())
-    theta_eqns = _filter_theta_equations(all_eqns, all_thetas, independent_noise_symbols)
-
-    ordered_law_nodes = tuple(
-        dependent_law_nodes[sym] for sym in sorted(dependent_law_nodes, key=str)
-    )
-    return all_thetas, theta_eqns, ordered_law_nodes, independent_noise_symbols, independent_noise
 
 
 class NoisyValue:

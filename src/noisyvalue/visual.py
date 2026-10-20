@@ -4,8 +4,8 @@ import sympy as sp
 
 from sympy.stats import quantile
 
-from .core import _filter_theta_equations
-from .core import _solve_theta_substitutions
+from .latents import filter_theta_equations
+from .latents import solve_theta_substitutions
 from .graph import NoiseNode
 
 
@@ -76,10 +76,10 @@ def _compute_posterior_quadrature_points(noisy_value, quadrature_points=17, max_
 
     thetas = noisy_value._root.latent_symbols()
     constraints = noisy_value._root.all_constraints()
-    theta_constraints = _filter_theta_equations(constraints, thetas, independent_noise_symbols)
+    theta_constraints = filter_theta_equations(constraints, thetas, independent_noise_symbols)
 
     if thetas:
-        sol = _solve_theta_substitutions(thetas, theta_constraints)
+        sol = solve_theta_substitutions(thetas, theta_constraints)
         rhs_noise_symbols = set()
         for rhs in sol.values():
             rhs_expr = sp.sympify(rhs)

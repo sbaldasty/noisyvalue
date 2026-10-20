@@ -4,8 +4,8 @@ from sympy import sympify
 
 from . import util
 from .core import NoisyValue
-from .core import _solve_theta_substitutions
-from .core import _sampler_inputs_from_roots
+from .latents import solve_theta_substitutions
+from .latents import sampler_inputs_from_roots
 from .consolidate import consolidate
 from .graph import topological_sort_law_nodes
 
@@ -36,9 +36,9 @@ def noisy_value_sampler(*vals):
         law_nodes,
         independent_noise_symbols,
         independent_noise,
-    ) = _sampler_inputs_from_roots(vals)
+    ) = sampler_inputs_from_roots([v._root for v in vals])
 
-    theta_substitutions = _solve_theta_substitutions(all_thetas, all_eqns)
+    theta_substitutions = solve_theta_substitutions(all_thetas, all_eqns)
     value_exprs = tuple(value.expr for value in vals)
 
     return NoisyValueSampler(
