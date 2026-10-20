@@ -285,8 +285,8 @@ def _numeric_result_cls(a, b):
 
 
 def _fold_numbers(values, op):
-    # Like the built-in min/max: accept either several values or one iterable
-    if len(values) == 1 and not isinstance(values[0], NoisyValue):
+    # Accept either several values or one iterable
+    if len(values) == 1:
         try:
             values = tuple(values[0])
         except TypeError:
