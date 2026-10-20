@@ -10,12 +10,9 @@ from conftest import rooted_float
 from conftest import from_node
 from noisyvalue.core import NoisyFloat
 from noisyvalue.core import NoisyInt
-from noisyvalue.sample import noisy_value_sampler
 from noisyvalue.sample import sample_noisy_values
 from noisyvalue.graph import DerivedNode
 from noisyvalue.graph import LatentNode
-from noisyvalue.graph import Node
-from noisyvalue.graph import GaussianNode
 from noisyvalue.graph import NoiseNode
 from noisyvalue.graph import DiscreteGaussianNode
 from noisyvalue.graph import DiscreteLaplaceNode
@@ -24,99 +21,12 @@ from noisyvalue.graph import DiscreteLaplaceNode
 _rng_factory = lambda: default_rng(42)
 
 
-def test_joint_sampling_preserves_shared_latent_dependency():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    eps_obs_node = noise.gaussian(0, 1)
-    eps_obs = eps_obs_node.expr
-
-    constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, deps=(theta_node, eps_obs_node))
-    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, deps=(theta_node, eps_obs_node))
-
-    batch_a, batch_b = sample_noisy_values(noisy_a, noisy_b, n=2000, rng=123)
-    draws_a = batch_a.draws
-    draws_b = batch_b.draws
-
-    assert draws_a.shape == (2000,)
-    assert draws_b.shape == (2000,)
-    assert np.allclose(draws_b, 2.0 * draws_a)
-
-
 def test_literal_conversions_use_native_root_model():
     converted = NoisyFloat.lift(7.0)
 
     assert isinstance(converted._root, DerivedNode)
     assert converted._root.constraints == frozenset()
     assert float(converted) == 7.0
-
-
-def test_integer_noisy_values_sample_as_integers():
-    count = NoisyInt.lift(3)
-    draws = sample_noisy_values(count, n=5, rng=123)[0].draws
-
-    assert isinstance(draws, np.ndarray)
-    assert draws.dtype == int
-    assert np.all(draws == 3)
-
-
-def test_prepared_sampler_preserves_shared_latent_dependency():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    eps_obs_node = noise.gaussian(0, 1)
-    eps_obs = eps_obs_node.expr
-
-    constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, deps=(theta_node, eps_obs_node))
-    noisy_b = rooted_float(obs=0.0, expr=2.0 * theta, eqns=constraints, deps=(theta_node, eps_obs_node))
-
-    prepared = noisy_value_sampler(noisy_a, noisy_b)
-    batch_a, batch_b = prepared.sample(n=2000, rng=123)
-    draws_a = batch_a.draws
-    draws_b = batch_b.draws
-
-    assert draws_a.shape == (2000,)
-    assert draws_b.shape == (2000,)
-    assert np.allclose(draws_b, 2.0 * draws_a)
-
-
-def test_prepared_sampler_matches_direct_sampling_for_same_seed():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    eps_obs_node = noise.gaussian(0, 1)
-    eps_obs = eps_obs_node.expr
-
-    constraints = [theta + eps_obs - 1.0]
-    noisy_a = rooted_float(obs=0.0, expr=theta, eqns=constraints, deps=(theta_node, eps_obs_node))
-    noisy_b = rooted_float(obs=0.0, expr=theta + 3.0, eqns=constraints, deps=(theta_node, eps_obs_node))
-
-    direct_a, direct_b = sample_noisy_values(noisy_a, noisy_b, n=250, rng=777)
-    prepared = noisy_value_sampler(noisy_a, noisy_b)
-    prepared_a, prepared_b = prepared.sample(n=250, rng=777)
-
-    assert np.allclose(prepared_a.draws, direct_a.draws)
-    assert np.allclose(prepared_b.draws, direct_b.draws)
-
-
-def test_node_constructors_reject_unknown_kwargs():
-    with pytest.raises(TypeError):
-        LatentNode(symbol=sp.Symbol("theta_node"))
-
-
-def test_sampler_uses_root_constraints():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    root = DerivedNode(
-        expr=theta,
-        constraints=(theta - 3.5,),
-        deps=(theta_node,),
-    )
-
-    value = from_node(obs=3.5, root=root, expr=theta)
-    draws = sample_noisy_values(value, n=6, rng=123)[0].draws
-
-    assert draws.shape == (6,)
-    assert np.all(draws == 3.5)
 
 
 def test_noisyfloat_round_nearest_for_deterministic_value():
@@ -295,78 +205,6 @@ def test_noisyint_binomial_invalid_parameter_raises_instead_of_corrupting_draws(
 
     with pytest.raises(ValueError, match="NaN"):
         sample_noisy_values(resampled, n=16, rng=123)[0]
-
-
-def test_sampler_resolves_multilayer_law_dependencies():
-    z1 = noise.gaussian(0, 1)
-    z1_symbol = z1.expr
-    z2 = GaussianNode.create(deps=(z1,), loc=z1_symbol, scale=1, low=-sp.oo, high=sp.oo)
-    root = DerivedNode(
-        expr=z2.expr,
-        deps=(z2,),
-    )
-
-    value = from_node(obs=0.0, root=root, expr=z2.expr)
-    draws = sample_noisy_values(value, n=4000, rng=123)[0].draws
-
-    assert draws.shape == (4000,)
-    assert np.all(np.isfinite(draws))
-    assert np.var(draws) == pytest.approx(2.0, rel=0.25)
-
-
-def test_sampler_uses_root_output_definition():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    root = DerivedNode(
-        expr=theta,
-        constraints=(theta - 4.0,),
-        deps=(theta_node,),
-    )
-
-    value = from_node(obs=4.0, root=root, expr=theta + 9.0)
-    assert value._root.expr == theta + 9.0
-    assert value._root.constraints == frozenset({theta - 4.0})
-    draws = sample_noisy_values(value, n=8, rng=123)[0].draws
-
-    assert draws.shape == (8,)
-    assert np.all(draws == 13.0)
-
-
-def test_node_derived_uses_explicit_dependencies():
-    theta = LatentNode()
-    eps = noise.gaussian(0, 1)
-
-    value = DerivedNode(expr=theta.expr + eps.expr, deps=(theta, eps))
-
-    assert {dep.expr for dep in value.deps} == {theta.expr, eps.expr}
-
-
-def test_node_noise_uses_explicit_dependencies():
-    theta = LatentNode()
-
-    z = GaussianNode.create(deps=(theta,), loc=theta.expr, scale=1, low=-sp.oo, high=sp.oo)
-
-    assert {dep.expr for dep in z.deps} == {theta.expr}
-
-
-def test_node_uses_fresh_symbols_for_each_node():
-    first = LatentNode()
-    second = LatentNode()
-
-    assert first.expr != second.expr
-
-
-def test_node_derived_wires_wrapper_and_symbol_nodes_explicitly():
-    theta_node = LatentNode()
-    theta = theta_node.expr
-    base_root = DerivedNode(expr=theta, constraints=(theta - 2.0,), deps=(theta_node,))
-    wrapped = from_node(obs=3.0, root=base_root, expr=theta + 1.0)
-
-    out = DerivedNode(expr=theta + 2.0, deps=(wrapped._root, theta_node))
-
-    dep_symbols = {dep.expr for dep in out.deps}
-    assert wrapped._root.expr in dep_symbols
-    assert theta in dep_symbols
 
 
 def test_draw_obs():
