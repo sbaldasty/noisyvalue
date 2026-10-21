@@ -18,3 +18,10 @@ The roadmap for future development includes
 
 - Better tooling for creating differentially private data releases
 - Jupyter notebook tutorials
+
+### Building documentation locally
+
+```
+uv sync --extra docs
+uv run mkdocs serve
+```

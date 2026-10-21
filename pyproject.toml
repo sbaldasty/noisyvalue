@@ -48,6 +48,14 @@ dev = [
   "opendp[polars]>=0.13",
 ]
 
+docs = [
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.26",
+  # imported by autodoc-style rendering of noisyvalue.visual and noisyvalue.opendp
+  "matplotlib>=3.10.8",
+  "opendp[polars]>=0.13",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["test"]
 pythonpath = ["src"]

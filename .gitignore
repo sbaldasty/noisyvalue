@@ -12,3 +12,5 @@ wheels/
 
 # Auto-generated R doc
 r/noisyvalue/docs
+# Generated docs site
+site/
