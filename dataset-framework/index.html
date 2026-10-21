@@ -1,0 +1,1718 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://sbaldasty.github.io/noisyvalue/dataset-framework/">
+      
+      
+        <link rel="prev" href="../api/dataset/">
+      
+      
+        <link rel="next" href="../wikimedia-errata/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Dataset framework - noisyvalue</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#a-general-dataset-framework" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="noisyvalue" class="md-header__button md-logo" aria-label="noisyvalue" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            noisyvalue
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Dataset framework
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sbaldasty/noisyvalue" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="noisyvalue" class="md-nav__button md-logo" aria-label="noisyvalue" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    noisyvalue
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sbaldasty/noisyvalue" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/sample/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/contingency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contingency tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/array/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arrays
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/visual/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/census/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Census
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/wikimedia/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wikimedia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/opendp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenDP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset framework
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-seam-already-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the seam already is
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-dependency-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The dependency gap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-responsibilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core responsibilities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core responsibilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-catalog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Catalog
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-partitions-are-a-lattice-not-a-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2. Partitions are a lattice, not a hierarchy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. View
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-evidence-ledger-and-block-solver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Evidence ledger and block solver
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d-existing-machinery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. Existing machinery
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-dataset-extension-responsibilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-dataset extension responsibilities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sketch-of-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sketch of the API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-problems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open problems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deferred" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deferred
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-was-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What was built
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What was built">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-the-sketch-changed-under-contact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the sketch changed under contact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-against-censuspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified against census.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not built
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-fix-outside-the-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One fix outside the framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wikimedia-errata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wikimedia errata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wikimedia-true-pageviews/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    True pageviews
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Motivation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-seam-already-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the seam already is
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-dependency-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The dependency gap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-responsibilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core responsibilities
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core responsibilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-catalog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A. Catalog
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-partitions-are-a-lattice-not-a-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A2. Partitions are a lattice, not a hierarchy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B. View
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#c-evidence-ledger-and-block-solver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        C. Evidence ledger and block solver
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d-existing-machinery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D. Existing machinery
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-dataset-extension-responsibilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-dataset extension responsibilities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sketch-of-the-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sketch of the API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-problems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open problems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deferred" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deferred
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-was-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What was built
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What was built">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-the-sketch-changed-under-contact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the sketch changed under contact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-against-censuspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified against census.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-built" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not built
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#one-fix-outside-the-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One fix outside the framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="a-general-dataset-framework">A general dataset framework<a class="headerlink" href="#a-general-dataset-framework" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> implemented in <code>src/noisyvalue/dataset/</code> (framework) and
+<code>src/noisyvalue/census.py</code> (the three 2020 Census products built on it),
+tested in <code>test/test_dataset.py</code> and <code>test/test_census.py</code>. This is now the
+one shipping Census interface -- the old per-dataset <code>census.py</code> this document
+was written against (stacking codebook, physical access, constraint
+interpretation, and posterior construction in one ~1600-line file, with no
+seam between them) was verified cell-for-cell against the framework version
+and then retired; the rest of this document describes that old file in the
+present tense as historical rationale for the design. See "What was built" at
+the end for what the implementation does and does not cover.</p>
+<h2 id="motivation">Motivation<a class="headerlink" href="#motivation" title="Permanent link">&para;</a></h2>
+<p><code>census.py</code> is the only dataset interface in the library, and it is ~1500
+lines. Most of what it does is not specific to the Census. If a second dataset
+arrives — another statistical agency's release, a synthetic-data product, a
+survey with published design effects — we would either fork most of that file
+or grow a second one just as large.</p>
+<p>Separately, <code>census.py</code> has a correctness gap that a per-dataset design cannot
+fix on its own: nothing it returns is jointly consistent with anything else it
+returns. That gap and the layering problem have the same root cause, so this
+document treats them together.</p>
+<h2 id="where-the-seam-already-is">Where the seam already is<a class="headerlink" href="#where-the-seam-already-is" title="Permanent link">&para;</a></h2>
+<p><code>census.py</code> stacks four layers with no interfaces between them:</p>
+<ol>
+<li><strong>Codebook</strong> (<code>census.py:97-505</code>) — declarative data: axis level names,
+   binning-to-base-cell index groups (<code>_DHC_AXIS_GROUPS</code>), query names,
+   geography levels. About 400 lines of tables.</li>
+<li><strong>Physical access</strong> (<code>census.py:970-999</code>, <code>fetch_dhc</code>) — parquet layout,
+   Hive partition pruning, S3 mirroring, schema drift handling.</li>
+<li><strong>Constraint interpretation</strong> (<code>census.py:1155-1323</code>) — reading NMF
+   constraint rows and deciding what they mean: structural zeros, category
+   bounds, exact block totals.</li>
+<li><strong>Posterior construction</strong> (<code>census.py:1094-1150</code>, <code>_emit_cells</code>) — turning
+   "this cell is pinned / bounded / free" into <code>Node</code> graphs.</li>
+</ol>
+<p>Layer 2, and the <em>reading</em> half of layer 3, are genuinely Census-specific.
+Everything else is not. <code>_conditioned_pair</code> (<code>census.py:1126</code>) is generic math:
+two independent Gaussian measurements plus a known exact sum. <code>_merged_blocks</code>
+(<code>census.py:1298</code>) is generic given a coarsening map. <code>_noisy_count</code> is generic
+given a noise family.</p>
+<p>The boundary test used throughout this document: <strong>if the Census released
+identical math in a different file format, would this code change?</strong> If no, it
+belongs in core.</p>
+<h2 id="the-dependency-gap">The dependency gap<a class="headerlink" href="#the-dependency-gap" title="Permanent link">&para;</a></h2>
+<p>Node identity comes from <code>Name.fresh()</code> (<code>graph.py:11-16</code>), a global counter,
+with no memoization anywhere. Consequently:</p>
+<ul>
+<li>Two <code>get_dhc</code> calls for the same cell produce two independent posteriors for
+  one physical unknown. Sampled jointly, they disagree.</li>
+<li>Even within a single call, two queries are disjoint node sets. <code>sex*hispanic</code>
+  and <code>detailed</code> measure the same latent histogram, but today
+  <code>sum(detailed cells) != sex*hispanic cell</code> in every draw, and the two are
+  uncorrelated. That is not only a lost correlation; it discards information.</li>
+<li>The only sharing that exists is inside <code>_conditioned_pair</code>, within a single
+  query row.</li>
+</ul>
+<p>The structure the current code does not name: there is <strong>one latent histogram
+<code>theta</code></strong>, and every released number is a linear functional of it,
+<code>y_k = A_k theta + eps_k</code>, subject to exact linear constraints
+<code>C theta = b</code> and bounds. <code>census.py</code> goes measurement to answer per cell,
+which is why nothing is shared.</p>
+<p>A <em>view</em> is the object that says: here is <code>theta</code>, and queries are projections
+of it.</p>
+<h2 id="core-responsibilities">Core responsibilities<a class="headerlink" href="#core-responsibilities" title="Permanent link">&para;</a></h2>
+<h3 id="a-catalog">A. Catalog<a class="headerlink" href="#a-catalog" title="Permanent link">&para;</a></h3>
+<p>Metadata with no data attached — this is what answers "what variables exist,
+what values can they take."</p>
+<p>The central type is an <code>Axis</code> holding named <code>Binning</code>s over the axis's base
+levels, plus the refinement relation between binnings (<code>age</code> refines
+<code>age_10_groups</code> refines <code>age_18_64_116</code>). Today that lives in two
+hand-maintained parallel dicts, <code>_DHC_AXIS_GROUPS</code> and <code>_DHC_AXIS_LEVELS</code>,
+which must stay in sync by convention. Core owns the type and validates that
+groups are disjoint and label count matches group count.</p>
+<p>A binning is <strong>not</strong> required to cover the base set. Real ones do not:
+<code>_HHGQ_GROUPS["gqNursingTotal"]</code> is <code>((3,),)</code> and
+<code>_PL94_AXIS_LEVELS["votingage"]["nonvoting"]</code> is <code>("under_18",)</code>. These are
+sub-selections, and the distinction is load-bearing — a constraint stated over
+a partial cover does not pin a complete block total, so the block solver in
+section C has to know which it is.</p>
+<p>Geography is the same kind of object as an axis binning, but it is <em>not</em> a
+coarsening chain, and the framework should not model it as one. See the next
+section.</p>
+<h3 id="a2-partitions-are-a-lattice-not-a-hierarchy">A2. Partitions are a lattice, not a hierarchy<a class="headerlink" href="#a2-partitions-are-a-lattice-not-a-hierarchy" title="Permanent link">&para;</a></h3>
+<p>Five distinct layers of partitioning appear in <code>census.py</code>:</p>
+<ol>
+<li><strong>Storage partitions</strong> — Hive <code>State=</code> / <code>County=</code> directories. An I/O
+   concern only.</li>
+<li><strong>Geographic spine</strong> — us, state, county, tract, block group, block, plus
+   the AIAN / non-AIAN branch split of each state.</li>
+<li><strong>Axis binnings</strong> — <code>_DHC_AXIS_GROUPS</code>, index groups over base levels.</li>
+<li><strong>Constraint blocks</strong> — what <code>_merged_blocks</code> and <code>_pl94_blocks</code> derive by
+   reconciling a query's binning against <code>pl94_con</code>'s binning.</li>
+<li><strong>Sampling-independence blocks</strong> — derived from 4, consumed by the
+   construction ladder in <code>_dhc_pl94_blocks</code>.</li>
+</ol>
+<p>Layers 3 and 4 are the same operation. <code>_merged_blocks</code> (<code>census.py:1298</code>)
+takes a query binning and the PL94 category map and merges query positions
+until each block covers whole PL94 categories: that is the <strong>join</strong> (finest
+common coarsening) of two partitions in the refinement lattice.
+<code>_pl94_blocks</code> takes the product of those joins across axes.</p>
+<p>Geography does not fit a chain model, because the spine contains genuinely
+incomparable partitions:</p>
+<ul>
+<li><strong>Spine block groups and tabulation block groups do not align.</strong> <code>_geoid</code>
+  returns <code>None</code> for <code>Block_Group</code> (<code>census.py:1048</code>), and
+  <code>_aggregate_real_block_groups</code> recovers real ones only by descending to
+  blocks. Two partitions at the same level, neither refining the other.</li>
+<li><strong>The AIAN branch cross-cuts the hierarchy.</strong> It is not a level but a second
+  partition of each state, which is why rows sharing a <code>geoid</code> must be summed
+  to get whole-geography estimates.</li>
+<li><strong>Spine tracts correspond to tabulation tracts only partially.</strong>
+  <code>_tract_geoids</code> warns where a spine tract spans multiple tabulation tracts
+  and leaves those <code>&lt;NA&gt;</code>.</li>
+</ul>
+<p>So the core abstraction is <strong>partitions over a set of atoms, with join, meet,
+and an availability predicate</strong>:</p>
+<ul>
+<li><strong>Join</strong> reconciles a query stated in one partition against evidence stated
+  in another. This is layer 4, and <code>_merged_blocks</code> already implements it
+  generically.</li>
+<li><strong>Meet</strong> is needed when two partitions are incomparable. <code>census.py</code> always
+  answers it the same way: descend to the atoms and re-aggregate. That is what
+  <code>real_block_groups=True</code> does, and it is also how <code>_tract_geoids</code> derives its
+  crosswalk in the first place, by scanning block geocodes.</li>
+<li><strong>Availability</strong> is the predicate the current code lacks. The meet always
+  exists mathematically, but it is only usable if measurements exist at the
+  atoms. PL94 has block-level data, so it does. DHC stops at county
+  (<code>_DHC_GEO_LEVELS</code>), so no re-aggregation recovers a sub-county geography.
+  Core must represent "computable in principle, unavailable in this product"
+  and report it, rather than silently substituting something coarser.</li>
+</ul>
+<p>Layer 1 falls out of the same machinery: pruning by <code>State=</code> is valid exactly
+when the requested support is a union of storage-partition blocks — a
+refinement test applied to I/O instead of semantics.</p>
+<p>Modelling geography this way still collapses <code>pl94_queries()</code> /
+<code>dhc_queries()</code> into one core function over a declared measurement catalog,
+and still unifies <code>_aggregate_real_block_groups</code> (<code>census.py:1057</code>) with any
+other axis rollup. It just does so through the lattice operations rather than
+by pretending the spine is a chain.</p>
+<h3 id="b-view">B. View<a class="headerlink" href="#b-view" title="Permanent link">&para;</a></h3>
+<p>A view is <code>(universe, geography set, evidence, memo table)</code>. Its jobs:</p>
+<ul>
+<li><strong>Cell identity.</strong> A stable key <code>(universe, geo, cell index)</code> maps to a node,
+  memoized. Identical keys return the <em>same node object</em>. This alone closes the
+  two-calls gap.</li>
+<li><strong>Query resolution.</strong> A query is a projection; aggregate cells become
+  <code>DerivedNode</code>s over base cells, also memoized. Returned frames hold roots
+  pointing into the shared graph, so <code>sample_noisy_values</code> already does the
+  right thing — the sampler needs no changes.</li>
+<li><strong>Laziness.</strong> Never build all 1.2M cells; build what a query touches.</li>
+</ul>
+<p>The contract, to be documented prominently: <strong>two queries against the same view
+are jointly consistent; two queries against different views are independent.</strong>
+This is honest about both the guarantee and its cost, since a view is stateful
+and holds memory.</p>
+<h3 id="c-evidence-ledger-and-block-solver">C. Evidence ledger and block solver<a class="headerlink" href="#c-evidence-ledger-and-block-solver" title="Permanent link">&para;</a></h3>
+<p>Core accepts evidence in a dataset-agnostic vocabulary:</p>
+<ul>
+<li>these cells are pinned to zero</li>
+<li>these cells sum exactly to <code>b</code></li>
+<li>this group of cells is bounded in <code>[lo, hi]</code></li>
+<li>this cell was measured as <code>y</code> with variance <code>v</code> under noise family <code>F</code></li>
+</ul>
+<p>From that it partitions latent cells into independently sampleable blocks and
+picks a construction per block. The ladder in <code>_dhc_pl94_blocks</code>
+(<code>census.py:1233</code>) is already the right one; it is merely written for a single
+dataset:</p>
+<table>
+<thead>
+<tr>
+<th>free cells in block</th>
+<th>construction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>nothing to do</td>
+</tr>
+<tr>
+<td>total is 0</td>
+<td>all pinned to zero</td>
+</tr>
+<tr>
+<td>1</td>
+<td>point mass at the block total</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>_conditioned_pair</code> — closed form, stays anti-correlated</td>
+</tr>
+<tr>
+<td>3 or more</td>
+<td>block total kept as an upper bound only</td>
+</tr>
+</tbody>
+</table>
+<p>Making the last row a <strong>pluggable strategy</strong> is the payoff: the exact
+conditional there is a discrete Gaussian on a lattice hyperplane, and swapping
+in a lattice sampler or MCMC later would improve every dataset at once. Today
+the constraint is silently weakened to a bound; that should become a named,
+reportable decision rather than an implementation detail.</p>
+<p>The block partition itself comes from the join described in section A2, so the
+solver is generic in both the query binning and the constraint binning. Two
+things it must check that the current code gets right only implicitly:</p>
+<ul>
+<li>If either binning is a <strong>partial cover</strong> rather than a partition, the
+  block total is not pinned and the block drops to the bound-only case.</li>
+<li>If a constraint's partition is <strong>incomparable</strong> with the query's and the
+  atoms are unavailable, the constraint contributes nothing and should be
+  reported as unused rather than silently dropped.</li>
+</ul>
+<h3 id="d-existing-machinery">D. Existing machinery<a class="headerlink" href="#d-existing-machinery" title="Permanent link">&para;</a></h3>
+<p><code>core.py</code>, <code>graph.py</code>, <code>pandas.py</code>, and <code>io.py</code> need little change.
+<code>io.py</code> already serializes node graphs, so views are serializable in principle
+(see the caveat on node naming below).</p>
+<h2 id="per-dataset-extension-responsibilities">Per-dataset extension responsibilities<a class="headerlink" href="#per-dataset-extension-responsibilities" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Declare the schema</strong> — axes, binnings (partitions or partial covers),
+   labels, universes, and the geography partitions with their atom set. Data,
+   not code. <code>census.py:97-505</code> becomes a spec that core validates.</li>
+<li><strong>Physical access</strong> — locate, scan, prune, fetch. Returns normalized
+   measurement rows: <code>(geo key, universe, axis-spec tuple, values, variance)</code>.
+   Core supplies the refinement test that decides when a storage partition can
+   be pruned; the extension supplies the mapping from partition key to files.</li>
+<li><strong>Translate native constraints into core's evidence vocabulary.</strong>
+   <code>_dhc_person_rules</code> and its helpers stay in the extension but shrink to
+   interpretation: "<code>nurse_nva_0_con</code> equal to 0 means these cell indices are
+   pinned to zero." The <em>consequence</em> becomes core's problem.</li>
+<li><strong>Identity and labelling quirks</strong> — spine geocode to GEOID, the AIAN branch,
+   the tract crosswalk (<code>census.py:1002-1054</code>). Core needs only an opaque
+   stable geography key plus display columns, and an <strong>atom map</strong>: given a
+   partition block, which atoms it contains. That single hook is what makes the
+   meet computable, and it is irreducibly dataset-specific — the reason the
+   block-group crosswalk is derivable at all is that a block geocode embeds its
+   tabulation GEOID in its last 16 characters, which core cannot know.</li>
+<li><strong>Name the noise family</strong> — "discrete Gaussian, scale from the <code>variance</code>
+   column." Core supplies node types; another dataset might use Laplace, or a
+   swap-based mechanism.</li>
+</ol>
+<h2 id="sketch-of-the-api">Sketch of the API<a class="headerlink" href="#sketch-of-the-api" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="n">dhc</span> <span class="o">=</span> <span class="n">noisyvalue</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">dhc_2020</span>            <span class="c1"># catalog only, no I/O</span>
+<span class="n">dhc</span><span class="o">.</span><span class="n">axes</span>                                      <span class="c1"># [&#39;relgq&#39;,&#39;sex&#39;,&#39;age&#39;,&#39;hispanic&#39;,&#39;cenrace&#39;]</span>
+<span class="n">dhc</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;age&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">binnings</span>                      <span class="c1"># [&#39;detailed&#39;,&#39;age_10_groups&#39;, ...]</span>
+<span class="n">dhc</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;age&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">binning</span><span class="p">(</span><span class="s1">&#39;age_10_groups&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">levels</span>
+<span class="n">dhc</span><span class="o">.</span><span class="n">measurements</span><span class="p">(</span><span class="n">geography</span><span class="o">=</span><span class="s1">&#39;county&#39;</span><span class="p">)</span>          <span class="c1"># replaces dhc_queries()</span>
+
+<span class="n">view</span> <span class="o">=</span> <span class="n">dhc</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">geography</span><span class="o">=</span><span class="s1">&#39;county&#39;</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="s1">&#39;VT&#39;</span><span class="p">,</span> <span class="n">county</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;007&#39;</span><span class="p">,</span> <span class="s1">&#39;009&#39;</span><span class="p">])</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;sex*hispanic&#39;</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;sex*age_38_groups&#39;</span><span class="p">)</span>
+<span class="c1"># a and b share latent cells; sampling them together is consistent</span>
+</code></pre></div>
+<p><code>get_dhc(...)</code> survives as a thin wrapper: one call is one throwaway view.</p>
+<h2 id="open-problems">Open problems<a class="headerlink" href="#open-problems" title="Permanent link">&para;</a></h2>
+<p><strong>Memory is the binding constraint.</strong> A view is a memo table that persists.
+<code>detailed</code> nationally is 1,227,744 cells per geography, and <code>census.py:572</code>
+already warns at 2M. One Python <code>Node</code> object per cell will not scale. The
+change that matters most is a <strong>vectorized node type</strong> — a block of iid
+truncated discrete Gaussians represented as one node backed by arrays, rather
+than N objects. <code>NoisyIntArray</code> already stores roots in an object array, so the
+storage side is half-built.</p>
+<p><strong>Do not promise joint consistency across overlapping measurements in v1.</strong>
+Reconciling <code>sex*hispanic</code> against <code>detailed</code> properly is the DAS
+post-processing problem: a large constrained optimization. The recommended
+first step is to represent the evidence faithfully, resolve each cell using the
+declared exact constraints plus one chosen measurement, and make the discarded
+redundant evidence <em>visible</em> (a <code>view.unused_evidence()</code> report) instead of
+silently ignoring it. Improving the resolver is then additive.</p>
+<p><strong>Descending to atoms is correct but expensive.</strong> Resolving incomparable
+partitions via the meet means reading every atom in the requested area —
+<code>real_block_groups=True</code> already carries that warning
+(<code>census.py:636-641</code>). Core should treat it as an explicit, costed option
+rather than something it does automatically to satisfy a query, and should
+report when a query <em>could</em> be answered that way but was not.</p>
+<p><strong>Node naming must become keyed rather than counter-based</strong>, or views cannot be
+serialized and reloaded reproducibly. The cheapest path keeps <code>Name.fresh()</code>
+and has the view memo map keys to nodes, serializing the key map alongside the
+graph.</p>
+<p><strong><code>consolidate()</code> will do less work.</strong> Its eligibility rule is that a symbol
+appears exactly once across the joint expression (<code>consolidate.py:128</code>). Views
+increase sharing, so fewer symbols qualify. That is correct behaviour, but the
+performance characteristics shift.</p>
+<h2 id="deferred">Deferred<a class="headerlink" href="#deferred" title="Permanent link">&para;</a></h2>
+<p><code>contingency.py</code>'s <code>with_stratified_sampling_uncertainty</code> is the pattern for
+stacking another uncertainty layer on top of dataset values. If views compose —
+a measurement view feeding a sampling-uncertainty view — that generalizes
+cleanly. Worth building only once the base view abstraction has earned its
+keep.</p>
+<h2 id="what-was-built">What was built<a class="headerlink" href="#what-was-built" title="Permanent link">&para;</a></h2>
+<h3 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>module</th>
+<th>responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dataset/partition.py</code></td>
+<td><code>Partition</code>, <code>join</code>, <code>meet</code>, refinement, cover vs. sub-selection</td>
+</tr>
+<tr>
+<td><code>dataset/catalog.py</code></td>
+<td><code>Axis</code>, <code>Binning</code>, <code>Universe</code>, <code>Measurement</code>, <code>GeoLevel</code>, <code>Product</code>, <code>Source</code></td>
+</tr>
+<tr>
+<td><code>dataset/evidence.py</code></td>
+<td><code>ZeroRegion</code>, <code>ExactHistogram</code>, <code>BoundedHistogram</code>, <code>Region</code></td>
+</tr>
+<tr>
+<td><code>dataset/solve.py</code></td>
+<td><code>NoiseFamily</code>, the block ladder, <code>BlockStrategy</code>, node constructions</td>
+</tr>
+<tr>
+<td><code>dataset/view.py</code></td>
+<td><code>View</code>: the memo table, query resolution, rollups, <code>unused_evidence()</code></td>
+</tr>
+<tr>
+<td><code>census.py</code></td>
+<td>the Census schema, <code>NmfSource</code>, the constraint translation, <code>fetch_dhc</code>, and the <code>get_pl94</code>/<code>get_dhc</code> convenience wrappers</td>
+</tr>
+</tbody>
+</table>
+<h3 id="where-the-sketch-changed-under-contact">Where the sketch changed under contact<a class="headerlink" href="#where-the-sketch-changed-under-contact" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The evidence vocabulary collapsed to three types.</strong> "These cells sum
+  exactly to <code>b</code>" generalized to <code>ExactHistogram</code>: a coarsening of the
+  universe whose <em>every</em> cell total is known. That is what <code>pl94_con</code>
+  actually is, and stating it that way made three separate code paths in
+  <code>census.py</code> into one. The national person total, the housing-unit total,
+  and <code>pl94_con</code> are now the same primitive at different coarsenesses, and
+  <code>_emit_unit_h1</code>'s bespoke conditioned pair falls out of the ladder with no
+  special case.</li>
+<li><strong><code>exact_total_levels</code> disappeared.</strong> It encoded "trust <code>total_con</code> only
+  nationally"; the release simply does not carry the row anywhere else, so
+  the evidence is absent rather than distrusted. Correspondingly, a
+  measurement whose released query is missing at a level (the person total
+  nationally) and one that was never released at all (the unit total) take
+  the same path: resolve from evidence, and fail loudly if a cell is left
+  free.</li>
+<li><strong>Bounds needed a "says nothing" state.</strong> Summing the lower bounds of the
+  coarse blocks a cell wholly contains gives 0 when it contains none — which
+  is not the same fact as "at least zero", and conflating them silently
+  reimposed nonnegativity on a caller who had declined it.</li>
+<li><strong>Generic evidence application needs an inertness rule.</strong> Applying bounds
+  by the lattice rather than by hand means a query that marginalizes an axis
+  away picks up the sum of every category bound on it: real, and useless.
+  <code>DiscreteGaussianFamily</code> drops a bound lying outside the sampler's own
+  support window, where it is provably inert rather than merely improbable.</li>
+<li><strong>Geography stayed a lattice but did not need <code>meet</code> as a general
+  operation.</strong> The only incomparable case is tabulation block groups, and
+  resolving it is <code>GeoLevel(derive_from=..., key=...)</code>: descend to the atoms
+  the source measures and re-aggregate. <code>Product.plan</code> reports the three
+  outcomes — direct, aggregated, unavailable — and <code>geography_table()</code>
+  tabulates them.</li>
+</ul>
+<h3 id="verified-against-censuspy">Verified against <code>census.py</code><a class="headerlink" href="#verified-against-censuspy" title="Permanent link">&para;</a></h3>
+<p>Every cell of every measurement, for PL94 person (36,442 cells across
+Vermont's counties), PL94 units, and DHC person (252,083 cells for one
+county), under <code>nonnegative</code> and <code>apply_constraints</code> both on and off: the
+observation, the expression shape, and the exact posterior pmf all agree.
+One cell of 288,525 differs, by a total-variation distance of 2e-56, from an
+inert bound sitting exactly on the sampler's grid boundary.</p>
+<p>Two deliberate behavioural differences:</p>
+<ul>
+<li><code>apply_constraints=False</code> means the constraint rows are not read, so the
+  housing-unit total (which has no released query) returns no rows and warns,
+  where <code>census.py</code> served it anyway.</li>
+<li>Bounds are applied wherever the lattice says they bear, not only where a
+  hand-written rule looked. This is strictly more evidence used; the inertness
+  rule above keeps it from being strictly more expensive.</li>
+</ul>
+<h3 id="not-built">Not built<a class="headerlink" href="#not-built" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>The vectorized node type.</strong> Still one <code>Node</code> per cell, so the memory
+  ceiling in "Open problems" stands unchanged. <code>_CellKeys</code> computes keys for a
+  whole measurement as an array specifically so a block of cells can become
+  one array-backed node later without touching <code>View</code>.</li>
+<li><strong>Reconciliation of overlapping measurements.</strong> As recommended: each cell is
+  resolved from the exact evidence plus one chosen measurement, and
+  <code>View.unused_evidence()</code> reports the rest. Worth noting that no two
+  measurements in the three Census products name identical cells, so within
+  these datasets the policy never actually has to choose; it is tested
+  directly in <code>test_dataset.py</code>.</li>
+<li><strong>A real construction for blocks of three or more.</strong> <code>BoundOnly</code> is still
+  the default and still the honest answer; what changed is that it is now a
+  named <code>BlockStrategy</code> a lattice sampler can replace, and the weakening is
+  reported per block rather than passed over.</li>
+<li><strong>Keyed node naming.</strong> <code>Name.fresh()</code> is untouched, so a view is not yet
+  reproducibly serializable. Section D's claim that "<code>io.py</code> already
+  serializes node graphs, so views are serializable in principle" is in any
+  case wrong today for a nearer reason: <code>io.py</code> has no serializer for
+  <code>TruncatedDiscreteGaussianNode</code>, so neither <code>census.py</code>'s output nor
+  <code>nmf.py</code>'s can be saved at all. That gap predates this work and was left
+  alone.</li>
+</ul>
+<h3 id="one-fix-outside-the-framework">One fix outside the framework<a class="headerlink" href="#one-fix-outside-the-framework" title="Permanent link">&para;</a></h3>
+<p><code>core.py</code>'s <code>bin_op</code> lifted its right operand with the left operand's own
+class, so once a running total had promoted to <code>NoisyFloat</code>, every further
+<code>NoisyInt</code> was sympified down to its observation and its posterior discarded.
+Any chain of three or more noisy additions silently lost everything past the
+second term — which is exactly what geographic aggregation and <code>View.rollup</code>
+do. Fixed by lifting with <code>accept=NoisyValue</code>; <code>census.py</code>'s own
+<code>_aggregate_real_block_groups</code> was affected for any block group holding three
+or more blocks.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

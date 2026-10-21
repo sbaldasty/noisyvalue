@@ -1,0 +1,2619 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://sbaldasty.github.io/noisyvalue/api/wikimedia/">
+      
+      
+        <link rel="prev" href="../census/">
+      
+      
+        <link rel="next" href="../opendp/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Wikimedia - noisyvalue</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#noisyvalue.wikimedia" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="noisyvalue" class="md-header__button md-logo" aria-label="noisyvalue" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            noisyvalue
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Wikimedia
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sbaldasty/noisyvalue" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="noisyvalue" class="md-nav__button md-logo" aria-label="noisyvalue" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    noisyvalue
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sbaldasty/noisyvalue" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sample/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contingency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contingency tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../array/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arrays
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../visual/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../census/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Census
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wikimedia
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wikimedia
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        wikimedia
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="wikimedia">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.BASE_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BASE_URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.DEFAULT_ROOT" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DEFAULT_ROOT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.COLUMNS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        COLUMNS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.RELEASES" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RELEASES
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.MISSING_DAYS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MISSING_DAYS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.PATCH_DAYS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH_DAYS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.US_GAP" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US_GAP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.US_GAUSSIAN_DAYS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US_GAUSSIAN_DAYS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.TIERS_START" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TIERS_START
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.NEVER_PUBLISHED" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NEVER_PUBLISHED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.CODEBOOK_AS_OF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CODEBOOK_AS_OF
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mechanism">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        family
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.variance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        variance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __init__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.suppressed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        suppressed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.dataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dataset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        end
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __init__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        url
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.release_for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        release_for
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.tier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.resolve_days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_days
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.days_between" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        days_between
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.fetch_pageviews" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fetch_pageviews
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.get_pageviews" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_pageviews
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../opendp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenDP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Design notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dataset-framework/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset framework
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../wikimedia-errata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wikimedia errata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../wikimedia-true-pageviews/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    True pageviews
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        wikimedia
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="wikimedia">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.BASE_URL" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BASE_URL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.DEFAULT_ROOT" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DEFAULT_ROOT
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.COLUMNS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        COLUMNS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.RELEASES" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RELEASES
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.MISSING_DAYS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MISSING_DAYS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.PATCH_DAYS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH_DAYS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.US_GAP" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US_GAP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.US_GAUSSIAN_DAYS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        US_GAUSSIAN_DAYS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.TIERS_START" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TIERS_START
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.NEVER_PUBLISHED" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NEVER_PUBLISHED
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.CODEBOOK_AS_OF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CODEBOOK_AS_OF
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mechanism
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mechanism">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        family
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.variance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        variance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __init__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Mechanism.suppressed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        suppressed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Release">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.dataset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dataset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        end
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __init__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.__repr__" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        __repr__
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.Release.url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        url
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.release_for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        release_for
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.tier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.mechanism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mechanism
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.resolve_days" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        resolve_days
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.days_between" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        days_between
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.fetch_pageviews" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fetch_pageviews
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#noisyvalue.wikimedia.get_pageviews" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_pageviews
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>Wikimedia</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="noisyvalue.wikimedia" class="doc doc-heading">
+            <code>noisyvalue.wikimedia</code>
+
+
+<a href="#noisyvalue.wikimedia" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>The Wikimedia differentially-private pageview releases: the codebook.</p>
+<p>Since 2015 Wikimedia has published daily counts of pageviews per
+(country, project, page), protected by differential privacy and served as
+plain daily TSVs from analytics.wikimedia.org.  This module knows <em>what the
+numbers mean</em> -- which noise mechanism produced each row, at what scale,
+and under which suppression threshold -- and reads the files in those
+terms: <code>fetch_pageviews</code> mirrors the days you name into a local root, and
+<code>get_pageviews</code> returns them as a tidy DataFrame whose <code>value</code> column holds
+the posterior of each true count.</p>
+<p>Unlike <code>census.py</code>, repeated reads agree: a cell's noise symbol is derived
+from its identity (day, country, project, page), so asking for the same
+cell twice yields the same random variable, and expressions combining the
+two sample consistently.  Cells never overlap across rows -- each
+(country, project, page, day) is measured exactly once, and there are no
+marginal queries -- so this is all the joint structure the release has.</p>
+<p>What a count measures: each device contributes at most its first 10 unique
+pageviews per day (the two historical eras, which predate the client-side
+counting cookie, instead assumed per-user daily bounds of 30 and 300).  The
+latent quantity is therefore a deduplicated, clipped pageview count --
+systematically below the exact global counts of the public pageview API.
+The eras also differ in <em>whose</em> views they count: the cookie implies a real
+browser, and the current era's country sums sit below the API's user-only
+figures, while the historical pipeline evidently did not filter automated
+traffic -- its sums track the API's all-agents totals, with data-center
+countries (NL, SG) sometimes carrying most of a page's count.</p>
+<p>There is one release directory per era, each a daily TSV of
+(country, country_code, project, page_id, page_title, item_id, count):</p>
+<table>
+<thead>
+<tr>
+<th>era</th>
+<th>dates</th>
+<th>noise</th>
+<th>threshold</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pre-2017</td>
+<td>2015-07-01 - 2017-02-08</td>
+<td>geometric, scale 300</td>
+<td>3500</td>
+</tr>
+<tr>
+<td>historical</td>
+<td>2017-02-09 - 2023-02-05</td>
+<td>geometric, scale 30</td>
+<td>450</td>
+</tr>
+<tr>
+<td>current</td>
+<td>2023-02-06 - present</td>
+<td>discrete Gaussian (zCDP)</td>
+<td>by tier</td>
+</tr>
+</tbody>
+</table>
+<p>The current era's Gaussian scale and threshold depend on the country's risk
+tier on the Country and Territory Protection List, and its files are not
+uniformly Gaussian: two groups of rows were backfilled with the <em>historical</em>
+mechanism after pipeline failures.  <code>mechanism()</code> owns all of this routing;
+its boundary dates were validated empirically against the released files
+(the minimum released count in a group of rows reveals its threshold, and
+hence its mechanism -- see test_wikimedia.py).</p>
+<p>The releases' own documentation is wrong or silent about a surprising amount
+of this -- the file format, the schema, the solidity of the US gap, the
+Turkish exclusion, the bot traffic, the noise variance itself.
+<code>docs/wikimedia-errata.md</code> records every departure and how it was
+established.</p>
+<p>Suppression: a row is released only when its noisy count clears the
+threshold.  For a released row the flat-prior posterior is unaffected by
+that selection, since the noisy value itself is observed; it is simply
+<code>obs - eps</code>, truncated to nonnegative counts, which is what
+<code>Mechanism.cell</code> builds.  An <em>absent</em> row is genuine information -- its
+noisy count fell below the threshold -- but modeling that is out of scope
+here.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.BASE_URL" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">BASE_URL</span> <span class="o">=</span> <span class="s1">&#39;https://analytics.wikimedia.org/published/datasets&#39;</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.BASE_URL" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.DEFAULT_ROOT" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">DEFAULT_ROOT</span> <span class="o">=</span> <span class="s1">&#39;data/wikimedia-pageviews&#39;</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.DEFAULT_ROOT" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.COLUMNS" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">COLUMNS</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;country&#39;</span><span class="p">,</span> <span class="s1">&#39;country_code&#39;</span><span class="p">,</span> <span class="s1">&#39;project&#39;</span><span class="p">,</span> <span class="s1">&#39;page_id&#39;</span><span class="p">,</span> <span class="s1">&#39;page_title&#39;</span><span class="p">,</span> <span class="s1">&#39;item_id&#39;</span><span class="p">,</span> <span class="s1">&#39;count&#39;</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.COLUMNS" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.RELEASES" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">RELEASES</span> <span class="o">=</span> <span class="p">(</span><span class="n">Release</span><span class="p">(</span><span class="s1">&#39;pre-2017&#39;</span><span class="p">,</span> <span class="s1">&#39;country_project_page_historical_pre_2017&#39;</span><span class="p">,</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2017</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">schema</span><span class="o">=</span><span class="n">_PRE_2017_SCHEMA</span><span class="p">),</span> <span class="n">Release</span><span class="p">(</span><span class="s1">&#39;historical&#39;</span><span class="p">,</span> <span class="s1">&#39;country_project_page_historical&#39;</span><span class="p">,</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2017</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">Release</span><span class="p">(</span><span class="s1">&#39;current&#39;</span><span class="p">,</span> <span class="s1">&#39;country_project_page&#39;</span><span class="p">,</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="kc">None</span><span class="p">))</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.RELEASES" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.MISSING_DAYS" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">MISSING_DAYS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2017</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">26</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2017</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">24</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2022</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">19</span><span class="p">)})</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.MISSING_DAYS" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.PATCH_DAYS" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">PATCH_DAYS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">25</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">19</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">23</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">27</span><span class="p">)})</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.PATCH_DAYS" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.US_GAP" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">US_GAP</span> <span class="o">=</span> <span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">19</span><span class="p">))</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.US_GAP" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.US_GAUSSIAN_DAYS" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">US_GAUSSIAN_DAYS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;2023-02-19&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-02-21&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-02-28&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-05&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-07&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-09&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-12&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-13&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-14&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-19&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-26&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-28&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-03-31&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-04-01&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-04-02&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-04-03&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-04-25&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-04-26&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-04-28&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-05-01&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-05-08&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-05-12&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-05-19&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-05-23&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-05-24&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-06-11&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-06-14&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-06-16&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-06-28&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-05&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-07&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-08&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-10&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-11&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-12&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-25&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-26&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-07-31&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-05&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-06&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-11&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-16&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-19&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-23&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-29&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-30&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-08-31&#39;</span><span class="p">,</span> <span class="s1">&#39;2023-09-01&#39;</span><span class="p">)))</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.US_GAUSSIAN_DAYS" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.TIERS_START" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">TIERS_START</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.TIERS_START" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.NEVER_PUBLISHED" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">NEVER_PUBLISHED</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s1">&#39;TR&#39;</span><span class="p">})</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.NEVER_PUBLISHED" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="noisyvalue.wikimedia.CODEBOOK_AS_OF" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">CODEBOOK_AS_OF</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2026</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.CODEBOOK_AS_OF" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="noisyvalue.wikimedia.Mechanism" class="doc doc-heading">
+            <code>Mechanism</code>
+
+
+<a href="#noisyvalue.wikimedia.Mechanism" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>How one released row was noised, and the posterior that follows.</p>
+<p><code>variance</code> is the noise's true sampling variance, the unit every
+<code>NoiseFamily</code> speaks; <code>threshold</code> is the release threshold the noisy
+count had to clear.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.family" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">family</span> <span class="o">=</span> <span class="n">family</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Mechanism.family" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.variance" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">variance</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">variance</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Mechanism.variance" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.threshold" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">threshold</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Mechanism.threshold" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.source" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">source</span> <span class="o">=</span> <span class="n">source</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Mechanism.source" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.__init__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">family</span><span class="p">,</span> <span class="n">variance</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.Mechanism.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.__repr__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__repr__</span><span class="p">()</span></code>
+
+<a href="#noisyvalue.wikimedia.Mechanism.__repr__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.cell" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">cell</span><span class="p">(</span><span class="n">obs</span><span class="p">,</span> <span class="n">symbol</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.Mechanism.cell" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The flat-prior posterior for a released count: nonnegative,
+centred at the observation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="noisyvalue.wikimedia.Mechanism.suppressed" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">suppressed</span><span class="p">(</span><span class="n">symbol</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.Mechanism.suppressed" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The flat-prior posterior for a cell <em>absent</em> from its day's file:
+its noisy count stayed below the release threshold, so the true
+count is essentially uniform below it with the noise's upper tail
+as a shoulder.  The observation is fabricated as the posterior
+median; <code>get_pageviews</code> flags such rows in its <code>censored</code> column.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="noisyvalue.wikimedia.Release" class="doc doc-heading">
+            <code>Release</code>
+
+
+<a href="#noisyvalue.wikimedia.Release" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>One release directory: a name, a URL path, and the days it serves.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Release.name" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">name</span> <span class="o">=</span> <span class="n">name</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Release.name" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Release.dataset" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Release.dataset" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Release.start" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">start</span> <span class="o">=</span> <span class="n">start</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Release.start" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Release.end" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">end</span> <span class="o">=</span> <span class="n">end</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Release.end" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="noisyvalue.wikimedia.Release.schema" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">schema</span> <span class="o">=</span> <span class="n">schema</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#noisyvalue.wikimedia.Release.schema" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="noisyvalue.wikimedia.Release.__init__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="n">_SCHEMA</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.Release.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="noisyvalue.wikimedia.Release.__repr__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__repr__</span><span class="p">()</span></code>
+
+<a href="#noisyvalue.wikimedia.Release.__repr__" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="noisyvalue.wikimedia.Release.url" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">url</span><span class="p">(</span><span class="n">day</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.Release.url" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="noisyvalue.wikimedia.release_for" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">release_for</span><span class="p">(</span><span class="n">day</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.release_for" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The release directory serving a day, or None before the first one.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="noisyvalue.wikimedia.tier" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">tier</span><span class="p">(</span><span class="n">day</span><span class="p">,</span> <span class="n">country_code</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.tier" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>A country's risk tier on a given day: "lower", "medium", "higher",
+or "not published".</p>
+<p>Before tiered release began, every published country was lower risk --
+including some the 2024 list later demoted (Macao appears through
+2024-02-14 at the lower-risk threshold, then vanishes).  Which countries
+the pre-2024 protection list excluded is not reconstructed here: they
+are reported lower like everything else, and their rows simply do not
+occur in the files.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="noisyvalue.wikimedia.mechanism" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">mechanism</span><span class="p">(</span><span class="n">day</span><span class="p">,</span> <span class="n">country_code</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.mechanism" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>The mechanism behind a released row for this day and country.</p>
+<p>Raises for days before any release exists and for countries not
+published on the day; a row claiming to be either is not a row this
+codebook can explain.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="noisyvalue.wikimedia.resolve_days" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">resolve_days</span><span class="p">(</span><span class="n">days</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.resolve_days" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Days given as dates, datetimes, ISO strings, or an iterable of them.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="noisyvalue.wikimedia.days_between" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">days_between</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.days_between" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Every released day from <code>start</code> through <code>end</code>, inclusive.</p>
+<p>The five days the historical pipeline never released are omitted, so the
+result can be handed straight to <code>fetch_pageviews</code>; ask for one of them
+explicitly to be told why it cannot be served.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="noisyvalue.wikimedia.fetch_pageviews" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">fetch_pageviews</span><span class="p">(</span><span class="n">days</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">DEFAULT_ROOT</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.fetch_pageviews" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Mirror the daily TSVs for <code>days</code> into <code>root</code>, for <code>get_pageviews</code>.</p>
+<p>The releases are public but sizeable -- roughly 5-60 MB per day, with no
+finer partitioning to prune -- so nothing is bundled and nothing is
+fetched implicitly: name the days you want and they are mirrored,
+preserving the releases' own directory layout.</p>
+<p>Returns the list of local paths that now hold the requested days.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="noisyvalue.wikimedia.get_pageviews" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_pageviews</span><span class="p">(</span><span class="n">days</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">country</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">project</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">page_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">item</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">missing</span><span class="o">=</span><span class="s1">&#39;drop&#39;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">DEFAULT_ROOT</span><span class="p">)</span></code>
+
+<a href="#noisyvalue.wikimedia.get_pageviews" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Noisy pageview counts for the selected days, as a tidy DataFrame.</p>
+<p><code>country</code> matches the country name or its ISO code, case-insensitively;
+<code>project</code> a project domain like "en.wikipedia"; <code>page</code> the page title
+(spaces and underscores are interchangeable); <code>page_id</code> and <code>item</code> the
+numeric page id and the Wikidata QID.  Each filter takes a scalar or a
+list, and they combine conjunctively.  A filter matching nothing --
+including a country the release excludes -- simply selects no rows.</p>
+<p>Reads only what <code>fetch_pageviews</code> has mirrored into <code>root</code>.  One row per
+released cell: the <code>value</code> column holds the flat-prior posterior of the
+true (deduplicated, clipped) count, nonnegative and centred at the
+released figure, built by the mechanism the <code>mechanism</code> column names;
+<code>variance</code> is that mechanism's noise variance.  Rows whose noisy count
+fell below the release threshold are absent from the files, so by
+default they are absent here too -- an absence is a censored
+observation, not a zero.</p>
+<p><code>missing="censored"</code> turns that absence into rows.  The request must
+then name explicit <code>country</code> ISO codes, <code>project</code> values, and exactly
+one of <code>page</code> / <code>page_id</code> (titles for the pre-2017 era, which has no
+ids); every combination absent from a day's file comes back as a row
+flagged True in the <code>censored</code> column, whose posterior encodes what
+absence proves: the noisy count stayed below the release threshold, so
+the true count is essentially uniform below it with the noise's upper
+tail as a shoulder.  Its observation is the posterior median, since
+nothing was released.  This reading is valid only where the cell could
+have been released: countries the protection policy excluded raise
+instead of yielding a posterior, and whether the page cleared the
+150-global-pageview ingestion threshold that day is the caller's to
+check against the public pageview API.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
