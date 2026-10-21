@@ -57,9 +57,9 @@ docs = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["test", "src"]
 pythonpath = ["src"]
-addopts = "-q"
+addopts = "-q --doctest-modules"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/noisyvalue"]
