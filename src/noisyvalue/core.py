@@ -25,25 +25,39 @@ from .graph import Node
 
 
 class NoisyValue:
+    """An observation paired with a symbolic posterior over its true value.
+
+    Every noisy value carries its full probabilistic provenance as a DAG of
+    `Node`s, so values built from one another stay correlated under joint
+    sampling. Arithmetic on the subclasses composes the observed scalar and
+    the symbolic expression in tandem. Use `sample_noisy_values` to draw from
+    the posterior.
+    """
     def __init__(self, obs, root):
         util.require_instance(Node, root)
+        """`obs` is the observed scalar; `root` is the `Node` carrying its provenance."""
         self._obs = obs
         self._root = root
 
     def __repr__(self):
+        """Show the observation, prefixed with `~` to mark it as noisy."""
         return f"~{self._obs}"
 
     def __float__(self):
+        """The observed value as a `float`; the posterior is ignored."""
         return float(self._obs)
 
     def __int__(self):
+        """The observed value as an `int`; the posterior is ignored."""
         return int(self._obs)
 
     def __bool__(self):
+        """Truth of the observed value; the posterior is ignored."""
         return bool(self._obs)
 
     @property
     def expr(self):
+        """The SymPy expression for this value in terms of its nodes' symbols."""
         return self._root.expr
 
     def bin_op(self, x, out_cls, obs_op, expr_op=None, rev=False):
@@ -83,12 +97,23 @@ class NoisyValue:
 
     @classmethod
     def draw(cls, true_value, noise_node, rng=None):
+        """Simulate an observation of `true_value` and interpret it via `observe`.
+
+        The observation is `true_value` plus a draw from `noise_node`, sampled
+        with `rng` (a seed or generator, as accepted by `util.generator`).
+        """
         rng = util.generator(rng)
         obs = sympify(true_value) + noise_node.sample(rng)
         return cls.observe(obs, noise_node)
 
     @classmethod
     def lift(cls, value, accept=None):
+        """Wrap a plain `value` as a constant of this class.
+
+        A value that is already an instance of `accept` (default `cls`) is
+        returned unchanged. Raises `TypeError` if `accept` is not a
+        `NoisyValue` subclass.
+        """
         accept = cls if accept is None else accept
         if not isinstance(accept, type) or not issubclass(accept, NoisyValue):
             raise TypeError(f"Expected accept to be subclass of NoisyValue, got {accept!r}")
@@ -96,6 +121,11 @@ class NoisyValue:
 
 
 class NoisyNumber(NoisyValue):
+    """Numeric noisy value: supports arithmetic, comparisons and `guarded`.
+
+    Operations between two integers stay integer (`NoisyInt`), except true
+    division and powers, which give `NoisyFloat`. Comparisons give `NoisyBool`.
+    """
     def __init__(self, obs, root):
         super().__init__(obs, root)
 
@@ -145,12 +175,19 @@ class NoisyNumber(NoisyValue):
         return self.bin_op(other, NoisyBool, op.ge)
 
     def __eq__(self, other):
+        """Compare as noisy values, giving a `NoisyBool` rather than a plain `bool`."""
         return self.bin_op(other, NoisyBool, op.eq)
 
     def __ne__(self, other):
         return self.bin_op(other, NoisyBool, op.ne)
 
     def guarded(self, guard, fallback=sp.nan):
+        """Restrict this value to the event `guard`.
+
+        Where `guard` (a `NoisyBool` or plain bool) holds the result equals this
+        value; elsewhere it equals `fallback`. The observation is `fallback` if
+        the observed guard is false.
+        """
         guard = NoisyBool.lift(guard)
         fallback = sympify(fallback)
 
@@ -164,6 +201,7 @@ class NoisyNumber(NoisyValue):
 
 
 class NoisyFloat(NoisyNumber):
+    """Real-valued noisy value, with `exp`, `log`, `sqrt` and rounding."""
     def __init__(self, obs, root):
         super().__init__(float(obs), root)
 
@@ -174,6 +212,7 @@ class NoisyFloat(NoisyNumber):
         return self.unary_op(NoisyFloat, np.log, sp.log)
 
     def round_nearest(self):
+        """Round to the nearest integer, with halves rounding up, as a `NoisyInt`."""
         obs = np.floor(self._obs + 0.5)
         expr = sp.floor(self.expr + Rational(1, 2))
         root = DerivedNode.operational(expr, deps=[self._root])
@@ -184,6 +223,11 @@ class NoisyFloat(NoisyNumber):
 
     @classmethod
     def gaussian(cls, loc, scale, low=-sp.oo, high=sp.oo, obs=None, rng=None):
+        """A normally distributed noisy value, optionally truncated to `[low, high]`.
+
+        `loc` and `scale` may be numbers or noisy values, giving hierarchical
+        noise. If `obs` is omitted it is drawn using `rng`.
+        """
         loc = NoisyFloat.lift(loc)
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
@@ -197,6 +241,11 @@ class NoisyFloat(NoisyNumber):
 
     @classmethod
     def laplace(cls, loc, scale, low=-sp.oo, high=sp.oo, obs=None, rng=None):
+        """A Laplace distributed noisy value, optionally truncated to `[low, high]`.
+
+        `loc` and `scale` may be numbers or noisy values, giving hierarchical
+        noise. If `obs` is omitted it is drawn using `rng`.
+        """
         loc = NoisyFloat.lift(loc)
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (loc, scale) if v.expr.free_symbols]
@@ -210,6 +259,7 @@ class NoisyFloat(NoisyNumber):
 
 
 class NoisyInt(NoisyNumber):
+    """Integer-valued noisy value, with constructors for discrete noise."""
     def __init__(self, obs, root):
         super().__init__(int(obs), root)
 
@@ -218,6 +268,11 @@ class NoisyInt(NoisyNumber):
 
     @classmethod
     def binomial(cls, n, p, obs=None, rng=None):
+        """A binomial noisy value: successes in `n` trials of probability `p`.
+
+        `n` and `p` may be numbers or noisy values. If `obs` is omitted it is
+        drawn using `rng`.
+        """
         n = NoisyInt.lift(n)
         p = NoisyFloat.lift(p)
         deps = [v._root for v in (n, p) if v.expr.free_symbols]
@@ -229,6 +284,11 @@ class NoisyInt(NoisyNumber):
 
     @classmethod
     def discrete_gaussian(cls, scale, loc=sp.Integer(0), low=-sp.oo, high=sp.oo, obs=None, rng=None):
+        """A discrete Gaussian noisy value on the integers, optionally truncated to `[low, high]`.
+
+        `scale` may be a number or a noisy value. If `obs` is omitted it is
+        drawn using `rng`.
+        """
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (scale,) if v.expr.free_symbols]
         node = DiscreteGaussianNode.create(
@@ -241,6 +301,11 @@ class NoisyInt(NoisyNumber):
 
     @classmethod
     def discrete_laplace(cls, scale, loc=sp.Integer(0), low=-sp.oo, high=sp.oo, obs=None, rng=None):
+        """A discrete Laplace noisy value on the integers, optionally truncated to `[low, high]`.
+
+        `scale` may be a number or a noisy value. If `obs` is omitted it is
+        drawn using `rng`.
+        """
         scale = NoisyFloat.lift(scale)
         deps = [v._root for v in (scale,) if v.expr.free_symbols]
         node = DiscreteLaplaceNode.create(
@@ -253,6 +318,7 @@ class NoisyInt(NoisyNumber):
 
 
 class NoisyBool(NoisyValue):
+    """Boolean noisy value, combined with `&`, `|` and `~`."""
     def __init__(self, obs, root):
         super().__init__(bool(obs), root)
 
@@ -272,7 +338,8 @@ class NoisyBool(NoisyValue):
         return self.unary_op(NoisyBool, op.not_, Not)
 
 
-def _is_int_like(x):
+def is_int_like(x):
+    """Whether `x` is a `NoisyInt` or a plain (non-bool) integer."""
     if isinstance(x, NoisyInt):
         return True
     if isinstance(x, NoisyValue):
@@ -281,7 +348,7 @@ def _is_int_like(x):
 
 
 def _numeric_result_cls(a, b):
-    return NoisyInt if _is_int_like(a) and _is_int_like(b) else NoisyFloat
+    return NoisyInt if is_int_like(a) and is_int_like(b) else NoisyFloat
 
 
 def _fold_numbers(values, op):
@@ -295,7 +362,7 @@ def _fold_numbers(values, op):
         raise ValueError("Requires at least one value")
 
     # Lift everything first so a plain float is never coerced to the int type
-    values = [(NoisyInt if _is_int_like(v) else NoisyFloat).lift(v, accept=NoisyNumber)
+    values = [(NoisyInt if is_int_like(v) else NoisyFloat).lift(v, accept=NoisyNumber)
               for v in values]
     result = values[0]
     for value in values[1:]:
@@ -308,10 +375,9 @@ def noisy_min(*values):
 
     Accepts several values or a single iterable, like the built-in `min`.
     The posterior of the result reflects the uncertainty about which
-    input is smallest, not just the observed winner.
-
-    The result is a `NoisyInt` if every input is an integer, otherwise a
-    `NoisyFloat`. Raises `ValueError` if there are no inputs.
+    input is smallest, not just the observed winner. The result is a
+    `NoisyInt` if every input is an integer, otherwise a `NoisyFloat`.
+    Raises `ValueError` if there are no inputs.
     """
     return _fold_numbers(values, Min)
 
@@ -321,9 +387,8 @@ def noisy_max(*values):
 
     Accepts several values or a single iterable, like the built-in `max`.
     The posterior of the result reflects the uncertainty about which
-    input is largest, not just the observed winner.
-
-    The result is a `NoisyInt` if every input is an integer, otherwise a
-    `NoisyFloat`. Raises `ValueError` if there are no inputs.
+    input is largest, not just the observed winner. The result is a
+    `NoisyInt` if every input is an integer, otherwise a `NoisyFloat`.
+    Raises `ValueError` if there are no inputs.
     """
     return _fold_numbers(values, Max)
