@@ -7,12 +7,14 @@ name = "dpvalue"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = { file = "LICENSE" }
 authors = [
   { name = "Steven Baldasty" },
 ]
 dependencies = [
+  # use the native frozendict when we can upgrade to python 3.15
+  "frozendict>=2.4.7",
   "ipykernel>=7.2.0",
   "jupyter>=1.1.1",
   "numpy>=2.4.4",
@@ -29,9 +31,7 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Physics",
 ]
 
