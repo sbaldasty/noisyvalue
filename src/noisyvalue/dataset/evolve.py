@@ -40,12 +40,9 @@ class Individual:
         self.fitness = 0
         self.fitness_function = fitness_function
         self.genome = [np.random.randint(0,2) for _ in range(genome_length)]
-        self.genome[0] = 1
         self.release = release
     def eval_fitness(self):
-        if sum(self.genome) == 0: # temporary until we figure out why it cant be all zeros
-            self.genome[0] = 1
-        self.fitness = self.fitness_function(copy.deepcopy(self.release), self.genome)
+        self.fitness = self.fitness_function(self.release, self.genome)
 
 
 def merge_slices(slices):

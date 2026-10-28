@@ -86,5 +86,3 @@ for i in range(4):
 
 # plotting
 plot_mean_and_bootstrapped_ci_over_time(input_data = experiment_results, name = names,x_label = "Generation", y_label = "Fitness", plot_bootstrap = True)
-
-# genome of all 0s gives error "Expected all items to be NoisyValue"
