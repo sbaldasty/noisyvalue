@@ -52,7 +52,9 @@ def merge_slices(slices):
         lambda acc, d: {k: acc.get(k, ()) + d.get(k, ()) for k in set(acc) | set(d)}, 
         (s.subpop for s in slices), 
         {})
-    merged_count = sum(s.count for s in slices)
+    obs_sum = sum(float(s.count) for s in slices)
+    # TODO Parameterize noise scale / revisit NoisyFloat creation if we have to
+    merged_count = NoisyFloat.gaussian(obs=obs_sum, loc=obs_sum, scale=1.0)
     return Slice(subpop=merged_subpop, count=merged_count)
 
 
