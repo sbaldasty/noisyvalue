@@ -1,9 +1,7 @@
 import copy
 import itertools as ite
-import matplotlib.pyplot as plt
 import numpy as np
 import operator
-import scikits.bootstrap as bootstrap
 
 
 from dataclasses import dataclass
@@ -41,10 +39,13 @@ class Individual:
     def __init__(self, fitness_function, genome_length, release):
         self.fitness = 0
         self.fitness_function = fitness_function
-        self.genome = [0 for _ in range(genome_length)]
+        self.genome = [np.random.randint(0,2) for _ in range(genome_length)]
+        self.genome[0] = 1
         self.release = release
-    def evaluate_fitness(self):
-        self.fitness = self.fitness_function(self.release, self.genome)
+    def eval_fitness(self):
+        if sum(self.genome) == 0: # temporary until we figure out why it cant be all zeros
+            self.genome[0] = 1
+        self.fitness = self.fitness_function(copy.deepcopy(self.release), self.genome)
 
 
 def merge_slices(slices):
@@ -197,19 +198,19 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
 
         # selection procedure
         population += new_children # combine parents with new children (the + in mu+lambda)
-        population = sorted(population, key=lambda individual: individual.fitness, reverse = True) # sort the full population by each individual's fitness (from highers to lowest)
+        population = sorted(population, key=lambda individual: individual.fitness, reverse = False) # sort the full population by each individual's fitness (from highers to lowest)
         
         # tournament selection
         new_population = []
         new_population.append(population[0])
         while len(new_population) < num_parents:
             tournament = np.random.choice(population, size = tournament_size)
-            tournament = sorted(tournament, key=lambda individual: individual.fitness, reverse = True)
+            tournament = sorted(tournament, key=lambda individual: individual.fitness, reverse = False)
             new_population.extend(tournament[:num_tournament_winners])
         population = new_population
 
         # record keeping
-        if population[0].fitness > solution_fitness: # if the new parent is the best found so far
+        if population[0].fitness < solution_fitness: # if the new parent is the best found so far
             solution = population[0].genome # update best solution records
             solution_fitness = population[0].fitness
             solution_generation = generation_num # possibly unnecessary?
@@ -218,38 +219,3 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
 
     return fitness_over_time, solutions_over_time
 
-def plot_mean_and_bootstrapped_ci_over_time(input_data = None, name = "change me", x_label = "change me", y_label="change me", y_limit = None, plot_bootstrap = True):
-    """
-    
-    Parameters: 
-        input_data (numpy array of shape (max_k, num_repitions)): Solution metric to plot.
-        name (string): Name for legend.
-        x_label (string): x axis label.
-        y_label (string): y axis label.
-    
-    Returns:
-        None
-    """
-    fig, ax = plt.subplots() # generate figure and axes
-    if isinstance(name, str): 
-        name = [name]; input_data = [input_data]
-
-    for this_name in name:
-        print("plotting",this_name)
-        this_input_data = input_data[this_name]
-        total_generations = this_input_data.shape[1]
-
-        if plot_bootstrap:
-            boostrap_ci_generation_found = np.zeros((2,total_generations))
-            for this_gen in range(total_generations):
-                if this_gen%10==0: 
-                    print(this_gen)
-                boostrap_ci_generation_found[:,this_gen] = bootstrap.ci(this_input_data[:,this_gen], np.mean, alpha=0.05)
-        ax.plot(np.arange(total_generations), np.mean(this_input_data,axis=0), label = this_name) # plot the fitness over time
-        if plot_bootstrap:
-            ax.fill_between(np.arange(total_generations),boostrap_ci_generation_found[0,:], boostrap_ci_generation_found[1,:],alpha=0.3) # plot, and fill, the confidence interval for fitness over time
-        ax.set_xlabel(x_label) # add axes labels
-        ax.set_ylabel(y_label)
-        if y_limit: 
-            ax.set_ylim(y_limit[0],y_limit[1])
-        plt.legend(loc='best'); # add legend
