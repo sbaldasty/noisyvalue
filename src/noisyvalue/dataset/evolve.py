@@ -122,9 +122,14 @@ def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max)
 
 
 def fitness_noise(release, genome):
-    total = sum(release.slices[i].count for i, g in enumerate(genome) if g)
+    counts = [release.slices[i].count for i, g in enumerate(genome) if g]
+    if not counts:
+        return 0.0
+
+    total = sum(counts)
     samples = sample_noisy_values(total, n=100)[0]
     return np.var(samples.draws)
+
 
 def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2):
     """ Evolutinary Algorithm (adapted from CS6520 assignments)

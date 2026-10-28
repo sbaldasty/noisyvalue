@@ -30,6 +30,12 @@ def test_noise_fitness():
     assert f3 < f4
 
 
+def test_noise_fitness_zero():
+    release = Release(variables=(), slices=())
+    fitness = fitness_noise(release, [0, 0, 0, 0])
+    assert fitness == 0.0
+
+
 def test_synthetic_release_disjoint():
     release = synthetic_release_disjoint(n_vals=3)
     assert len(release.variables) == 1
