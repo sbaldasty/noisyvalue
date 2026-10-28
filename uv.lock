@@ -379,6 +379,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "polars" },
+    { name = "scikits-bootstrap" },
     { name = "scipy" },
     { name = "sympy" },
 ]
@@ -420,6 +421,7 @@ requires-dist = [
     { name = "pip", marker = "extra == 'dev'", specifier = ">=23.0.1" },
     { name = "polars", specifier = ">=1.36.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "scikits-bootstrap", specifier = ">=1.1.1" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "statsmodels", marker = "extra == 'dev'", specifier = ">=0.14.6" },
     { name = "sympy", specifier = ">=1.14.0" },
@@ -1946,6 +1948,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/43/26/b341b8dab5998da6270a3a42c2152c578501354d36f944b5856757035ef8/scikit_learn-1.9.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5bad8f8b9950321b54c965fdcbac6c6c55e79e16646b49977bcf3668d3870a1a", size = 9097190, upload-time = "2026-06-02T11:54:24.454Z" },
     { url = "https://files.pythonhosted.org/packages/fb/de/b650b4d69b84468cfa2e28a3ff7b8103743029e6446ce1a97fe060ef688c/scikit_learn-1.9.0-cp314-cp314t-win_amd64.whl", hash = "sha256:78fc56eafd4edb9575d2d8950d1dd152061abb573341a1cb7e099fc40f6c6666", size = 8963204, upload-time = "2026-06-02T11:54:27.428Z" },
     { url = "https://files.pythonhosted.org/packages/ee/f3/ff83d76d7418112e5a61326443cdda87be3545dd8d6599c95b2481a4419e/scikit_learn-1.9.0-cp314-cp314t-win_arm64.whl", hash = "sha256:051075bda8b7aab87b1906ab3d4740a1e1224a19d7b3781a576736edc94e76aa", size = 8222661, upload-time = "2026-06-02T11:54:30.192Z" },
+]
+
+[[package]]
+name = "scikits-bootstrap"
+version = "1.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/a1/f1060d5d2d1e74816b39813f640526dcdd194ce59dc8b4c4227fe0832714/scikits_bootstrap-1.1.1.tar.gz", hash = "sha256:6942bddee6ca1818499c3c7d945974fe5f6cf6116a707bd1df4c81c57849c905", size = 19046, upload-time = "2025-08-07T17:31:04.187Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/1d/03726655815cf6b3361c7799deb587841d06677e832aedfed3965a52946c/scikits_bootstrap-1.1.1-py3-none-any.whl", hash = "sha256:8d99832f9369cf02d8b0900bceca5b8bf208a195162995fa4c84e8fe309851b3", size = 14473, upload-time = "2025-08-07T17:31:05.431Z" },
 ]
 
 [[package]]

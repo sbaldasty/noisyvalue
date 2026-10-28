@@ -23,6 +23,8 @@ dependencies = [
   # was built against; the [opendp] extra therefore decides which version in
   # this range is installed.
   "polars>=1.36.1",
+  # For evolutionary algorithm graphs, may not be needed later
+  "scikits-bootstrap>=1.1.1",
   "scipy>=1.17.1",
   "sympy>=1.14.0",
 ]
