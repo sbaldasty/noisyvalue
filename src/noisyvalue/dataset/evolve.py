@@ -133,16 +133,11 @@ def fitness_noise(release, query, genome):
 def fitness_coverage(release, query, genome):
     phenotype = ite.chain.from_iterable(release.slices[i].subpop for i, g in enumerate(genome) if g)
     phenotype = list(phenotype)
-    print("Phenotype before removals:", phenotype)
-    print("Query subpopulations:", query.subpop)
     removals = 0
     for subpop in query.subpop:
-        print("Checking subpopulation:", subpop)
         if subpop in phenotype:
             phenotype.remove(subpop)
             removals += 1
-    print("Phenotype after removals:", phenotype)
-    print("Removals:", removals)
     return -(len(phenotype) + len(query.subpop) - removals)
 
 
