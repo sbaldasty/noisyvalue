@@ -20,7 +20,7 @@ class Variable:
 
 @dataclass
 class Slice:
-    subpop: dict[Variable, tuple[str]]
+    subpop: tuple[tuple[Variable, str]]
     count: NoisyValue
 
 
@@ -32,8 +32,8 @@ class Release:
 
 @dataclass
 class Query:
-    subpop: dict[Variable, tuple[str]]
-
+    subpop: tuple[tuple[Variable, str]]
+    
 
 class Individual:
     def __init__(self, fitness_function, genome_length, release):
@@ -47,13 +47,13 @@ class Individual:
 
 def merge_slices(slices):
     merged_subpop = reduce(
-        lambda acc, d: {k: acc.get(k, ()) + d.get(k, ()) for k in set(acc) | set(d)}, 
+        lambda acc, d: acc + d,
         (s.subpop for s in slices), 
-        {})
+        ())
     obs_sum = sum(float(s.count) for s in slices)
     # TODO Parameterize noise scale / revisit NoisyFloat creation if we have to
     merged_count = NoisyFloat.gaussian(obs=obs_sum, loc=obs_sum, scale=1.0)
-    return Slice(subpop=merged_subpop, count=merged_count)
+    return Slice(subpop=tuple(merged_subpop), count=merged_count)
 
 
 def synthetic_release_disjoint(*, n_vals):
@@ -70,7 +70,9 @@ def synthetic_release_disjoint(*, n_vals):
         Release: A synthetic release object with disjoint subpopulations.
     """
     variable = Variable("X", tuple(f"value{i}" for i in range(n_vals)))
-    slices = [Slice({variable: (f"value{i}",)}, NoisyFloat.gaussian(obs=1.0, loc=1.0, scale=1.0)) for i in range(n_vals)]
+    slices = [Slice(
+        subpop=((variable, f"value{i}"),),
+        count=NoisyFloat.gaussian(obs=1.0, loc=1.0, scale=1.0)) for i in range(n_vals)]
     return Release(variables=(variable,), slices=tuple(slices))
 
 
@@ -121,14 +123,27 @@ def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max)
     return Release(variables=tuple(base.variables), slices=tuple(slices))
 
 
-def fitness_noise(release, genome):
+def fitness_noise(release, query, genome):
     counts = [release.slices[i].count for i, g in enumerate(genome) if g]
-    if not counts:
-        return 0.0
-
-    total = sum(counts)
+    total = NoisyFloat.lift(sum(counts), accept=NoisyValue)
     samples = sample_noisy_values(total, n=100)[0]
     return np.var(samples.draws)
+
+
+def fitness_coverage(release, query, genome):
+    phenotype = ite.chain.from_iterable(release.slices[i].subpop for i, g in enumerate(genome) if g)
+    phenotype = list(phenotype)
+    print("Phenotype before removals:", phenotype)
+    print("Query subpopulations:", query.subpop)
+    removals = 0
+    for subpop in query.subpop:
+        print("Checking subpopulation:", subpop)
+        if subpop in phenotype:
+            phenotype.remove(subpop)
+            removals += 1
+    print("Phenotype after removals:", phenotype)
+    print("Removals:", removals)
+    return -(len(phenotype) + len(query.subpop) - removals)
 
 
 def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2):
