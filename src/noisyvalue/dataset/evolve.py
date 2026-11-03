@@ -35,16 +35,6 @@ class Query:
     subpop: tuple[tuple[Variable, str]]
     
 
-class Individual:
-    def __init__(self, fitness_function, genome_length, release):
-        self.fitness = 0
-        self.fitness_function = fitness_function
-        self.genome = [np.random.randint(0,2) for _ in range(genome_length)]
-        self.release = release
-    def eval_fitness(self):
-        self.fitness = self.fitness_function(self.release, self.genome)
-
-
 def merge_slices(slices):
     merged_subpop = reduce(
         lambda acc, d: acc + d,
@@ -141,13 +131,32 @@ def fitness_coverage(release, query, genome):
     return -(len(phenotype) + len(query.subpop) - removals)
 
 
-def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2):
+class Individual:
+    def __init__(self, fitness_function, genome_length, release, query, fitnesses={"noise": 0, "coverage": 0},objectives={"noise": fitness_noise, "coverage": fitness_coverage}):
+        self.fitness = 0
+        self.fitness_function = fitness_function
+        self.genome = [np.random.randint(0,2) for _ in range(genome_length)]
+        self.release = release
+        self.query = query
+        self.fitnesses = fitnesses
+        self.objectives = objectives
+        self.sparsity = 0
+        self.rank = 9999999
+    def eval_fitness(self):
+        self.fitness = self.fitness_function(self.release, self.genome)
+    def eval_pareto_fitness(self):
+        for name, fitness_func in self.objectives.items():
+            self.fitnesses[name] = fitness_func(self.release, self.query, self.genome)
+        
+
+def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2):
     """ Evolutinary Algorithm (adapted from CS6520 assignments)
         
         Args: 
             fitness_funciton (callable function): That return the fitness of a genome 
-                            given the genome as an input parameter.
+                            given the release and genome as input parameters.
             release (Release): A synthetic release object with prespecified subpopulations.
+            query (Query): A collection of subpopuations the user wishes to retrieve counts of from the release.
             total_generation (int): Number of total iterations for stopping condition.
             num_parents (int): Number of parents we downselect to at each generation (mu).
             num_childre (int): Number of children (note: parents not included in this count) that we baloon to each generation (lambda).
@@ -226,3 +235,155 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
 
     return fitness_over_time, solutions_over_time
 
+def pareto_domination(a, b, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
+    dominates = False
+    for objective in objectives.keys():
+        # We are assuming smaller is better for noise and inverse of coverage
+        if a.fitnesses[objective] < b.fitnesses[objective]: 
+            dominates = True # A might dominate B
+        elif b.fitnesses[objective] < a.fitnesses[objective]:
+            return False # A definitely doesn't dominate B 
+    return dominates
+
+# TODO:
+def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fitness_coverage}):
+    front = []
+    for individual in population:
+        front.append(individual) # Optimistically add individual to front
+        for front_individual in front:
+            if front_individual != individual:
+                if pareto_domination(front_individual, individual, objectives): # new member won't stay in front
+                    front.remove(individual)
+                    break
+                elif pareto_domination(individual, front_individual, objectives): # knock out member of front
+                    front.remove(front_individual)
+    return front
+
+# TODO:
+def get_ranks(population, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
+    pop_prime = copy.deepcopy(population)
+    ranks = []
+    i = 1
+    while len(pop_prime) > 0:
+        rank_i = pareto_front(pop_prime, objectives)
+        for individual in rank_i:
+            individual.rank = i
+            pop_prime.remove(individual)
+        i += 1
+        ranks.append(rank_i)
+    return ranks
+
+def get_sparsity(front, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
+    for individual in front:
+        individual.sparsity = 0
+
+    for objective in objectives.keys():
+        front_copy = copy.copy(front)
+        front_copy = sorted(front_copy, key=lambda x: x.fitnesses[objective], reverse=False)
+        # Ends are very sparse
+        front_copy[0].sparsity = 9999999
+        front_copy[-1].sparsity = 9999999
+        for j in range(2, len(front_copy) - 1):
+            front_copy[j].sparsity = front_copy[j].sparsity + (front_copy[j+1].fitnesses[objective] - front_copy[j-1].fitnesses[objective]) / 1 # TODO: Replace 1 with range
+    return front
+
+# Referencing NSGA-II pseudocode from textbook
+def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, archive_size=10, objectives={"noise": fitness_noise, "coverage": fitness_coverage}):
+    # initialize record keeping
+    solution = None # best genome so far
+    solution_fitness = 999999 # fitness of best genome so far
+    fitness_over_time = []
+    solutions_over_time = np.zeros((total_generations,genome_length))
+    best_front = []
+    ranks = []
+    fronts_over_time = []
+    pop_over_time =[]
+
+    # the initialization proceedure
+    population = [] # keep population of individuals in a list
+    for i in range(num_parents): # only create parents for initialization (the mu in mu+lambda)
+        population.append(Individual(fitness_function, genome_length, release, query, objectives)) # generate new random individuals as parents
+
+    archive = []
+
+    for generation_num in range(total_generations): # repeat
+        # get population fitness
+        for i in range(len(population)):
+            population[i].eval_pareto_fitness() # evaluate the fitness of each parent
+        
+        # Combine population and archive
+        population = list(set(population).union(archive))
+
+        # Get pareto front
+        best_front = pareto_front(population, objectives)
+        fronts_over_time.append(best_front)
+
+        # Compute all ranks (turn this into property of Individual)
+        ranks = get_ranks(population, release, query, objectives)
+
+        archive = []
+        for front_rank in ranks:
+            front = get_sparsity(front_rank, release, query, objectives)
+            rank_by_sparsity = sorted(front, key=lambda x: x.sparsity, reverse=True)
+            if len(archive) + len(front_rank) >= archive_size: # Last front rank to load into archive
+                sparsest = rank_by_sparsity[0:archive_size - len(archive)]
+                archive = list(set(archive).union(sparsest))
+                break
+            else:
+                archive = list(set(archive).union(front_rank)) # Add entire rank!
+
+        # "Breeding" step
+        breeding_pop = archive
+        new_children = [] # keep children separate for now (lambda in mu+lambda)
+        while len(new_children) < num_children:
+            # inheretance
+            [parent1, parent2] = np.random.choice(breeding_pop, size=2) # pick 2 random parents
+            child1 = copy.deepcopy(parent1) # initialize children as perfect copies of their parents
+            child2 = copy.deepcopy(parent2)
+
+            # crossover (for a later deliverable)
+            # N/A
+
+            # mutation
+            for this_child in [child1, child2]:
+                loci_indices = []
+                while len(loci_indices) < num_elements_to_mutate:
+                    index = np.random.randint(genome_length) # randomly select the location in the child bit string to mutate
+                    if index not in loci_indices:
+                        loci_indices.append(index)
+                for loci in loci_indices:
+                    this_child.genome[loci] = (this_child.genome[loci] + 1) % 2 # flip the bit at the chosen location
+            new_children.extend((child1,child2)) # add children to the new_children list
+
+        # the assessement procedure
+        for i in range(len(new_children)):
+            new_children[i].eval_pareto_fitness() # assign fitness to each child
+        
+        # Selection
+        breeding_pop += new_children # combine parents with new children (the + in mu+lambda)
+        new_population = []
+        while len(new_population) < num_parents:
+            best = breeding_pop[np.random.randint(0, len(breeding_pop))] # start with random best
+            for i in range(2, tournament_size):
+                next = breeding_pop[np.random.randint(0, len(breeding_pop))]
+                if next.rank < best.rank:
+                    best = next
+                elif next.rank == best.rank:
+                    if next.sparsity > best.sparsity:
+                        best = next
+            new_population.append(best)
+
+        population = new_population
+        best_front = pareto_front(population, objectives)
+
+        # record keeping
+        if population[0].fitness < solution_fitness: # if the new parent is the best found so far
+            solution = population[0].genome # update best solution records
+            solution_fitness = population[0].fitness
+            solution_generation = generation_num # possibly unnecessary?
+        # solutions_over_time[generation_num,:] = solution
+        
+        fitness_over_time.append([(x.fitnesses["noise"], x.fitnesses["coverage"]) for x in best_front])
+        pop_over_time.append(population)
+
+    return fronts_over_time, fitness_over_time, pop_over_time
