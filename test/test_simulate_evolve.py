@@ -58,8 +58,8 @@ num_parents = 50
 num_children = 50
 tournament_size = 10
 num_tournament_winners = 5
+# release = synthetic_release_chaotic(n_vals=3, n_slices=genome_length, n_members_min=1, n_members_max=3)
 release = synthetic_release_disjoint(n_vals=genome_length)
-
 names = ["50 select 5", "50 select 20", "20 select 5", "20 select 20"]
 t_sizes = [50, 50, 20, 20]
 t_winners = [5, 20, 5, 20]
