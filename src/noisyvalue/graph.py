@@ -6,7 +6,7 @@ from . import util
 from itertools import count
 from sympy import Symbol
 from sympy import sympify
-from sympy.stats import Laplace, Normal
+from sympy.stats import Laplace, Normal, Triangular, Uniform
 from sympy.stats.frv_types import BinomialDistribution, rv
 
 
@@ -540,6 +540,261 @@ class LaplaceCensoredNode(CensoredLatticeNode):
         above = np.log1p(-np.exp(-(np.maximum(x, 0.0) + 1.0) / scale)
                          / (1.0 + p))
         return np.where(x < 0, below, above)
+
+
+# ----------------------------------------------------------------------------
+# Coarsening posteriors
+#
+# A coarsened release (rounded, binned) says only which interval the true
+# value fell in.  Under the flat prior every other node here assumes, the
+# posterior is the likelihood of that interval, normalized: uniform for
+# deterministic rounding, triangular for unbiased random rounding.  The
+# nodes are posteriors in their own right, like the censored nodes above.
+# ----------------------------------------------------------------------------
+
+
+def _nan(size):
+    return np.nan if size is None else np.full(size, np.nan, dtype=float)
+
+
+def _bound(value, resolved=()):
+    return LocationScaleLatticeNode.resolve_bound(value, resolved)
+
+
+class UniformNode(NoiseNode):
+    """Uniform on `[low, high]`, both finite: the flat-prior posterior of a
+    value known only to lie in that interval, such as a release rounded
+    deterministically to the nearest multiple of some base.
+    """
+
+    low = Parameter(0)
+    high = Parameter(1)
+
+    def sympy_rv(self):
+        return Uniform(Name.fresh(), self.low, self.high)
+
+    @staticmethod
+    def _valid(low, high):
+        return np.isfinite(low) & np.isfinite(high) & (low <= high)
+
+    def sample(self, rng, size=None, resolved=()):
+        return self._draw(rng, _bound(self.low, resolved),
+                          _bound(self.high, resolved), size)
+
+    @classmethod
+    def _draw(cls, rng, low, high, size=None):
+        if not cls._valid(low, high):
+            return _nan(size)
+        return rng.uniform(low, high, size=size)
+
+    @classmethod
+    def sample_arrays(cls, rng, low, high):
+        low = np.asarray(low, dtype=float)
+        high = np.asarray(high, dtype=float)
+        valid = cls._valid(low, high)
+        safe_low = np.where(valid, low, 0.0)
+        span = np.where(valid, high, 0.0) - safe_low
+        result = safe_low + rng.uniform(size=low.shape) * span
+        return np.where(valid, result, np.nan)
+
+    def quantile(self, u):
+        low, high = _bound(self.low), _bound(self.high)
+        return low + np.asarray(u, dtype=float) * (high - low)
+
+
+class TriangularNode(NoiseNode):
+    """Symmetric triangular density proportional to `1 - |x - loc| / width`
+    on `(loc - width, loc + width)`, optionally truncated to `[low, high]`
+    (see `GaussianNode` for the truncation convention).
+
+    This is the flat-prior posterior of a value released under *unbiased
+    random rounding* to multiples of `width`: a true value a fraction `f` of
+    the way from one multiple to the next is rounded up with probability `f`,
+    so the likelihood of the released multiple `loc` is `1 - |x - loc| /
+    width` -- twice as wide as deterministic rounding's uniform.
+    """
+
+    loc = Parameter(0)
+    width = Parameter(1)
+    low = Parameter(2)
+    high = Parameter(3)
+
+    def sympy_rv(self):
+        # truncation (if any) is not reflected here; `quantile` is exact
+        return Triangular(Name.fresh(), self.loc - self.width,
+                          self.loc + self.width, self.loc)
+
+    @staticmethod
+    def _cdf(x, loc, width):
+        z = np.clip((np.asarray(x, dtype=float) - loc) / width, -1.0, 1.0)
+        return np.where(z <= 0, 0.5 * (1.0 + z) ** 2, 1.0 - 0.5 * (1.0 - z) ** 2)
+
+    @staticmethod
+    def _ppf(v, loc, width):
+        # both branches stay real for v in [0, 1], so `where` is safe
+        v = np.asarray(v, dtype=float)
+        z = np.where(v <= 0.5, np.sqrt(2.0 * v) - 1.0, 1.0 - np.sqrt(2.0 * (1.0 - v)))
+        return loc + width * z
+
+    @classmethod
+    def _cdf_window(cls, loc, width, low, high):
+        """CDF at the truncation bounds, and whether they keep any mass."""
+        loc = np.asarray(loc, dtype=float)
+        width = np.asarray(width, dtype=float)
+        ok = np.isfinite(loc) & np.isfinite(width) & (width > 0)
+        safe_loc = np.where(ok, loc, 0.0)
+        safe_width = np.where(ok, width, 1.0)
+        lo = cls._cdf(low, safe_loc, safe_width)
+        hi = cls._cdf(high, safe_loc, safe_width)
+        return safe_loc, safe_width, lo, hi, ok & (hi > lo)
+
+    def _resolved(self, resolved=()):
+        return (float(self.loc.subs(resolved)), float(self.width.subs(resolved)),
+                _bound(self.low, resolved), _bound(self.high, resolved))
+
+    def sample(self, rng, size=None, resolved=()):
+        return self._draw(rng, *self._resolved(resolved), size=size)
+
+    @classmethod
+    def _draw(cls, rng, loc, width, low, high, size=None):
+        loc, width, lo, hi, valid = cls._cdf_window(loc, width, low, high)
+        if not valid:
+            return _nan(size)
+        draws = cls._ppf(rng.uniform(lo, hi, size=size), loc, width)
+        return draws if size is not None else float(draws)
+
+    @classmethod
+    def sample_arrays(cls, rng, loc, width, low, high):
+        loc, width, lo, hi, valid = cls._cdf_window(loc, width, low, high)
+        v = lo + rng.uniform(size=loc.shape) * (hi - lo)
+        return np.where(valid, cls._ppf(v, loc, width), np.nan)
+
+    def quantile(self, u):
+        loc, width, lo, hi, valid = self._cdf_window(*self._resolved())
+        if not valid:
+            raise ValueError("triangular posterior has no mass inside its bounds")
+        return self._ppf(lo + np.asarray(u, dtype=float) * (hi - lo), loc, width)
+
+
+class DiscreteUniformNode(NoiseNode):
+    """Uniform over the integers in `[low, high]`, both finite: the
+    flat-prior posterior of a count known only to lie in that range, such as
+    a count rounded deterministically to a multiple of some base.
+    """
+
+    low = Parameter(0)
+    high = Parameter(1)
+
+    def sympy_rv(self):
+        # continuous approximation; `quantile` is exact
+        return Uniform(Name.fresh(), sp.ceiling(self.low) - sp.Rational(1, 2),
+                       sp.floor(self.high) + sp.Rational(1, 2))
+
+    @staticmethod
+    def _support(low, high):
+        lo = np.ceil(np.asarray(low, dtype=float))
+        hi = np.floor(np.asarray(high, dtype=float))
+        valid = np.isfinite(lo) & np.isfinite(hi) & (lo <= hi)
+        lo = np.where(valid, lo, 0.0)
+        count = np.where(valid, hi - lo + 1.0, 1.0)
+        return lo, count, valid
+
+    @classmethod
+    def _pick(cls, u, lo, count):
+        return lo + np.minimum(np.floor(u * count), count - 1.0)
+
+    def sample(self, rng, size=None, resolved=()):
+        return self._draw(rng, _bound(self.low, resolved),
+                          _bound(self.high, resolved), size)
+
+    @classmethod
+    def _draw(cls, rng, low, high, size=None):
+        lo, count, valid = cls._support(low, high)
+        if not valid:
+            return _nan(size)
+        return rng.integers(int(lo), int(lo + count), size=size)
+
+    @classmethod
+    def sample_arrays(cls, rng, low, high):
+        lo, count, valid = cls._support(low, high)
+        result = cls._pick(rng.uniform(size=lo.shape), lo, count)
+        return np.where(valid, result, np.nan)
+
+    def quantile(self, u):
+        lo, count, valid = self._support(_bound(self.low), _bound(self.high))
+        if not valid:
+            raise ValueError("discrete uniform posterior has an empty support")
+        return self._pick(np.clip(np.asarray(u, dtype=float), 0.0, 1.0), lo, count)
+
+
+class DiscreteTriangularNode(NoiseNode):
+    """The integer-lattice `TriangularNode`: pmf proportional to
+    `1 - |k - loc| / width` over the integers in `(loc - width, loc + width)`
+    and `[low, high]`.  This is the exact flat-prior posterior of a count
+    released under unbiased random rounding to multiples of an integer
+    `width`.
+    """
+
+    loc = Parameter(0)
+    width = Parameter(1)
+    low = Parameter(2)
+    high = Parameter(3)
+
+    def sympy_rv(self):
+        # continuous approximation, truncation not reflected; `quantile` is exact
+        return Triangular(Name.fresh(), self.loc - self.width,
+                          self.loc + self.width, self.loc)
+
+    @staticmethod
+    def _pmf(loc, width, low, high):
+        """`(k, pmf)` on the support, or `None` if the support is empty."""
+        if not (np.isfinite(loc) and np.isfinite(width) and width > 0):
+            return None
+        lo = max(np.ceil(loc - width), np.ceil(low))
+        hi = min(np.floor(loc + width), np.floor(high))
+        if lo > hi:
+            return None
+        k = np.arange(int(lo), int(hi) + 1)
+        weights = np.maximum(0.0, 1.0 - np.abs(k - loc) / width)
+        total = weights.sum()
+        if total <= 0:
+            return None
+        return k, weights / total
+
+    def _resolved(self, resolved=()):
+        return (float(self.loc.subs(resolved)), float(self.width.subs(resolved)),
+                _bound(self.low, resolved), _bound(self.high, resolved))
+
+    def sample(self, rng, size=None, resolved=()):
+        return self._draw(rng, *self._resolved(resolved), size=size)
+
+    @classmethod
+    def _draw(cls, rng, loc, width, low, high, size=None):
+        support = cls._pmf(loc, width, low, high)
+        if support is None:
+            return _nan(size)
+        k, pmf = support
+        return rng.choice(k, size=size, p=pmf)
+
+    @classmethod
+    def sample_arrays(cls, rng, loc, width, low, high):
+        params = [np.asarray(a, dtype=float) for a in (loc, width, low, high)]
+        n = params[0].shape[0]
+        if all(np.all(a == a[0]) for a in params):
+            return np.asarray(
+                cls._draw(rng, *(float(a[0]) for a in params), size=n), dtype=float)
+        return np.array([float(cls._draw(rng, *(float(a[i]) for a in params)))
+                         for i in range(n)])
+
+    def quantile(self, u):
+        support = self._pmf(*self._resolved())
+        if support is None:
+            raise ValueError("discrete triangular posterior has an empty support")
+        k, pmf = support
+        cdf = np.cumsum(pmf)
+        u = np.clip(np.asarray(u, dtype=float), 0.0, 1.0)
+        idx = np.minimum(np.searchsorted(cdf, u), len(k) - 1)
+        return k[idx].astype(float)
 
 
 def topological_sort_law_nodes(law_nodes):

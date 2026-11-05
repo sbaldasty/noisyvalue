@@ -19,6 +19,10 @@ from .graph import LaplaceNode
 from .graph import BinomialNode
 from .graph import DiscreteGaussianNode
 from .graph import DiscreteLaplaceNode
+from .graph import DiscreteTriangularNode
+from .graph import DiscreteUniformNode
+from .graph import TriangularNode
+from .graph import UniformNode
 from .graph import DerivedNode
 from .graph import LatentNode
 from .graph import Node
@@ -27,11 +31,10 @@ from .graph import Node
 class NoisyValue:
     """An observation paired with a symbolic posterior over its true value.
 
-    Every noisy value carries its full probabilistic provenance as a DAG of
-    `Node`s, so values built from one another stay correlated under joint
-    sampling. Arithmetic on the subclasses composes the observed scalar and
-    the symbolic expression in tandem. Use `sample_noisy_values` to draw from
-    the posterior.
+    Every noisy value carries its full probabilistic provenance, so values
+    built from one another stay correlated under joint sampling. Arithmetic on
+    the subclasses updates the observed scalars and the symbolic expressions in
+    tandem.
 
     Examples
     --------
@@ -330,6 +333,97 @@ class NoisyFloat(NoisyNumber):
                 rng, float(loc), float(scale), float(low), float(high))
         return cls(obs, node)
 
+    @classmethod
+    def uniform(cls, low, high, obs=None, rng=None):
+        """A noisy value uniformly distributed on `[low, high]`.
+
+        This is the flat-prior posterior of a value known only to lie in that
+        interval. `low` and `high` must be finite, and may be numbers or noisy
+        values. If `obs` is omitted it is drawn using `rng`.
+
+        Examples
+        --------
+        >>> from noisyvalue import NoisyFloat
+        >>> NoisyFloat.uniform(2, 3, obs=2.5)
+        ~2.5
+        """
+        low, high = (NoisyFloat.lift(v, accept=NoisyNumber) for v in (low, high))
+        if _all_constant(low, high) and not UniformNode._valid(float(low), float(high)):
+            raise ValueError(f"uniform needs a finite interval, got [{low}, {high}]")
+        deps = [v._root for v in (low, high) if v.expr.free_symbols]
+        node = UniformNode.create(deps=deps, low=low.expr, high=high.expr)
+        if obs is None:
+            obs = UniformNode._draw(util.generator(rng), float(low), float(high))
+        return cls(obs, node)
+
+    @classmethod
+    def triangular(cls, loc, width, low=-sp.oo, high=sp.oo, obs=None, rng=None):
+        """A symmetric triangular noisy value on `(loc - width, loc + width)`.
+
+        The density falls linearly from its peak at `loc`, optionally
+        truncated to `[low, high]`. `loc` and `width` may be numbers or noisy
+        values. If `obs` is omitted it is drawn using `rng`.
+
+        Examples
+        --------
+        >>> from noisyvalue import NoisyFloat
+        >>> NoisyFloat.triangular(0, 1, obs=0.25)
+        ~0.25
+        """
+        loc, width = (NoisyFloat.lift(v, accept=NoisyNumber) for v in (loc, width))
+        if _all_constant(loc, width) and not TriangularNode._cdf_window(
+                float(loc), float(width), float(low), float(high))[-1]:
+            raise ValueError(
+                f"triangular({loc}, {width}) has no mass inside [{low}, {high}]")
+        deps = [v._root for v in (loc, width) if v.expr.free_symbols]
+        node = TriangularNode.create(
+            deps=deps, loc=loc.expr, width=width.expr, low=low, high=high)
+        if obs is None:
+            obs = TriangularNode._draw(util.generator(rng), float(loc), float(width),
+                                       float(low), float(high))
+        return cls(obs, node)
+
+    @classmethod
+    def rounded(cls, obs, base=1, method="nearest", low=-sp.oo, high=sp.oo):
+        """The true value behind `obs`, a release rounded to a multiple of `base`.
+
+        The posterior assumes a flat prior and depends on how the release
+        was rounded:
+
+        - `"nearest"`: deterministic rounding to the nearest multiple. The
+          posterior is uniform on `[obs - base/2, obs + base/2]`.
+        - `"random"`: unbiased random rounding. A true value a fraction `f`
+          of the way from one multiple to the next rounds up with
+          probability `f`. The posterior is triangular on
+          `(obs - base, obs + base)`, twice as wide.
+
+        `low` and `high` truncate the posterior, e.g. `low=0` for a
+        quantity that cannot be negative. Raises `ValueError` if `obs` is
+        not a multiple of `base`.
+
+        Examples
+        --------
+        >>> from noisyvalue import NoisyFloat, sample_noisy_values
+        >>> x = NoisyFloat.rounded(120, base=10)
+        >>> x
+        ~120.0
+        >>> draws = sample_noisy_values(x, n=10000, rng=0)[0].draws
+        >>> bool(draws.min() >= 115 and draws.max() <= 125)
+        True
+        >>> y = NoisyFloat.rounded(0, base=10, method="random", low=0)
+        >>> draws = sample_noisy_values(y, n=10000, rng=0)[0].draws
+        >>> bool(draws.min() >= 0 and draws.max() < 10)
+        True
+        """
+        base = _check_rounding(obs, base, method)
+        if not np.isclose(obs / base, np.round(obs / base), rtol=0, atol=1e-9):
+            raise ValueError(f"{obs} is not a multiple of base {base}")
+        if method == "random":
+            return cls.triangular(obs, base, low=low, high=high, obs=obs)
+        half = sympify(base) / 2
+        return cls.uniform(sp.Max(sympify(obs) - half, sympify(low)),
+                           sp.Min(sympify(obs) + half, sympify(high)), obs=obs)
+
 
 class NoisyInt(NoisyNumber):
     """Integer-valued noisy value, with constructors for discrete noise."""
@@ -409,6 +503,108 @@ class NoisyInt(NoisyNumber):
                 rng, float(loc), float(scale), low=float(low), high=float(high)))
         return cls(obs, node)
 
+    @classmethod
+    def uniform(cls, low, high, obs=None, rng=None):
+        """A noisy count uniformly distributed over the integers in `[low, high]`.
+
+        This is the flat-prior posterior of a count known only to lie in that
+        range. `low` and `high` must be finite, and may be numbers or noisy
+        values. If `obs` is omitted it is drawn using `rng`.
+
+        Examples
+        --------
+        >>> from noisyvalue import NoisyInt
+        >>> NoisyInt.uniform(10, 19, obs=10)
+        ~10
+        """
+        low, high = (NoisyFloat.lift(v, accept=NoisyNumber) for v in (low, high))
+        if _all_constant(low, high) and not DiscreteUniformNode._support(
+                float(low), float(high))[-1]:
+            raise ValueError(f"no integers in [{low}, {high}]")
+        deps = [v._root for v in (low, high) if v.expr.free_symbols]
+        node = DiscreteUniformNode.create(deps=deps, low=low.expr, high=high.expr)
+        if obs is None:
+            obs = DiscreteUniformNode._draw(util.generator(rng), float(low), float(high))
+        return cls(obs, node)
+
+    @classmethod
+    def triangular(cls, loc, width, low=-sp.oo, high=sp.oo, obs=None, rng=None):
+        """A noisy count with pmf proportional to `1 - |k - loc| / width`.
+
+        The support is the integers in `(loc - width, loc + width)`,
+        optionally truncated to `[low, high]`. `loc` and `width` may be
+        numbers or noisy values. If `obs` is omitted it is drawn using `rng`.
+
+        Examples
+        --------
+        >>> from noisyvalue import NoisyInt
+        >>> NoisyInt.triangular(5, 3, obs=6)
+        ~6
+        """
+        loc, width = (NoisyFloat.lift(v, accept=NoisyNumber) for v in (loc, width))
+        if _all_constant(loc, width) and DiscreteTriangularNode._pmf(
+                float(loc), float(width), float(low), float(high)) is None:
+            raise ValueError(
+                f"triangular({loc}, {width}) has no mass inside [{low}, {high}]")
+        deps = [v._root for v in (loc, width) if v.expr.free_symbols]
+        node = DiscreteTriangularNode.create(
+            deps=deps, loc=loc.expr, width=width.expr, low=low, high=high)
+        if obs is None:
+            obs = DiscreteTriangularNode._draw(
+                util.generator(rng), float(loc), float(width), float(low), float(high))
+        return cls(obs, node)
+
+    @classmethod
+    def rounded(cls, obs, base=1, method="nearest", ties="up", low=-sp.oo, high=sp.oo):
+        """The true count behind `obs`, a release rounded to a multiple of `base`.
+
+        The posterior assumes a flat prior and depends on how the release
+        was rounded:
+
+        - `"nearest"`: deterministic rounding to the nearest multiple. The
+          posterior is uniform over the integers that round to `obs`. When
+          `base` is even, a count exactly halfway between two multiples is
+          a tie, and `ties` says where it went: `"up"` (toward +inf),
+          `"down"` (toward -inf) or `"even"` (to the even multiple, as
+          Python's `round` does).
+        - `"random"`: unbiased random rounding. A count a fraction `f` of the
+          way from one multiple to the next rounds up with probability `f`,
+          so the posterior is proportional to `1 - |k - obs| / base` over
+          the integers within `base` of `obs`.
+
+        `low` and `high` truncate the posterior, e.g. `low=0` for a count.
+        Raises `ValueError` if `obs` is not a multiple of a positive integer
+        `base`.
+
+        Examples
+        --------
+        >>> from noisyvalue import NoisyInt, sample_noisy_values
+        >>> x = NoisyInt.rounded(20, base=5)
+        >>> sorted(set(sample_noisy_values(x, n=1000, rng=0)[0].draws.tolist()))
+        [18, 19, 20, 21, 22]
+        >>> y = NoisyInt.rounded(0, base=3, method="random", low=0)
+        >>> sorted(set(sample_noisy_values(y, n=1000, rng=0)[0].draws.tolist()))
+        [0, 1, 2]
+        """
+        base = _check_rounding(obs, base, method)
+        if int(base) != base or int(obs) != obs:
+            raise ValueError(f"rounding a count needs integers, got obs={obs}, base={base}")
+        obs, base = int(obs), int(base)
+        if obs % base:
+            raise ValueError(f"{obs} is not a multiple of base {base}")
+        if method == "random":
+            return cls.triangular(obs, base, low=low, high=high, obs=obs)
+        if ties not in ("up", "down", "even"):
+            raise ValueError(f"ties must be 'up', 'down' or 'even', got {ties!r}")
+        half, odd = divmod(base, 2)
+        lo, hi = obs - half, obs + half
+        if not odd:
+            if ties == "up" or (ties == "even" and (obs // base) % 2):
+                hi -= 1
+            if ties == "down" or (ties == "even" and (obs // base) % 2):
+                lo += 1
+        return cls.uniform(sp.Max(lo, sympify(low)), sp.Min(hi, sympify(high)), obs=obs)
+
 
 class NoisyBool(NoisyValue):
     """Boolean noisy value, combined with `&`, `|` and `~`.
@@ -446,6 +642,20 @@ def is_int_like(x):
     if isinstance(x, NoisyValue):
         return False
     return isinstance(x, (int, np.integer)) and not isinstance(x, bool)
+
+
+def _all_constant(*values):
+    return not any(v.expr.free_symbols for v in values)
+
+
+def _check_rounding(obs, base, method):
+    if method not in ("nearest", "random"):
+        raise ValueError(f"method must be 'nearest' or 'random', got {method!r}")
+    if isinstance(obs, NoisyValue) or isinstance(base, NoisyValue):
+        raise TypeError("obs and base must be plain numbers")
+    if not np.isfinite(obs) or not np.isfinite(base) or base <= 0:
+        raise ValueError(f"need finite obs and a positive base, got {obs}, {base}")
+    return base
 
 
 def _numeric_result_cls(a, b):

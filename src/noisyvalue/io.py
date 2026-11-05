@@ -17,6 +17,7 @@ from .consolidate import consolidate
 from .core import NoisyFloat, NoisyInt, NoisyBool
 from .graph import BinomialNode, DerivedNode, DiscreteGaussianNode, DiscreteLaplaceNode, GaussianNode, LatentNode
 from .graph import GaussianCensoredNode, LaplaceCensoredNode
+from .graph import DiscreteTriangularNode, DiscreteUniformNode, TriangularNode, UniformNode
 from .pandas import NoisyBoolArray, NoisyFloatArray, NoisyIntArray
 
 
@@ -331,6 +332,26 @@ class GaussianCensoredNodeSerializer(NoiseNodeSerializer):
 class LaplaceCensoredNodeSerializer(NoiseNodeSerializer):
     tag = "laplace_censored"
     matches_type = LaplaceCensoredNode
+
+
+class UniformNodeSerializer(NoiseNodeSerializer):
+    tag = "uniform"
+    matches_type = UniformNode
+
+
+class TriangularNodeSerializer(NoiseNodeSerializer):
+    tag = "triangular"
+    matches_type = TriangularNode
+
+
+class DiscreteUniformNodeSerializer(NoiseNodeSerializer):
+    tag = "discrete_uniform"
+    matches_type = DiscreteUniformNode
+
+
+class DiscreteTriangularNodeSerializer(NoiseNodeSerializer):
+    tag = "discrete_triangular"
+    matches_type = DiscreteTriangularNode
 
 
 # ----------------------------------------------------------------------------
