@@ -1,5 +1,5 @@
-from noisyvalue.dataset.evolve import evolutionary_algorithm, pareto_evolutionary_algorithm, pareto_front
-from noisyvalue.dataset.evolve import Individual
+from noisyvalue.dataset.evolve import evolutionary_algorithm, pareto_evolutionary_algorithm, pareto_front, weighted_evolutionary_algorithm
+from noisyvalue.dataset.evolve import Individual, Variable, Slice, NoisyFloat, Release
 import numpy as np
 from noisyvalue.dataset.evolve import fitness_noise, fitness_coverage
 from noisyvalue.dataset.evolve import synthetic_release_disjoint
@@ -103,7 +103,7 @@ def multi_obj_test():
     genome_length = 15
     num_parents = 50
     num_children = 50
-    tournament_size = 2 # these are commonly used by the textbook, but might not be optimal
+    tournament_size = 2 # these are commonly used by the textbook, (2, 1) but might not be optimal
     num_tournament_winners = 1
     archive_size = 50
     release = synthetic_release_chaotic(n_vals=3, n_slices=genome_length, n_members_min=1, n_members_max=3)
@@ -112,7 +112,22 @@ def multi_obj_test():
     query = query = Query(subpop=())
     objectives = {"noise": fitness_noise, "coverage": fitness_coverage}
 
-    names = ["2 select 1"]
+    # More interesting query/release
+    v = Variable("color", ("red", "green", "blue"))
+    query = Query(subpop=((v, "red"), (v, "green")))
+    slices = [
+        Slice(((v, "red"),), NoisyFloat.gaussian(obs=12.1, loc=12.1, scale=1.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
+    ]
+    release = Release(variables=(v,), slices=tuple(slices))
+    genome_length = 7
+
+    names = ["2 select 1 pareto"]
     for i in range(len(names)):
         run_name = names[i]
         experiment_results[run_name] = np.zeros((num_runs, total_generations))
@@ -157,6 +172,53 @@ def multi_obj_test():
             plt.title(run_name)
         plt.show()
         
+###################################
+# Weighted multi objective testing
+###################################
+def weighted_multi_test():
+    num_runs = 20
+    total_generations = 100
+    num_elements_to_mutate = 1
+    genome_length = 15
+    num_parents = 50
+    num_children = 50
+    tournament_size = 10
+    num_tournament_winners = 5
+    release = synthetic_release_chaotic(n_vals=3, n_slices=genome_length, n_members_min=1, n_members_max=3)
+    # release = synthetic_release_disjoint(n_vals=genome_length)
+    # release = synthetic_release_hierarchical(n_levels=3, n_children=genome_length)
+    query = query = Query(subpop=())
+    objectives = {"noise": fitness_noise, "coverage": fitness_coverage}    
+    # t_sizes = [50, 50, 20, 20]
+    # t_winners = [5, 20, 5, 20]
+    names = ["2 select 1 weighted"]
+
+    for i in range(len(names)):
+        run_name = names[i]
+        experiment_results[run_name] = np.zeros((num_runs, total_generations))
+        solutions_results[run_name] = np.zeros((num_runs, total_generations, genome_length))
+        # tournament_size = t_sizes[i]
+        # num_tournament_winners = t_winners[i]
+        for run_num in range(num_runs):
+            fitness_over_time, solutions_over_time = weighted_evolutionary_algorithm(fitness_function=fitness_noise, 
+                                                                            release=release,
+                                                                            query=query,
+                                                                            total_generations=total_generations,
+                                                                            num_parents=num_parents,
+                                                                            num_children=num_children,
+                                                                            genome_length=genome_length,
+                                                                            num_elements_to_mutate=num_elements_to_mutate,
+                                                                            crossover=False,
+                                                                            tournament_size=tournament_size,
+                                                                            num_tournament_winners=num_tournament_winners,
+                                                                            objectives=objectives)
+            experiment_results[run_name][run_num] = fitness_over_time
+            solutions_results[run_name][run_num] = solutions_over_time
+            print(run_name, run_num, fitness_over_time[-1])
+
+    # plotting
+    plot_mean_and_bootstrapped_ci_over_time(input_data = experiment_results, name = names,x_label = "Generation", y_label = "Fitness", plot_bootstrap = True)
+
 
 # TODO: Make a plotting function to visualize the pareto front found at end of each run
 def pareto_rank_visual():
@@ -186,4 +248,5 @@ def pareto_rank_visual():
     plt.scatter(xs, ys, marker="o", color='g')
     plt.show()
 
-multi_obj_test()
+# multi_obj_test()
+weighted_multi_test()
