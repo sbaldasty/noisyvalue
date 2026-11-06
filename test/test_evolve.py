@@ -6,6 +6,7 @@ from noisyvalue.dataset.evolve import Slice
 from noisyvalue.dataset.evolve import Variable
 from noisyvalue.dataset.evolve import fitness_coverage
 from noisyvalue.dataset.evolve import fitness_noise
+from noisyvalue.dataset.evolve import query_everything
 from noisyvalue.dataset.evolve import synthetic_release_disjoint
 from noisyvalue.dataset.evolve import synthetic_release_hierarchical
 from noisyvalue.dataset.evolve import synthetic_release_chaotic
@@ -107,4 +108,22 @@ def test_synthetic_release_chaotic():
     release = synthetic_release_chaotic(n_vals=3, n_slices=5, n_members_min=1, n_members_max=3)
     assert len(release.variables) == 1
     assert len(release.slices) == 5
-    
+
+
+def test_query_everything():
+    v = Variable("color", ("red", "green", "blue"))
+    slices = [
+        Slice(((v, "red"),), NoisyFloat.gaussian(obs=12.1, loc=12.1, scale=1.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
+    ]
+    release = Release(variables=(v,), slices=tuple(slices))
+    query = query_everything(release)
+    assert len(query.subpop) == 3
+    assert (v, "red") in query.subpop
+    assert (v, "green") in query.subpop
+    assert (v, "blue") in query.subpop

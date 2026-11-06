@@ -113,6 +113,24 @@ def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max)
     return Release(variables=tuple(base.variables), slices=tuple(slices))
 
 
+def query_nothing():
+    """Generate an empty query."""
+    return Query(subpop=())
+
+
+def query_everything(release):
+    """Generate a query that asks for every possible part of the population."""
+    chain = ite.chain.from_iterable(s.subpop for s in release.slices)
+    return Query(subpop=tuple(set(chain)))
+
+
+def query_qty(release, qty):
+    """Generate a query for qty randomly selected unique pieces."""
+    all_possible = query_everything(release)
+    selection = np.random.choice(all_possible, qty, replace=False)
+    return Query(subpop=tuple(selection))
+
+
 def fitness_noise(release, query, genome):
     counts = [release.slices[i].count for i, g in enumerate(genome) if g]
     total = NoisyFloat.lift(sum(counts), accept=NoisyValue)
