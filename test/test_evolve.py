@@ -89,7 +89,7 @@ def test_fitness_coverage_query_over():
     ]
     release = Release(variables=(v,), slices=tuple(slices))
     fitness = fitness_coverage(release, query, [1, 0, 0, 0, 0, 0, 0])
-    assert fitness == -1
+    assert fitness == 1
 
 
 def test_synthetic_release_disjoint():

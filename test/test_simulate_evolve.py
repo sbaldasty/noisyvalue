@@ -1,4 +1,4 @@
-from noisyvalue.dataset.evolve import evolutionary_algorithm, pareto_evolutionary_algorithm, pareto_front, weighted_evolutionary_algorithm
+from noisyvalue.dataset.evolve import evolutionary_algorithm, pareto_evolutionary_algorithm, pareto_front, weighted_evolutionary_algorithm, query_qty
 from noisyvalue.dataset.evolve import Individual, Variable, Slice, NoisyFloat, Release
 import numpy as np
 from noisyvalue.dataset.evolve import fitness_noise, fitness_coverage
@@ -106,10 +106,10 @@ def multi_obj_test():
     tournament_size = 2 # these are commonly used by the textbook, (2, 1) but might not be optimal
     num_tournament_winners = 1
     archive_size = 50
-    release = synthetic_release_chaotic(n_vals=3, n_slices=genome_length, n_members_min=1, n_members_max=3)
+    release = synthetic_release_chaotic(n_vals=300, n_slices=genome_length, n_members_min=10, n_members_max=30)
     # release = synthetic_release_disjoint(n_vals=genome_length)
     # release = synthetic_release_hierarchical(n_levels=3, n_children=genome_length)
-    query = query = Query(subpop=())
+    query = query_qty(release, qty=30)
     objectives = {"noise": fitness_noise, "coverage": fitness_coverage}
 
     # More interesting query/release
@@ -152,6 +152,7 @@ def multi_obj_test():
             xs = []
             ys = []
             front = fronts_over_time[-1]
+            print(f"{front[0].fitnesses} {front[0].genome}")
             # Plot all "dominated" points in final population (TODO: do we even care about rest of pop, or do we prefer the previous fronts?)
             for pop in pop_over_time:
                 for ind in pop:
@@ -168,7 +169,7 @@ def multi_obj_test():
                 ys.append(ind.fitnesses["coverage"])
             plt.scatter(xs, ys) 
             plt.xlabel("Noise")
-            plt.ylabel("-Coverage")
+            plt.ylabel("Coverage")
             plt.title(run_name)
         plt.show()
         

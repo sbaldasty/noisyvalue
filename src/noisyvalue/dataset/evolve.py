@@ -128,9 +128,9 @@ def query_everything(release):
 def query_qty(release, qty, rng=None):
     """Generate a query for qty randomly selected unique pieces."""
     rng = util.generator(rng)
-    all_possible = query_everything(release)
-    selection = rng.choice(all_possible, size=qty, replace=False)
-    return Query(subpop=tuple(selection))
+    all_possible = query_everything(release).subpop
+    selection = rng.choice(len(all_possible), size=qty, replace=False)
+    return Query(subpop=tuple(all_possible[i] for i in selection))
 
 
 def fitness_noise(release, query, genome):
@@ -148,7 +148,7 @@ def fitness_coverage(release, query, genome):
         if subpop in phenotype:
             phenotype.remove(subpop)
             removals += 1
-    return -(len(phenotype) + len(query.subpop) - removals)
+    return len(phenotype) + len(query.subpop) - removals
 
 
 class Individual:
