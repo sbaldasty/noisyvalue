@@ -10,7 +10,7 @@ from functools import reduce
 from ..core import NoisyFloat
 from ..core import NoisyValue
 from ..sample import sample_noisy_values
-
+from .. import util
 
 @dataclass(frozen=True)
 class Variable:
@@ -90,7 +90,7 @@ def synthetic_release_hierarchical(*, n_levels, n_children):
     return Release(variables=bottom.variables, slices=all_slices)
 
 
-def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max):
+def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max, rng=None):
     """
     Generate a synthetic release with completely random subpopulations over a single variable.
     Each slice is composed of a random selection of base slices.
@@ -104,11 +104,12 @@ def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max)
     Returns:
         Release: A synthetic release object with chaotic subpopulations.
     """
+    rng = util.generator(rng)
     base = synthetic_release_disjoint(n_vals=n_vals)
     slices = []
     for _ in range(n_slices):
-        n_members = np.random.randint(n_members_min, n_members_max + 1)
-        components = np.random.choice(base.slices, size=n_members, replace=False)
+        n_members = rng.integers(n_members_min, n_members_max + 1)
+        components = rng.choice(base.slices, size=n_members, replace=False)
         slices.append(merge_slices(components))
     return Release(variables=tuple(base.variables), slices=tuple(slices))
 
@@ -124,10 +125,11 @@ def query_everything(release):
     return Query(subpop=tuple(set(chain)))
 
 
-def query_qty(release, qty):
+def query_qty(release, qty, rng=None):
     """Generate a query for qty randomly selected unique pieces."""
+    rng = util.generator(rng)
     all_possible = query_everything(release)
-    selection = np.random.choice(all_possible, qty, replace=False)
+    selection = rng.choice(all_possible, size=qty, replace=False)
     return Query(subpop=tuple(selection))
 
 
@@ -150,10 +152,11 @@ def fitness_coverage(release, query, genome):
 
 
 class Individual:
-    def __init__(self, fitness_function, genome_length, release, query, fitnesses={"noise": 0, "coverage": 0},objectives={"noise": fitness_noise, "coverage": fitness_coverage}):
+    def __init__(self, fitness_function, genome_length, release, query, fitnesses={"noise": 0, "coverage": 0},objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
+        rng = util.generator(rng)
         self.fitness = 0
         self.fitness_function = fitness_function
-        self.genome = [np.random.randint(0,2) for _ in range(genome_length)]
+        self.genome = [rng.integers(0, 2) for _ in range(genome_length)]
         self.release = release
         self.query = query
         self.fitnesses = fitnesses
@@ -171,7 +174,7 @@ class Individual:
             self.fitness += weight * fitness_func(self.release, self.query, self.genome)
         
 
-def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2):
+def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, rng=None):
     """ Evolutinary Algorithm (adapted from CS6520 assignments)
         
         Args: 
@@ -192,6 +195,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
             fitness_over_time (numpy array): Track record of the top fitness value at each generation.
             solutions_over_time (numpy array): Track record of the top genome value at each generation.
     """
+    rng = util.generator(rng)
     # initialize record keeping
     solution = None # best genome so far
     solution_fitness = 999999 # fitness of best genome so far
@@ -201,7 +205,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
     # the initialization proceedure
     population = [] # keep population of individuals in a list
     for i in range(num_parents): # only create parents for initialization (the mu in mu+lambda)
-        population.append(Individual(fitness_function, genome_length, release)) # generate new random individuals as parents
+        population.append(Individual(fitness_function, genome_length, release, rng=rng)) # generate new random individuals as parents
 
     # get population fitness
     for i in range(len(population)):
@@ -212,7 +216,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
         new_children = [] # keep children separate for now (lambda in mu+lambda)
         while len(new_children) < num_children:
             # inheretance
-            [parent1, parent2] = np.random.choice(population, size=2) # pick 2 random parents
+            [parent1, parent2] = rng.choice(population, size=2) # pick 2 random parents
             child1 = copy.deepcopy(parent1) # initialize children as perfect copies of their parents
             child2 = copy.deepcopy(parent2)
 
@@ -223,7 +227,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
             for this_child in [child1, child2]:
                 loci_indices = []
                 while len(loci_indices) < num_elements_to_mutate:
-                    index = np.random.randint(genome_length) # randomly select the location in the child bit string to mutate
+                    index = rng.integers(genome_length) # randomly select the location in the child bit string to mutate
                     if index not in loci_indices:
                         loci_indices.append(index)
                 for loci in loci_indices:
@@ -242,7 +246,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
         new_population = []
         new_population.append(population[0])
         while len(new_population) < num_parents:
-            tournament = np.random.choice(population, size = tournament_size)
+            tournament = rng.choice(population, size = tournament_size)
             tournament = sorted(tournament, key=lambda individual: individual.fitness, reverse = False)
             new_population.extend(tournament[:num_tournament_winners])
         population = new_population
@@ -313,7 +317,8 @@ def get_sparsity(front, release, query, objectives={"noise":fitness_noise, "cove
 
 # Referencing NSGA-II pseudocode from textbook
 # TODO: num_tournament_winners is not used, as textbook uses size of 2 and 1 winner always
-def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, archive_size=10, objectives={"noise": fitness_noise, "coverage": fitness_coverage}):
+def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, archive_size=10, objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
+    rng = util.generator(rng)
     # initialize record keeping
     solution = None # best genome so far
     solution_fitness = 999999 # fitness of best genome so far
@@ -327,7 +332,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
     # the initialization proceedure
     population = [] # keep population of individuals in a list
     for i in range(num_parents): # only create parents for initialization (the mu in mu+lambda)
-        population.append(Individual(fitness_function, genome_length, release, query, objectives=objectives)) # generate new random individuals as parents
+        population.append(Individual(fitness_function, genome_length, release, query, objectives=objectives, rng=rng)) # generate new random individuals as parents
 
     archive = []
 
@@ -362,7 +367,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
         new_children = [] # keep children separate for now (lambda in mu+lambda)
         while len(new_children) < num_children:
             # inheretance
-            [parent1, parent2] = np.random.choice(breeding_pop, size=2) # pick 2 random parents
+            [parent1, parent2] = rng.choice(breeding_pop, size=2) # pick 2 random parents
             child1 = copy.deepcopy(parent1) # initialize children as perfect copies of their parents
             child2 = copy.deepcopy(parent2)
 
@@ -373,7 +378,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
             for this_child in [child1, child2]:
                 loci_indices = []
                 while len(loci_indices) < num_elements_to_mutate:
-                    index = np.random.randint(genome_length) # randomly select the location in the child bit string to mutate
+                    index = rng.integers(genome_length) # randomly select the location in the child bit string to mutate
                     if index not in loci_indices:
                         loci_indices.append(index)
                 for loci in loci_indices:
@@ -388,9 +393,9 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
         breeding_pop += new_children # combine parents with new children (the + in mu+lambda)
         new_population = []
         while len(new_population) < num_parents:
-            best = breeding_pop[np.random.randint(0, len(breeding_pop))] # start with random best
+            best = breeding_pop[rng.integers(len(breeding_pop))] # start with random best
             for i in range(2, tournament_size):
-                next = breeding_pop[np.random.randint(0, len(breeding_pop))]
+                next = breeding_pop[rng.integers(len(breeding_pop))]
                 if next.rank < best.rank:
                     best = next
                 elif next.rank == best.rank:
