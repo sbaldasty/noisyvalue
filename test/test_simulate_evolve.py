@@ -97,19 +97,20 @@ def single_obj_test():
 # Multi-objective testing
 ###################################
 def multi_obj_test():
+    release = synthetic_release_chaotic(n_vals=300, n_slices=50, n_members_min=1, n_members_max=10)
+    # release = synthetic_release_disjoint(n_vals=genome_length)
+    # release = synthetic_release_hierarchical(n_levels=3, n_children=genome_length)
+    query = query_qty(release, qty=30)
+
     num_runs = 1#20
-    total_generations = 100
+    total_generations = 10
     num_elements_to_mutate = 1
-    genome_length = 15
+    genome_length = len(release.slices)
     num_parents = 50
     num_children = 50
     tournament_size = 2 # these are commonly used by the textbook, (2, 1) but might not be optimal
     num_tournament_winners = 1
     archive_size = 50
-    release = synthetic_release_chaotic(n_vals=300, n_slices=genome_length, n_members_min=10, n_members_max=30)
-    # release = synthetic_release_disjoint(n_vals=genome_length)
-    # release = synthetic_release_hierarchical(n_levels=3, n_children=genome_length)
-    query = query_qty(release, qty=30)
     objectives = {"noise": fitness_noise, "coverage": fitness_coverage}
 
     # More interesting query/release
@@ -152,9 +153,9 @@ def multi_obj_test():
             xs = []
             ys = []
             front = fronts_over_time[-1]
-            print(f"{front[0].fitnesses} {front[0].genome}")
+            print(f"{len(front)=} {front[0].fitnesses=} {front[0].genome=}")
             # Plot all "dominated" points in final population (TODO: do we even care about rest of pop, or do we prefer the previous fronts?)
-            for pop in pop_over_time:
+            for pop in pop_over_time[-1:]:
                 for ind in pop:
                     if ind not in front:
                         xs.append(ind.fitnesses["noise"])
