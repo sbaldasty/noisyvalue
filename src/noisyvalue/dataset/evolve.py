@@ -267,19 +267,21 @@ def pareto_domination(a, b, objectives={"noise":fitness_noise, "coverage":fitnes
             return False # A definitely doesn't dominate B 
     return dominates
 
-# TODO:
+
+def undominated(individual, population, objectives):
+    """Whether the individual is undominated in the population with respect to the objectives."""
+    return not any(
+        pareto_domination(other, individual, objectives)
+        for other in population
+        if other != individual)
+
+
 def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fitness_coverage}):
-    front = []
-    for individual in population:
-        front.append(individual) # Optimistically add individual to front
-        for front_individual in front:
-            if front_individual != individual:
-                if pareto_domination(front_individual, individual, objectives): # new member won't stay in front
-                    front.remove(individual)
-                    break
-                elif pareto_domination(individual, front_individual, objectives): # knock out member of front
-                    front.remove(front_individual)
-    return front
+    """The undominated individuals in the population with respect to the objectives."""
+    return [
+        individual for individual in population
+        if undominated(individual, population, objectives)]
+
 
 # TODO:
 def get_ranks(population, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
