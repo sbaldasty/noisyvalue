@@ -421,7 +421,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
 
 
 
-def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, objectives={"noise": fitness_noise, "coverage": fitness_coverage}):
+def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
     """ Evolutinary Algorithm (adapted from CS6520 assignments)
         
         Args: 
@@ -442,6 +442,7 @@ def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_rel
             fitness_over_time (numpy array): Track record of the top fitness value at each generation.
             solutions_over_time (numpy array): Track record of the top genome value at each generation.
     """
+    rng = util.generator(rng)
     # initialize record keeping
     solution = None # best genome so far
     solution_fitness = 999999 # fitness of best genome so far
@@ -451,7 +452,7 @@ def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_rel
     # the initialization proceedure
     population = [] # keep population of individuals in a list
     for i in range(num_parents): # only create parents for initialization (the mu in mu+lambda)
-        population.append(Individual(fitness_function, genome_length, release, query, objectives)) # generate new random individuals as parents
+        population.append(Individual(fitness_function, genome_length, release, query, objectives=objectives, rng=rng)) # generate new random individuals as parents
 
     # get population fitness
     for i in range(len(population)):
@@ -462,9 +463,9 @@ def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_rel
         new_children = [] # keep children separate for now (lambda in mu+lambda)
         while len(new_children) < num_children:
             # inheretance
-            [parent1, parent2] = np.random.choice(population, size=2) # pick 2 random parents
-            child1 = copy.deepcopy(parent1) # initialize children as perfect copies of their parents
-            child2 = copy.deepcopy(parent2)
+            [parent1, parent2] = rng.choice(population, size=2) # pick 2 random parents
+            child1 = parent1.clone() # initialize children as perfect copies of their parents
+            child2 = parent2.clone()
 
             # crossover (for a later deliverable)
             # N/A
@@ -473,7 +474,7 @@ def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_rel
             for this_child in [child1, child2]:
                 loci_indices = []
                 while len(loci_indices) < num_elements_to_mutate:
-                    index = np.random.randint(genome_length) # randomly select the location in the child bit string to mutate
+                    index = rng.integers(genome_length) # randomly select the location in the child bit string to mutate
                     if index not in loci_indices:
                         loci_indices.append(index)
                 for loci in loci_indices:
@@ -492,7 +493,7 @@ def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_rel
         new_population = []
         new_population.append(population[0])
         while len(new_population) < num_parents:
-            tournament = np.random.choice(population, size = tournament_size)
+            tournament = rng.choice(population, size = tournament_size)
             tournament = sorted(tournament, key=lambda individual: individual.fitness, reverse = False)
             new_population.extend(tournament[:num_tournament_winners])
         population = new_population
