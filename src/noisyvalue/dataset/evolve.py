@@ -327,7 +327,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
     # the initialization proceedure
     population = [] # keep population of individuals in a list
     for i in range(num_parents): # only create parents for initialization (the mu in mu+lambda)
-        population.append(Individual(fitness_function, genome_length, release, query, objectives)) # generate new random individuals as parents
+        population.append(Individual(fitness_function, genome_length, release, query, objectives=objectives)) # generate new random individuals as parents
 
     archive = []
 
