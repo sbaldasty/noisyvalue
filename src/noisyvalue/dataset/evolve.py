@@ -163,6 +163,14 @@ class Individual:
         self.objectives = objectives
         self.sparsity = 0
         self.rank = 9999999
+
+    def clone(self):
+        """Create a copy with its own genome and fitnesses, sharing the release and query."""
+        child = copy.copy(self)
+        child.genome = list(self.genome)
+        child.fitnesses = dict(self.fitnesses)
+        return child
+
     def eval_fitness(self):
         self.fitness = self.fitness_function(self.release, self.genome)
     def eval_pareto_fitness(self):
@@ -217,8 +225,8 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
         while len(new_children) < num_children:
             # inheretance
             [parent1, parent2] = rng.choice(population, size=2) # pick 2 random parents
-            child1 = copy.deepcopy(parent1) # initialize children as perfect copies of their parents
-            child2 = copy.deepcopy(parent2)
+            child1 = parent1.clone() # initialize children as perfect copies of their parents
+            child2 = parent2.clone()
 
             # crossover (for a later deliverable)
             # N/A
@@ -368,8 +376,8 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
         while len(new_children) < num_children:
             # inheretance
             [parent1, parent2] = rng.choice(breeding_pop, size=2) # pick 2 random parents
-            child1 = copy.deepcopy(parent1) # initialize children as perfect copies of their parents
-            child2 = copy.deepcopy(parent2)
+            child1 = parent1.clone() # initialize children as perfect copies of their parents
+            child2 = parent2.clone()
 
             # crossover (for a later deliverable)
             # N/A
