@@ -122,7 +122,7 @@ def query_nothing():
 def query_everything(release):
     """Generate a query that asks for every possible part of the population."""
     chain = ite.chain.from_iterable(s.subpop for s in release.slices)
-    return Query(subpop=tuple(set(chain)))
+    return Query(subpop=tuple(dict.fromkeys(chain))) # Preserves order
 
 
 def query_qty(release, qty, rng=None):
