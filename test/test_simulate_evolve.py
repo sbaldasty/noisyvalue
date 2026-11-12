@@ -1,4 +1,4 @@
-from noisyvalue.dataset.evolve import evolutionary_algorithm, pareto_evolutionary_algorithm, pareto_front, weighted_evolutionary_algorithm, query_qty
+from noisyvalue.dataset.evolve import evolutionary_algorithm, fitness_coverage_old, pareto_evolutionary_algorithm, pareto_front, weighted_evolutionary_algorithm, query_qty
 from noisyvalue.dataset.evolve import Individual, Variable, Slice, NoisyFloat, Release
 import numpy as np
 from noisyvalue.dataset.evolve import fitness_noise, fitness_coverage
@@ -111,7 +111,7 @@ def multi_obj_test():
     tournament_size = 2 # these are commonly used by the textbook, (2, 1) but might not be optimal
     num_tournament_winners = 1
     archive_size = 50
-    objectives = {"noise": fitness_noise, "coverage": fitness_coverage}
+    objectives = {"noise": fitness_noise, "coverage": fitness_coverage_old}
 
     # # More interesting query/release
     # v = Variable("color", ("red", "green", "blue"))
@@ -190,7 +190,7 @@ def weighted_multi_test():
     # release = synthetic_release_disjoint(n_vals=genome_length)
     # release = synthetic_release_hierarchical(n_levels=3, n_children=genome_length)
     query = query = Query(subpop=())
-    objectives = {"noise": fitness_noise, "coverage": fitness_coverage}    
+    objectives = {"noise": fitness_noise, "coverage": fitness_coverage_old}    
     # t_sizes = [50, 50, 20, 20]
     # t_winners = [5, 20, 5, 20]
     names = ["2 select 1 weighted"]
