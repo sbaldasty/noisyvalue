@@ -113,20 +113,20 @@ def multi_obj_test():
     archive_size = 50
     objectives = {"noise": fitness_noise, "coverage": fitness_coverage}
 
-    # More interesting query/release
-    v = Variable("color", ("red", "green", "blue"))
-    query = Query(subpop=((v, "red"), (v, "green")))
-    slices = [
-        Slice(((v, "red"),), NoisyFloat.gaussian(obs=12.1, loc=12.1, scale=1.0)),
-        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
-        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
-        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
-        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
-        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
-        Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
-    ]
-    release = Release(variables=(v,), slices=tuple(slices))
-    genome_length = 7
+    # # More interesting query/release
+    # v = Variable("color", ("red", "green", "blue"))
+    # query = Query(subpop=((v, "red"), (v, "green")), subpop_exclude=(v, "green"))
+    # slices = [
+    #     Slice(((v, "red"),), NoisyFloat.gaussian(obs=12.1, loc=12.1, scale=1.0)),
+    #     Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+    #     Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+    #     Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+    #     Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+    #     Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+    #     Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
+    # ]
+    # release = Release(variables=(v,), slices=tuple(slices))
+    # genome_length = 7
 
     names = ["2 select 1 pareto"]
     for i in range(len(names)):
@@ -250,5 +250,5 @@ def pareto_rank_visual():
     plt.scatter(xs, ys, marker="o", color='g')
     plt.show()
 
-# multi_obj_test()
-weighted_multi_test()
+multi_obj_test()
+# weighted_multi_test()

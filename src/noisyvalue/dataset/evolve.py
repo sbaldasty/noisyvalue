@@ -20,7 +20,7 @@ class Variable:
 
 @dataclass
 class Slice:
-    subpop: tuple[tuple[Variable, str]]
+    subpop: tuple[tuple[Variable, str]] # tuple[tuple[Variable, str, bool]]
     count: NoisyValue
 
 
@@ -33,6 +33,7 @@ class Release:
 @dataclass
 class Query:
     subpop: tuple[tuple[Variable, str]]
+    subpop_exclude: tuple[tuple[Variable, str]]
     
 
 def merge_slices(slices):
@@ -122,7 +123,7 @@ def query_nothing():
 def query_everything(release):
     """Generate a query that asks for every possible part of the population."""
     chain = ite.chain.from_iterable(s.subpop for s in release.slices)
-    return Query(subpop=tuple(dict.fromkeys(chain))) # Preserves order
+    return Query(subpop=tuple(dict.fromkeys(chain)), subpop_exclude=()) # Preserves order
 
 
 def query_qty(release, qty, rng=None):
@@ -130,7 +131,7 @@ def query_qty(release, qty, rng=None):
     rng = util.generator(rng)
     all_possible = query_everything(release).subpop
     selection = rng.choice(len(all_possible), size=qty, replace=False)
-    return Query(subpop=tuple(all_possible[i] for i in selection))
+    return Query(subpop=tuple(all_possible[i] for i in selection), subpop_exclude=())
 
 
 def fitness_noise(release, query, genome):
@@ -139,8 +140,36 @@ def fitness_noise(release, query, genome):
     samples = sample_noisy_values(total, n=100)[0]
     return np.var(samples.draws)
 
+def slice_penalty(slices):
+    counts = [penalized_slice.count for penalized_slice in slices]
+    total_penalty = 0
+    for count in counts:
+        samples = sample_noisy_values(count, n=100)[0]
+        total_penalty += np.max(samples.draws)
+    return total_penalty
+    
 
 def fitness_coverage(release, query, genome):
+    phenotype = [release.slices[i] for i,g in enumerate(genome) if g == 1]
+    phenotype_subpops = [s.subpop for s in phenotype]
+    phenotype_exclude = [release.slices[i] for i,g in enumerate(genome) if g == -1]
+    phenotype_exclude_subpops = [s.subpop for s in phenotype_exclude]
+    matching_slices = []
+    matching_removals = []
+    for subpop in query.subpop:
+        if subpop in phenotype_subpops:
+            matching_p = [p for p in phenotype if p.subop == subpop]
+            phenotype = [p for p in phenotype if p.subpop != subpop]
+            matching_slices.extend(matching_p)
+    for subpop in query.subpop_exclude:
+        if subpop in phenotype_exclude_subpops:
+            matching_removal = [p for p in phenotype_exclude if p.subpop == subpop]
+            phenotype_exclude = [p for p in phenotype_exclude if p.subpop != subpop]
+            matching_removals.extend(matching_removal)
+    # Penalty is sum of remaining slices that didnt match, minus sum of slices that did match
+    return slice_penalty(phenotype) + slice_penalty(phenotype_exclude) - slice_penalty(matching_slices) - slice_penalty(matching_removals)
+
+def fitness_coverage_old(release, query, genome):
     phenotype = ite.chain.from_iterable(release.slices[i].subpop for i, g in enumerate(genome) if g)
     phenotype = list(phenotype)
     removals = 0
@@ -182,7 +211,7 @@ class Individual:
             self.fitness += weight * fitness_func(self.release, self.query, self.genome)
         
 
-def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, rng=None):
+def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=(), subpop_exclude=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, rng=None):
     """ Evolutinary Algorithm (adapted from CS6520 assignments)
         
         Args: 
@@ -325,7 +354,7 @@ def get_sparsity(front, release, query, objectives={"noise":fitness_noise, "cove
 
 # Referencing NSGA-II pseudocode from textbook
 # TODO: num_tournament_winners is not used, as textbook uses size of 2 and 1 winner always
-def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, archive_size=10, objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
+def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=(), subpop_exclude=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, archive_size=10, objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
     rng = util.generator(rng)
     # initialize record keeping
     solution = None # best genome so far
@@ -354,7 +383,6 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
 
         # Get pareto front
         best_front = pareto_front(population, objectives)
-        fronts_over_time.append(best_front)
 
         # Compute all ranks (turn this into property of Individual)
         ranks = get_ranks(population, release, query, objectives)
@@ -390,7 +418,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
                     if index not in loci_indices:
                         loci_indices.append(index)
                 for loci in loci_indices:
-                    this_child.genome[loci] = (this_child.genome[loci] + 1) % 2 # flip the bit at the chosen location
+                    this_child.genome[loci] = ((this_child.genome[loci] + 2) % 3) - 1 # flip the bit at the chosen location
             new_children.extend((child1,child2)) # add children to the new_children list
 
         # the assessement procedure
@@ -413,6 +441,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
 
         population = new_population
         best_front = pareto_front(population, objectives)
+        fronts_over_time.append(best_front)
 
         # record keeping
         if population[0].fitness < solution_fitness: # if the new parent is the best found so far
@@ -429,7 +458,7 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
 
 
 
-def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
+def weighted_evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=(), subpop_exclude=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
     """ Evolutinary Algorithm (adapted from CS6520 assignments)
         
         Args: 
