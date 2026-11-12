@@ -119,10 +119,14 @@ def query_nothing():
     return Query(subpop=())
 
 
+def subpop_parts(slices):
+    chain = ite.chain.from_iterable(s.subpop for s in slices)
+    return tuple(dict.fromkeys(chain)) # Preserves order
+
+
 def query_everything(release):
     """Generate a query that asks for every possible part of the population."""
-    chain = ite.chain.from_iterable(s.subpop for s in release.slices)
-    return Query(subpop=tuple(dict.fromkeys(chain))) # Preserves order
+    return Query(subpop=subpop_parts(release.slices))
 
 
 def query_qty(release, qty, rng=None):
@@ -152,7 +156,8 @@ def fitness_coverage(release, query, genome):
     phenotype_include = [release.slices[i].subpop for i,g in enumerate(genome) if g == 1]
     phenotype_exclude = [release.slices[i].subpop for i,g in enumerate(genome) if g == -1]
     penalty = 0
-    for subpop in query.subpop:
+    for subpop in subpop_parts(release.slices):
+        in_query = 1 if subpop in query.subpop else 0
         num_appearances = 0
         for phenotype_subpop in phenotype_include:
             if subpop in phenotype_subpop:
@@ -160,7 +165,7 @@ def fitness_coverage(release, query, genome):
         for phenotype_subpop in phenotype_exclude:
             if subpop in phenotype_subpop:
                 num_appearances -= 1
-        penalty += abs(1 - num_appearances)
+        penalty += abs(in_query - num_appearances)
     return penalty
         
 def fitness_coverage_old(release, query, genome):

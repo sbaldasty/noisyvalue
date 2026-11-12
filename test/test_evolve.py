@@ -75,6 +75,40 @@ def test_fitness_coverage_matching():
     assert fitness == 0
 
 
+def test_fitness_coverage_cancel():
+    v = Variable("color", ("red", "green", "blue"))
+    query = Query(subpop=((v, "red"),))
+    slices = [
+        Slice(((v, "red"),), NoisyFloat.gaussian(obs=12.1, loc=12.1, scale=1.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
+    ]
+    release = Release(variables=(v,), slices=tuple(slices))
+    fitness = fitness_coverage(release, query, [1, 0, 1, -1, 0, 0, 0])
+    assert fitness == 0
+
+
+def test_fitness_coverage_negative():
+    v = Variable("color", ("red", "green", "blue"))
+    query = Query(subpop=((v, "red"),))
+    slices = [
+        Slice(((v, "red"),), NoisyFloat.gaussian(obs=12.1, loc=12.1, scale=1.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
+        Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
+    ]
+    release = Release(variables=(v,), slices=tuple(slices))
+    fitness = fitness_coverage(release, query, [1, 0, -1, -1, 0, 0, 0])
+    assert fitness == 2
+
+
 def test_fitness_coverage_query_over():
     v = Variable("color", ("red", "green", "blue"))
     query = Query(subpop=((v, "red"), (v, "green")))
