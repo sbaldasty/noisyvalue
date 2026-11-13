@@ -20,7 +20,7 @@ class Variable:
 
 @dataclass
 class Slice:
-    subpop: tuple[tuple[Variable, str]] # tuple[tuple[Variable, str, bool]]
+    subpop: tuple[tuple[Variable, str]]
     count: NoisyValue
 
 
@@ -175,7 +175,7 @@ def fitness_coverage_old(release, query, genome):
 
 
 class Individual:
-    def __init__(self, fitness_function, genome_length, release, query, fitnesses={"noise": 0, "coverage": 0},objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
+    def __init__(self, fitness_function, genome_length, release, query, fitnesses={"noise": 0, "coverage": 0},objectives={"noise": fitness_noise, "coverage": fitness_coverage_old}, rng=None):
         rng = util.generator(rng)
         self.fitness = 0
         self.fitness_function = fitness_function
@@ -292,7 +292,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
 
     return fitness_over_time, solutions_over_time
 
-def pareto_domination(a, b, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
+def pareto_domination(a, b, objectives={"noise":fitness_noise, "coverage":fitness_coverage_old}):
     dominates = False
     for objective in objectives.keys():
         # We are assuming smaller is better for noise and inverse of coverage
@@ -311,7 +311,7 @@ def undominated(individual, population, objectives):
         if other != individual)
 
 
-def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fitness_coverage}):
+def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fitness_coverage_old}):
     """The undominated individuals in the population with respect to the objectives."""
     return [
         individual for individual in population
@@ -319,7 +319,7 @@ def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fit
 
 
 # TODO:
-def get_ranks(population, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
+def get_ranks(population, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage_old}):
     pop_prime = copy.deepcopy(population)
     ranks = []
     i = 1
@@ -332,7 +332,7 @@ def get_ranks(population, release, query, objectives={"noise":fitness_noise, "co
         ranks.append(rank_i)
     return ranks
 
-def get_sparsity(front, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
+def get_sparsity(front, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage_old}):
     for individual in front:
         individual.sparsity = 0
 
