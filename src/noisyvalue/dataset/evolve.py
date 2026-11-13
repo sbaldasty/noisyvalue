@@ -167,20 +167,10 @@ def fitness_coverage(release, query, genome):
                 num_appearances -= 1
         penalty += abs(in_query - num_appearances)
     return penalty
-        
-def fitness_coverage_old(release, query, genome):
-    phenotype = ite.chain.from_iterable(release.slices[i].subpop for i, g in enumerate(genome) if g)
-    phenotype = list(phenotype)
-    removals = 0
-    for subpop in query.subpop:
-        if subpop in phenotype:
-            phenotype.remove(subpop)
-            removals += 1
-    return len(phenotype) + len(query.subpop) - removals
 
 
 class Individual:
-    def __init__(self, fitness_function, genome_length, release, query, fitnesses={"noise": 0, "coverage": 0},objectives={"noise": fitness_noise, "coverage": fitness_coverage_old}, rng=None):
+    def __init__(self, fitness_function, genome_length, release, query, fitnesses={"noise": 0, "coverage": 0},objectives={"noise": fitness_noise, "coverage": fitness_coverage}, rng=None):
         rng = util.generator(rng)
         self.fitness = 0
         self.fitness_function = fitness_function
@@ -297,7 +287,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
 
     return fitness_over_time, solutions_over_time
 
-def pareto_domination(a, b, objectives={"noise":fitness_noise, "coverage":fitness_coverage_old}):
+def pareto_domination(a, b, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
     dominates = False
     for objective in objectives.keys():
         # We are assuming smaller is better for noise and inverse of coverage
@@ -316,7 +306,7 @@ def undominated(individual, population, objectives):
         if other != individual)
 
 
-def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fitness_coverage_old}):
+def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fitness_coverage}):
     """The undominated individuals in the population with respect to the objectives."""
     return [
         individual for individual in population
@@ -324,7 +314,7 @@ def pareto_front(population, objectives = {"noise":fitness_noise, "coverage":fit
 
 
 # TODO:
-def get_ranks(population, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage_old}):
+def get_ranks(population, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
     pop_prime = copy.deepcopy(population)
     ranks = []
     i = 1
@@ -337,7 +327,7 @@ def get_ranks(population, release, query, objectives={"noise":fitness_noise, "co
         ranks.append(rank_i)
     return ranks
 
-def get_sparsity(front, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage_old}):
+def get_sparsity(front, release, query, objectives={"noise":fitness_noise, "coverage":fitness_coverage}):
     for individual in front:
         individual.sparsity = 0
 

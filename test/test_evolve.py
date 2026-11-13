@@ -1,6 +1,6 @@
 from frozendict import frozendict
 from noisyvalue.core import NoisyFloat
-from noisyvalue.dataset.evolve import Query, fitness_coverage_old
+from noisyvalue.dataset.evolve import Query, fitness_coverage
 from noisyvalue.dataset.evolve import Release
 from noisyvalue.dataset.evolve import Slice
 from noisyvalue.dataset.evolve import Variable
@@ -54,7 +54,7 @@ def test_fitness_coverage_empty():
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
     release = Release(variables=(v,), slices=tuple(slices))
-    fitness = fitness_coverage_old(release, query, [0, 0, 0, 0, 0, 0, 0])
+    fitness = fitness_coverage(release, query, [0, 0, 0, 0, 0, 0, 0])
     assert fitness == 0
 
 
@@ -71,7 +71,7 @@ def test_fitness_coverage_matching():
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
     release = Release(variables=(v,), slices=tuple(slices))
-    fitness = fitness_coverage_old(release, query, [1, 0, 0, 0, 0, 0, 0])
+    fitness = fitness_coverage(release, query, [1, 0, 0, 0, 0, 0, 0])
     assert fitness == 0
 
 
@@ -122,7 +122,7 @@ def test_fitness_coverage_query_over():
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
     release = Release(variables=(v,), slices=tuple(slices))
-    fitness = fitness_coverage_old(release, query, [1, 0, 0, 0, 0, 0, 0])
+    fitness = fitness_coverage(release, query, [1, 0, 0, 0, 0, 0, 0])
     assert fitness == 1
 
 

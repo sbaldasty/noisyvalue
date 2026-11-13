@@ -8,7 +8,7 @@ from noisyvalue.census import dhc_2020, dhc_table_variables
 from noisyvalue.core import NoisyFloat
 from noisyvalue.dataset import cover
 from noisyvalue.dataset.evolve import (
-    Query, Release, Slice, Variable, fitness_coverage_old,
+    Query, Release, Slice, Variable, fitness_coverage,
     pareto_evolutionary_algorithm, query_qty, synthetic_release_chaotic,
     synthetic_release_hierarchical)
 
@@ -23,7 +23,7 @@ def test_coverage_matches_evolve_fitness_coverage():
     problem = cover.from_release(release, query)
 
     genomes = rng.integers(0, 2, size=(200, problem.n_slices))
-    expected = [fitness_coverage_old(release, query, list(g)) for g in genomes]
+    expected = [fitness_coverage(release, query, list(g)) for g in genomes]
     assert list(problem.coverage(genomes)) == expected
 
 
