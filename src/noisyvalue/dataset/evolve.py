@@ -174,7 +174,7 @@ class Individual:
         rng = util.generator(rng)
         self.fitness = 0
         self.fitness_function = fitness_function
-        self.genome = [rng.integers(0, 2) for _ in range(genome_length)]
+        self.genome = [rng.integers(-1, 2) for _ in range(genome_length)] # -1, 0, or 1
         self.release = release
         self.query = query
         self.fitnesses = fitnesses
@@ -407,7 +407,12 @@ def pareto_evolutionary_algorithm(fitness_function=None, release=synthetic_relea
                     if index not in loci_indices:
                         loci_indices.append(index)
                 for loci in loci_indices:
-                    this_child.genome[loci] = ((this_child.genome[loci] + 2) % 3) - 1 # flip the bit at the chosen location
+                    options = [-1, 0, 1]
+                    bit = this_child.genome[loci]
+                    options.remove(bit)
+                    this_child.genome[loci] = rng.choice(options)
+                    # Old method
+                    # this_child.genome[loci] = ((this_child.genome[loci] + 2) % 3) - 1 # flip the bit at the chosen location
             new_children.extend((child1,child2)) # add children to the new_children list
 
         # the assessement procedure
