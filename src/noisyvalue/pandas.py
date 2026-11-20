@@ -33,7 +33,7 @@ from pandas.api.extensions import ExtensionArray, ExtensionDtype, register_exten
 from pandas.core.arraylike import OpsMixin
 from sympy import And, Or, Not
 
-from .core import NoisyBool, NoisyFloat, NoisyInt, NoisyNumber
+from .core import NoisyBool, NoisyFloat, NoisyInt, NoisyNumber, NoisyValue
 from .graph import DerivedNode
 
 _NUMERIC_REDUCTIONS = frozenset({"sum", "mean"})
@@ -75,6 +75,10 @@ class _NoisyArrayBase(OpsMixin, ExtensionArray):
         roots = np.empty(n, dtype=object)
         mask = np.zeros(n, dtype=bool)
         for i, v in enumerate(scalars):
+            if isinstance(v, NoisyValue) and not isinstance(v, cls._scalar_cls):
+                # never `lift` another noisy type: that wraps it as a constant
+                # and silently throws its posterior away
+                v = cls._adopt(v)
             if isinstance(v, cls._scalar_cls):
                 obs[i] = v._obs
                 roots[i] = v._root
@@ -87,6 +91,14 @@ class _NoisyArrayBase(OpsMixin, ExtensionArray):
                 obs[i] = lifted._obs
                 roots[i] = lifted._root
         return cls(obs, roots, mask, copy=copy)
+
+    @classmethod
+    def _adopt(cls, value):
+        """Convert a noisy value of another type into `_scalar_cls`, keeping
+        its provenance, or raise `TypeError` if that cannot be done exactly."""
+        raise TypeError(
+            f"cannot store a {type(value).__name__} in a {cls.__name__} "
+            "without dropping its posterior")
 
     @classmethod
     def _from_factorized(cls, values, original):
@@ -181,6 +193,18 @@ class _NumericOpsMixin:
         if isinstance(other, numbers.Real):
             return other, np.zeros(len(self), dtype=bool)
         return NotImplemented, None
+
+    def _cast_pointwise_result(self, values):
+        # Per-element and per-group results (Series.map, the groupby
+        # fallback for sum/mean) come back here as scalars.  A sum of NoisyInts
+        # is a NoisyFloat, so pick the noisy dtype that holds every result
+        # exactly instead of forcing them back into this array's own type.
+        present = [v for v in values if not _is_na_scalar(v)]
+        if present and all(isinstance(v, NoisyNumber) for v in present):
+            target = (NoisyIntArray if all(isinstance(v, NoisyInt) for v in present)
+                      else NoisyFloatArray)
+            return target._from_sequence(values)
+        return super()._cast_pointwise_result(values)
 
     def _arith_method(self, other, op):
         other_obs, other_roots, other_mask = self._coerce_operand(other)
@@ -278,6 +302,13 @@ class NoisyFloatArray(_NumericOpsMixin, _NoisyArrayBase):
     _obs_dtype = "float64"
     _na_placeholder = np.nan
     _dtype = NoisyFloatDtype()
+
+    @classmethod
+    def _adopt(cls, value):
+        # the same promotion NoisyNumber.bin_op performs: the node is shared
+        if isinstance(value, NoisyInt):
+            return NoisyFloat(float(value._obs), value._root)
+        return super()._adopt(value)
 
 
 # ── NoisyInt ─────────────────────────────────────────────────────────────────

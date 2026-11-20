@@ -113,6 +113,65 @@ def test_unique_still_fails_by_design():
         s.unique()
 
 
+# ── groupby by a plain key: per-group sum/mean keep the posterior ──────────
+
+def test_groupby_sum_of_int_column_preserves_joint_posterior():
+    a = NoisyInt.binomial(100, 0.3, obs=40)
+    b = NoisyInt.binomial(100, 0.4, obs=45)
+    c = NoisyInt.binomial(100, 0.5, obs=50)
+    df = pd.DataFrame({"key": ["x", "x", "y"], "v": _int_series([a, b, c])})
+
+    totals = df.groupby("key")["v"].sum()
+    # same promotion as Series.sum(): a sum of NoisyInts is a NoisyFloat
+    assert totals.dtype.name == "noisyfloat"
+    assert totals["x"]._obs == pytest.approx(85.0)
+
+    draws_x, draws_y, draws_a, draws_b, draws_c = sample_noisy_values(
+        totals["x"], totals["y"], a, b, c, n=500, rng=3)
+    assert np.allclose(draws_x.draws, draws_a.draws + draws_b.draws)
+    assert np.allclose(draws_y.draws, draws_c.draws)
+    assert draws_x.draws.std() > 0
+
+
+def test_groupby_mean_of_float_column_preserves_joint_posterior():
+    a = NoisyFloat.draw(5.0, noise.gaussian(0, 1), rng=1)
+    b = NoisyFloat.draw(3.0, noise.gaussian(0, 1), rng=2)
+    df = pd.DataFrame({"key": ["x", "x"], "v": _series([a, b])})
+
+    mean = df.groupby("key")["v"].mean()["x"]
+    draws_mean, draws_a, draws_b = sample_noisy_values(mean, a, b, n=500, rng=3)
+    assert np.allclose(draws_mean.draws, (draws_a.draws + draws_b.draws) / 2)
+
+
+def test_groupby_unsupported_reduction_still_fails_loudly():
+    df = pd.DataFrame({"key": ["x", "x"],
+                       "v": _series([NoisyFloat.lift(1.0), NoisyFloat.lift(2.0)])})
+    with pytest.raises(TypeError):
+        df.groupby("key")["v"].min()
+
+
+# ── construction never silently drops a value's noise ──────────────────────
+
+def test_int_array_refuses_noisyfloat_rather_than_making_it_a_constant():
+    x = NoisyFloat.draw(5.0, noise.gaussian(0, 1), rng=1)
+    with pytest.raises(TypeError, match="NoisyFloat"):
+        NoisyIntArray._from_sequence([x])
+
+
+def test_float_array_promotes_noisyint_keeping_its_posterior():
+    a = NoisyInt.binomial(100, 0.3, obs=40)
+    stored = _series([a]).iloc[0]
+    assert isinstance(stored, NoisyFloat)
+    assert stored._obs == 40.0
+    draws_stored, draws_a = sample_noisy_values(stored, a, n=500, rng=3)
+    assert np.allclose(draws_stored.draws, draws_a.draws)
+
+
+def test_bool_array_refuses_noisy_numbers():
+    with pytest.raises(TypeError):
+        NoisyBoolArray._from_sequence([NoisyInt.lift(1)])
+
+
 # ── NA handling ─────────────────────────────────────────────────────────────
 
 def test_none_in_sequence_is_missing():
