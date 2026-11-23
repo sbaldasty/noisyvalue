@@ -1,6 +1,6 @@
 from frozendict import frozendict
 from noisyvalue.core import NoisyFloat
-from noisyvalue.dataset.evolve import Query, fitness_coverage
+from noisyvalue.dataset.evolve import Query, fitness_coverage, subpop_parts
 from noisyvalue.dataset.evolve import Release
 from noisyvalue.dataset.evolve import Slice
 from noisyvalue.dataset.evolve import Variable
@@ -24,7 +24,7 @@ def test_noise_fitness():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
-    release = Release(variables=(v,), slices=tuple(slices))
+    release = Release(variables=(v,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
     f1 = fitness_noise(release, query, [1, 0, 0, 0, 0, 0, 0])
     f2 = fitness_noise(release, query, [0, 1, 0, 0, 0, 0, 0])
     f3 = fitness_noise(release, query, [0, 0, 0, 0, 0, 0, 1])
@@ -36,7 +36,7 @@ def test_noise_fitness():
 
 def test_noise_fitness_zero():
     query = Query(subpop=())
-    release = Release(variables=(), slices=())
+    release = Release(variables=(), slices=(), subpop_parts=())
     fitness = fitness_noise(release, query, [0, 0, 0, 0])
     assert fitness == 0.0
 
@@ -53,7 +53,7 @@ def test_fitness_coverage_empty():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
-    release = Release(variables=(v,), slices=tuple(slices))
+    release = Release(variables=(v,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
     fitness = fitness_coverage(release, query, [0, 0, 0, 0, 0, 0, 0])
     assert fitness == 0
 
@@ -70,7 +70,7 @@ def test_fitness_coverage_matching():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
-    release = Release(variables=(v,), slices=tuple(slices))
+    release = Release(variables=(v,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
     fitness = fitness_coverage(release, query, [1, 0, 0, 0, 0, 0, 0])
     assert fitness == 0
 
@@ -87,7 +87,7 @@ def test_fitness_coverage_cancel():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
-    release = Release(variables=(v,), slices=tuple(slices))
+    release = Release(variables=(v,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
     fitness = fitness_coverage(release, query, [1, 0, 1, -1, 0, 0, 0])
     assert fitness == 0
 
@@ -104,7 +104,7 @@ def test_fitness_coverage_negative():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
-    release = Release(variables=(v,), slices=tuple(slices))
+    release = Release(variables=(v,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
     fitness = fitness_coverage(release, query, [1, 0, -1, -1, 0, 0, 0])
     assert fitness == 2
 
@@ -121,7 +121,7 @@ def test_fitness_coverage_query_over():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
-    release = Release(variables=(v,), slices=tuple(slices))
+    release = Release(variables=(v,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
     fitness = fitness_coverage(release, query, [1, 0, 0, 0, 0, 0, 0])
     assert fitness == 1
 
@@ -155,7 +155,7 @@ def test_query_everything():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=4.4, loc=4.4, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=100.1, loc=100.1, scale=6.0)),
     ]
-    release = Release(variables=(v,), slices=tuple(slices))
+    release = Release(variables=(v,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
     query = query_everything(release)
     assert len(query.subpop) == 3
     assert (v, "red") in query.subpop

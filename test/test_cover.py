@@ -10,7 +10,7 @@ from noisyvalue.dataset import cover
 from noisyvalue.dataset.evolve import (
     Query, Release, Slice, Variable, fitness_coverage,
     pareto_evolutionary_algorithm, query_qty, synthetic_release_chaotic,
-    synthetic_release_hierarchical)
+    synthetic_release_hierarchical, subpop_parts)
 
 
 # ── synthetic releases ──────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ def test_noise_is_exact_sum_of_variances():
         Slice(((v, "green"),), NoisyFloat.gaussian(obs=1.0, loc=1.0, scale=3.0)),
         Slice(((v, "blue"),), NoisyFloat.gaussian(obs=1.0, loc=1.0, scale=6.0)),
     )
-    problem = cover.from_release(Release((v,), slices), Query(((v, "red"),)))
+    problem = cover.from_release(Release((v,), slices, subpop_parts=subpop_parts(slices)), Query(((v, "red"),)))
     assert problem.noise([1, 0, 0]) == 1.0
     assert problem.noise([0, 1, 1]) == 45.0
     assert list(problem.noise([[1, 1, 1], [0, 0, 0]])) == [46.0, 0.0]

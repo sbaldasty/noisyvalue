@@ -28,6 +28,7 @@ class Slice:
 class Release:
     variables: tuple[Variable]
     slices: tuple[Slice]
+    subpop_parts: tuple
 
 
 @dataclass
@@ -63,7 +64,7 @@ def synthetic_release_disjoint(*, n_vals):
     slices = [Slice(
         subpop=((variable, f"value{i}"),),
         count=NoisyFloat.gaussian(obs=1.0, loc=1.0, scale=1.0)) for i in range(n_vals)]
-    return Release(variables=(variable,), slices=tuple(slices))
+    return Release(variables=(variable,), slices=tuple(slices), subpop_parts=subpop_parts(slices))
 
 
 def synthetic_release_hierarchical(*, n_levels, n_children):
@@ -87,7 +88,7 @@ def synthetic_release_hierarchical(*, n_levels, n_children):
         batches = ite.batched(lvl, n_children, strict=True)
         lvl = [merge_slices(s) for s in batches]
         all_slices.extend(lvl)
-    return Release(variables=bottom.variables, slices=all_slices)
+    return Release(variables=bottom.variables, slices=all_slices, subpop_parts=subpop_parts(all_slices))
 
 
 def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max, rng=None):
@@ -111,7 +112,7 @@ def synthetic_release_chaotic(*, n_vals, n_slices, n_members_min, n_members_max,
         n_members = rng.integers(n_members_min, n_members_max + 1)
         components = rng.choice(base.slices, size=n_members, replace=False)
         slices.append(merge_slices(components))
-    return Release(variables=tuple(base.variables), slices=tuple(slices))
+    return Release(variables=tuple(base.variables), slices=tuple(slices), subpop_parts=subpop_parts(slices))
 
 
 def query_nothing():
@@ -153,10 +154,10 @@ def slice_penalty(slices):
     return total_penalty
     
 def fitness_coverage(release, query, genome):
-    phenotype_include = [release.slices[i].subpop for i,g in enumerate(genome) if g == 1]
-    phenotype_exclude = [release.slices[i].subpop for i,g in enumerate(genome) if g == -1]
+    phenotype_include = [set(release.slices[i].subpop) for i,g in enumerate(genome) if g == 1]
+    phenotype_exclude = [set(release.slices[i].subpop) for i,g in enumerate(genome) if g == -1]
     penalty = 0
-    for subpop in subpop_parts(release.slices):
+    for subpop in release.subpop_parts:
         in_query = 1 if subpop in query.subpop else 0
         num_appearances = 0
         for phenotype_subpop in phenotype_include:
@@ -190,7 +191,7 @@ class Individual:
         return child
 
     def eval_fitness(self):
-        self.fitness = self.fitness_function(self.release, self.genome)
+        self.fitness = self.fitness_function(self.release, self.query, self.genome)
     def eval_pareto_fitness(self):
         for name, fitness_func in self.objectives.items():
             self.fitnesses[name] = fitness_func(self.release, self.query, self.genome)
@@ -200,7 +201,7 @@ class Individual:
             self.fitness += weight * fitness_func(self.release, self.query, self.genome)
         
 
-def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, genome_length=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, rng=None):
+def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disjoint(n_vals=3), query=Query(subpop=()),total_generations=100, num_parents=10, num_children=10, num_elements_to_mutate=1, crossover=False, tournament_size=4, num_tournament_winners=2, rng=None):
     """ Evolutinary Algorithm (adapted from CS6520 assignments)
         
         Args: 
@@ -221,6 +222,7 @@ def evolutionary_algorithm(fitness_function=None, release=synthetic_release_disj
             fitness_over_time (numpy array): Track record of the top fitness value at each generation.
             solutions_over_time (numpy array): Track record of the top genome value at each generation.
     """
+    genome_length = len(release.slices)
     rng = util.generator(rng)
     # initialize record keeping
     solution = None # best genome so far
